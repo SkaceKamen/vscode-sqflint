@@ -4,6 +4,8 @@ Integrates sqflint tool into VS code.
 # Prerequisites
 You need to have [sqflint](http://sqflint.zipek.cz) installed for syntax error checking to work.
 
+Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemName=Armitxes.sqf) extension.
+
 # Features
 
 Syntax error checking
