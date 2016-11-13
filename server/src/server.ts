@@ -95,6 +95,7 @@ class SQFLintServer {
 
 	/** SQF Language operators */
 	private operators: { [name: string]: Operator[] } = {};
+	private operatorsByPrefix: { [prefix: string]: Operator[] } = {};
 
 	/** Contains documentation for operators */
 	private documentation: { [name: string]: WikiDocumentation };
@@ -187,18 +188,34 @@ class SQFLintServer {
 
 				if (ident) {
 					let op = this.operators[ident.toLowerCase()];
+					let buildPrefix = false;
+					
 					if (!op) {
 						op = this.operators[ident.toLowerCase()] = [];
+						buildPrefix = true;
 					}
 
-					op.push({
+					let opData = {
 						name: ident,
 						left: left,
 						right: right,
 						type: type,
 						documentation: (left ? (left + " ") : "") + ident + (right ? (" " + right) : ""),
 						wiki: null
-					});
+					};
+					
+					op.push(opData);
+					
+					if (buildPrefix) {
+						// Build prefix storage for faster completion
+						for(let l = 1; l <= 3; l++) {
+							let prefix = ident.toLowerCase().substr(0, l);
+							let subop = this.operatorsByPrefix[prefix];
+							if (!subop)
+								subop = this.operatorsByPrefix[prefix] = [];
+							subop.push(opData);
+						}
+					}
 				}
 			});
 		});
@@ -453,17 +470,18 @@ class SQFLintServer {
 	}
 
 	private onSignatureHelp(params: TextDocumentPositionParams): SignatureHelp {
-		this.connection.console.log("Calling signature help at line " + params.position.line + " character " + params.position.character);
-		
-		// let op = this.findOperator(params);
 		let backup = this.walkBackToOperator(params);
-		
+
 		if (backup) {
 			let op = this.findOperator({ textDocument: params.textDocument, position: backup.position});
 			let docs = this.documentation[this.getNameFromParams({textDocument: params.textDocument, position: backup.position}).toLowerCase()];
 
 			let signatures: SignatureInformation[] = [];
-			let signature: SignatureHelp = { signatures: signatures };
+			let signature: SignatureHelp = {
+				signatures: signatures,
+				activeSignature: 0,
+				activeParameter: 0
+			};
 
 			if (docs) {
 				//signature.activeSignature = 0;
@@ -499,7 +517,6 @@ class SQFLintServer {
 
 					signatures.push({
 						label: (item.left ? (item.left + " ") : "") + item.name + (item.right ? (" " + item.right) : ""),
-						documentation: item.documentation,
 						parameters: parameters
 					});
 				}
@@ -557,15 +574,27 @@ class SQFLintServer {
 	private onCompletion(params: TextDocumentPositionParams): CompletionItem[] {
 		let items: CompletionItem[] = [];
 		let hover = this.getNameFromParams(params);
-
-		for(let ident in this.operators) {
-			let operator = this.operators[ident];
-
-			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+		
+		// Use prefix lookup for smaller items
+		if (hover.length <= 3) {
+			let operators = this.operatorsByPrefix[hover];
+			for(let index in operators) {
+				let operator = operators[index];
 				items.push({
-					label: operator[0].name,
+					label: operator.name,
 					kind: CompletionItemKind.Function
 				});
+			}
+		} else {
+			for(let ident in this.operators) {
+				let operator = this.operators[ident];
+
+				if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+					items.push({
+						label: operator[0].name,
+						kind: CompletionItemKind.Function
+					});
+				}
 			}
 		}
 

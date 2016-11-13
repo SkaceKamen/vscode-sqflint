@@ -2,9 +2,15 @@
 Integrates sqflint tool into VS code.
 
 # Prerequisites
-You need to have [sqflint](http://sqflint.zipek.cz) installed for syntax error checking to work.
+You need to have [sqflint](https://github.com/SkaceKamen/sqflint/releases) installed for syntax error checking to work.
 
 Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemName=Armitxes.sqf) extension.
+
+# Changelog
+## Version 0.5.2
+
+ * Some little optimizations
+ * Fixed signature help
 
 # Features
 
