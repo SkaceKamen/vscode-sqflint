@@ -241,6 +241,24 @@ class SQFLintServer {
 						this.operators[ident][i].name = this.documentation[ident].title;
 						this.operators[ident][i].wiki = this.documentation[ident];
 					}
+				} else {
+					for(let l = 1; l <= 3; l++) {
+						let prefix = ident.toLowerCase().substr(0, l);
+						let subop = this.operatorsByPrefix[prefix];
+						if (!subop)
+							subop = this.operatorsByPrefix[prefix] = [];
+						
+						console.log("Adding", ident, l);
+
+						subop.push({
+							name: this.documentation[ident].title,
+							left: "",
+							right: "",
+							type: OperatorType.Unary,
+							documentation: "",
+							wiki: this.documentation[ident]
+						});
+					}
 				}
 			}
 		});
@@ -577,7 +595,7 @@ class SQFLintServer {
 	 */
 	private onCompletion(params: TextDocumentPositionParams): CompletionItem[] {
 		let items: CompletionItem[] = [];
-		let hover = this.getNameFromParams(params);
+		let hover = this.getNameFromParams(params).toLowerCase();
 		
 		// Use prefix lookup for smaller items
 		if (hover.length <= 3) {

@@ -7,6 +7,10 @@ You need to have [sqflint](https://github.com/SkaceKamen/sqflint/releases) insta
 Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemName=Armitxes.sqf) extension.
 
 # Changelog
+
+## Version 0.5.5
+ * Fixed autocompletion for BIS functions
+
 ## Version 0.5.3
 
  * **Optimization:** Limited number of sqflint calls when writing code
