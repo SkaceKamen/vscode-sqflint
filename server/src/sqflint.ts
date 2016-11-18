@@ -1,93 +1,137 @@
-import {
-	spawn
-} from 'child_process';
+import { spawn } from 'child_process';
 
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
  */
 export class SQFLint {
+	
+	// This is current linting waiting to be done
+	private top: { success: () => any, reject: () => any, contents: string } = null;
+	
+	// This is timeout waiting to actually do the linting
+	private timeout: NodeJS.Timer = null;
+
+	/**
+	 * Runs the lastest task assigned
+	 */
+	private runLint() {
+		this.timeout = null;
+
+		this.process(
+			this.top.success,
+			this.top.reject,
+			this.top.contents
+		);
+
+		this.top = null;
+	}
+
+	/**
+	 * Runs the sqflint task.
+	 */
+	private process(success, reject, contents) {
+		let child = spawn("sqflint", [ "-j", "-v" ]);
+
+		let info = new SQFLint.ParseInfo();
+
+		let errors: SQFLint.Error[] = info.errors;
+		let warnings: SQFLint.Warning[] = info.warnings;
+		let variables: SQFLint.VariableInfo[] = info.variables;
+
+		child.stdout.on('data', data => {
+			if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
+				return;
+			}
+			
+			let lines = data.toString().split("\n");
+			for(let i in lines) {
+				let line = lines[i];
+				try {
+					if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0)
+						continue;
+
+					// Parse message
+					let message = <RawMessage>JSON.parse(line);
+					
+					// Preload position if present
+					let position: SQFLint.Range = null;
+					if (message.line && message.column) {
+						position = this.parsePosition(message);
+					}
+
+					// Create different wrappers based on type
+					if (message.type == "error") {
+						errors.push(new SQFLint.Error(
+							message.error || message.message,
+							position
+						));
+					} else if (message.type == "warning") {
+						warnings.push(new SQFLint.Warning(
+							message.error || message.message,
+							position
+						));
+					} else if (message.type == "variable") {
+						// Build variable info wrapper
+						let variable = new SQFLint.VariableInfo();
+						
+						variable.name = message.variable;
+						variable.comment = this.parseComment(message.comment);
+						variable.usage = [];
+						variable.definitions = [];
+
+						// We need to convert raw positions to our format (compatible with vscode format)
+						for(let i in message.definitions) {
+							variable.definitions.push(this.parsePosition(message.definitions[i]));
+						}
+
+						for(let i in message.usage) {
+							variable.usage.push(this.parsePosition(message.usage[i]));
+						}
+
+						variables.push(variable);
+					}
+				} catch(e) {
+					// console.log("Failed to parse response: >" + line + "<");
+				}
+			}
+		});
+
+		child.on('error', msg => {
+			console.log("SQFLint: Failed to call sqflint. Are you sure you have sqflint installed?");
+			reject(msg);
+		})
+
+		child.on('close', code => {
+			success(info);
+		});
+
+		child.stdin.write(contents);
+		child.stdin.end();
+	}
+
 	/**
 	 * Parses content and returns result wrapped in helper classes.
+	 * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
 	 */
-	public parse(contents: string): Promise<SQFLint.ParseInfo> {
+	public parse(contents: string): Promise<SQFLint.ParseInfo> {		
+		// If there is any task waiting, we'll replace it
+		if (this.timeout != null) {
+			clearTimeout(this.timeout);
+
+			if (this.top != null) {
+				this.top.reject();
+			}
+		}
+
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
-			let child = spawn("sqflint", [ "-j", "-v" ]);
-
-			let info = new SQFLint.ParseInfo();
-
-			let errors: SQFLint.Error[] = info.errors;
-			let warnings: SQFLint.Warning[] = info.warnings;
-			let variables: SQFLint.VariableInfo[] = info.variables;
-
-			child.stdout.on('data', data => {
-				if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
-					return;
-				}
-				
-				let lines = data.toString().split("\n");
-				for(let i in lines) {
-					let line = lines[i];
-					try {
-						if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0)
-							continue;
-
-						// Parse message
-						let message = <RawMessage>JSON.parse(line);
-						
-						// Preload position if present
-						let position: SQFLint.Range = null;
-						if (message.line && message.column) {
-							position = this.parsePosition(message);
-						}
-
-						// Create different wrappers based on type
-						if (message.type == "error") {
-							errors.push(new SQFLint.Error(
-								message.error || message.message,
-								position
-							));
-						} else if (message.type == "warning") {
-							warnings.push(new SQFLint.Warning(
-								message.error || message.message,
-								position
-							));
-						} else if (message.type == "variable") {
-							// Build variable info wrapper
-							let variable = new SQFLint.VariableInfo();
-							
-							variable.name = message.variable;
-							variable.comment = this.parseComment(message.comment);
-							variable.usage = [];
-							variable.definitions = [];
-
-							// We need to convert raw positions to our format (compatible with vscode format)
-							for(let i in message.definitions) {
-								variable.definitions.push(this.parsePosition(message.definitions[i]));
-							}
-
-							for(let i in message.usage) {
-								variable.usage.push(this.parsePosition(message.usage[i]));
-							}
-
-							variables.push(variable);
-						}
-					} catch(e) {
-						// console.log("Failed to parse response: >" + line + "<");
-					}
-				}
-			});
-
-			child.on('error', msg => {
-				console.log("SQFLint: Failed to call sqflint. Are you sure you have sqflint installed?");
-				reject(msg);
-			})
-
-			child.on('close', code => {
-				success(info);
-			});
-
-			child.stdin.write(contents);
-			child.stdin.end();
+			// Assign this task as lastest
+			this.top = { success: success, reject: reject, contents: contents };
+			
+			// Wait for few seconds, this stops linter running when user writes code.
+			// Java is not fast enought do do that.
+			this.timeout = setTimeout(() => {
+				this.runLint();
+			}, 200);
 		});
 	}
 

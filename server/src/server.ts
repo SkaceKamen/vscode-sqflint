@@ -100,6 +100,9 @@ class SQFLintServer {
 	/** Contains documentation for operators */
 	private documentation: { [name: string]: WikiDocumentation };
 
+	/** Contains client used to parse documents */
+	private sqflint: SQFLint;
+
 	constructor() {
 		this.loadOperators();
 		this.loadDocumentation();
@@ -121,6 +124,8 @@ class SQFLintServer {
 		this.documents.onDidChangeContent((params) => this.parseDocument(params.document));
 
 		this.connection.listen();
+
+		this.sqflint = new SQFLint();
 	}
 
 	/**
@@ -246,7 +251,6 @@ class SQFLintServer {
 	 */
 	private parseDocument(textDocument: TextDocument) {
 		let diagnostics: Diagnostic[] = [];
-		let client: SQFLint = new SQFLint();
 
 		// Reset variables local to document
 		this.documentVariables[textDocument.uri] = {};
@@ -260,7 +264,7 @@ class SQFLintServer {
 		}
 
 		// Parse document
-		client.parse(textDocument.getText())
+		this.sqflint.parse(textDocument.getText())
 			.then((result: SQFLint.ParseInfo) => {
 				// Add found errors
  				result.errors.forEach((item: SQFLint.Error) => {
