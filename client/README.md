@@ -8,6 +8,10 @@ Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemNa
 
 # Changelog
 
+## Version 0.5.6
+ * Fixed exec error crashing language server
+ * Added global variables to autocompletion
+
 ## Version 0.5.5
  * Fixed autocompletion for BIS functions
 
