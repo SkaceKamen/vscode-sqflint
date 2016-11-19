@@ -105,8 +105,13 @@ export class SQFLint {
 			success(info);
 		});
 
-		child.stdin.write(contents);
-		child.stdin.end();
+		try {
+			child.stdin.write(contents);
+			child.stdin.end();
+		} catch(ex) {
+			console.log("SQFLint: Failed to contact the sqflint. Ex: " + ex);
+			child.kill();
+		}
 	}
 
 	/**
