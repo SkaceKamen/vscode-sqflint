@@ -272,15 +272,40 @@ class SQFLintServer {
 		this.documentVariables[textDocument.uri] = {};
 
 		// Remove info about global variables created from this document
-		for(let global in this.globalVariables) {
+		for (let global in this.globalVariables) {
 			let variable = this.globalVariables[global];
 			
 			delete(variable.usage[textDocument.uri]);
 			delete(variable.definitions[textDocument.uri]);
+
+			// Remove global variable if there is no reference to it
+			let hasUsage = false;
+			let hasDefinition = false;
+
+			for(let uri in variable.definitions) {
+				if (variable.definitions[uri].length > 0) {
+					hasDefinition = true;
+					break;
+				}
+			}
+
+			if (!hasDefinition) {
+				for(let uri in variable.usage) {
+					if (variable.usage[uri].length > 0) {
+						hasUsage = true;
+						break;
+					}
+				}
+			}
+
+			if (!hasUsage && !hasDefinition) {
+				delete(this.globalVariables[global]);
+			}
 		}
 
 		// Parse document
-		this.sqflint.parse(textDocument.getText())
+		let contents = textDocument.getText();
+		this.sqflint.parse(contents)
 			.then((result: SQFLint.ParseInfo) => {
 				// Add found errors
  				result.errors.forEach((item: SQFLint.Error) => {
@@ -304,6 +329,16 @@ class SQFLintServer {
 
 				// Load variables info
 				result.variables.forEach((item: SQFLint.VariableInfo) => {
+					// Try to use actual name (output of sqflint is always lower as language is case insensitive)
+					if (item.definitions.length > 0 || item.usage.length > 0) {
+						let definition = item.definitions[0] || item.usage[0];
+						let range = [
+							textDocument.offsetAt(definition.start),
+							textDocument.offsetAt(definition.end)
+						];
+						item.name = contents.substr(range[0], range[1] - range[0]);
+					}
+					
 					if (item.isLocal()) {
 						// Add variable to list. Variable messages are unique, so no need to check.
 						this.setLocalVariable(textDocument, item.name, {
@@ -620,8 +655,26 @@ class SQFLintServer {
 
 		for(let ident in this.globalVariables) {
 			let variable = this.globalVariables[ident];
+			
+			// Only autocomplete variables outside this file
+			let used = false;
+			for(let uri in variable.definitions) {
+				if (uri != params.textDocument.uri && variable.definitions[uri].length > 0) {
+					used = true;
+					break;
+				}
+			}
 
-			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+			if (!used) {
+				for(let uri in variable.usage) {
+					if (uri != params.textDocument.uri && variable.usage[uri].length > 0) {
+						used = true;
+						break;
+					}
+				}
+			}
+
+			if (used && ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
 				items.push({
 					label: variable.name,
 					kind: CompletionItemKind.Variable
