@@ -277,30 +277,6 @@ class SQFLintServer {
 			
 			delete(variable.usage[textDocument.uri]);
 			delete(variable.definitions[textDocument.uri]);
-
-			// Remove global variable if there is no reference to it
-			let hasUsage = false;
-			let hasDefinition = false;
-
-			for(let uri in variable.definitions) {
-				if (variable.definitions[uri].length > 0) {
-					hasDefinition = true;
-					break;
-				}
-			}
-
-			if (!hasDefinition) {
-				for(let uri in variable.usage) {
-					if (variable.usage[uri].length > 0) {
-						hasUsage = true;
-						break;
-					}
-				}
-			}
-
-			if (!hasUsage && !hasDefinition) {
-				delete(this.globalVariables[global]);
-			}
 		}
 
 		// Parse document
@@ -328,7 +304,7 @@ class SQFLintServer {
 				});
 
 				// Load variables info
-				result.variables.forEach((item: SQFLint.VariableInfo) => {
+				result.variables.forEach((item: SQFLint.VariableInfo) => {	
 					// Try to use actual name (output of sqflint is always lower as language is case insensitive)
 					if (item.definitions.length > 0 || item.usage.length > 0) {
 						let definition = item.definitions[0] || item.usage[0];
@@ -338,10 +314,12 @@ class SQFLintServer {
 						];
 						item.name = contents.substr(range[0], range[1] - range[0]);
 					}
-					
+
+					item.ident = item.name.toLowerCase();
+
 					if (item.isLocal()) {
 						// Add variable to list. Variable messages are unique, so no need to check.
-						this.setLocalVariable(textDocument, item.name, {
+						this.setLocalVariable(textDocument, item.ident, {
 							name: item.name,
 							comment: item.comment,
 							definitions: item.definitions,
@@ -349,15 +327,15 @@ class SQFLintServer {
 						});
 					} else {
 						// Skip predefined functions and operators.
-						if (this.documentation[item.name.toLowerCase()])
+						if (this.documentation[item.ident])
 							return;
 						
 						// Try to load existing global variable.
-						let variable = this.getGlobalVariable(item.name);
+						let variable = this.getGlobalVariable(item.ident);
 
 						// Create variable if not defined.
 						if (!variable) {
-							variable = this.setGlobalVariable(item.name, {
+							variable = this.setGlobalVariable(item.ident, {
 								name: item.name,
 								comment: item.comment,
 								usage: {},
@@ -391,6 +369,32 @@ class SQFLintServer {
 						}
 					}
 				});
+
+				// Remove unused global variables
+				for (let global in this.globalVariables) {
+					let variable = this.globalVariables[global];
+					let used = false;
+
+					for(let uri in variable.definitions) {
+						if (variable.definitions[uri].length > 0) {
+							used = true;
+							break;
+						}
+					}
+
+					if (!used) {
+						for(let uri in variable.usage) {
+							if (variable.usage[uri].length > 0) {
+								used = true;
+								break;
+							}
+						}
+					}
+
+					if (!used) {
+						delete(this.globalVariables[global]);
+					}
+				}
 
 				this.connection.sendDiagnostics({
 					uri: textDocument.uri,
@@ -657,7 +661,7 @@ class SQFLintServer {
 			let variable = this.globalVariables[ident];
 			
 			// Only autocomplete variables outside this file
-			let used = false;
+			/*let used = false;
 			for(let uri in variable.definitions) {
 				if (uri != params.textDocument.uri && variable.definitions[uri].length > 0) {
 					used = true;
@@ -672,7 +676,8 @@ class SQFLintServer {
 						break;
 					}
 				}
-			}
+			}*/
+			let used = true;
 
 			if (used && ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
 				items.push({

@@ -234,6 +234,7 @@ export namespace SQFLint {
 	 */
 	export class VariableInfo {
 		name: string;
+		ident: string;
 		comment: string;
 		definitions: Range[];
 		usage: Range[];
