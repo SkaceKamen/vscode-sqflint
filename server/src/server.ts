@@ -248,8 +248,6 @@ class SQFLintServer {
 						if (!subop)
 							subop = this.operatorsByPrefix[prefix] = [];
 						
-						console.log("Adding", ident, l);
-
 						subop.push({
 							name: this.documentation[ident].title,
 							left: "",
@@ -617,6 +615,17 @@ class SQFLintServer {
 						kind: CompletionItemKind.Function
 					});
 				}
+			}
+		}
+
+		for(let ident in this.globalVariables) {
+			let variable = this.globalVariables[ident];
+
+			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+				items.push({
+					label: variable.name,
+					kind: CompletionItemKind.Variable
+				});
 			}
 		}
 
