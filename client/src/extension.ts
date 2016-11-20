@@ -6,10 +6,20 @@
 
 import * as path from 'path';
 
-import { workspace, Disposable, ExtensionContext } from 'vscode';
+import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 
-export function activate(context: ExtensionContext) {
+const initialConfigurations = {
+	version: '0.2.0',
+	configurations: [
+	{
+		type: 'sqflint',
+		request: 'launch',
+		name: 'SQFLint'
+	}
+]}
+
+export function activate(context: vscode.ExtensionContext) {
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
 	// The debug options for the server
@@ -24,8 +34,19 @@ export function activate(context: ExtensionContext) {
 	
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: ['sqf']
+		documentSelector: ['sqf'],
+		synchronize: {
+			configurationSection: 'sqflint'
+		}
 	};
+
+	context.subscriptions.push(vscode.commands.registerCommand('extension.sqflint.provideInitialConfigurations', () => {
+		return [
+			'// Use IntelliSense to learn about possible Mock debug attributes.',
+			'// Hover to view descriptions of existing attributes.',
+			JSON.stringify(initialConfigurations, null, '\t')
+		].join('\n');
+	}));
 	
 	// Create the language client and start the client.
 	let disposable = new LanguageClient('SQF Language Server', serverOptions, clientOptions).start();
