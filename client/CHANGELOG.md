@@ -1,7 +1,10 @@
-## Version 0.5.6
+# Version 0.6.0
  * Fixed exec error crashing language server
  * Added global variables to autocompletion
  * Actual variable name is now used for warnings and autocompletion (only lowercase version was used previously)
+ * Added workspace indexing
+ * Added options to: disable warnings, disable workspace indexing
+ * Added experimental debugger, which currently just watches for changes in lastest rpt file
 
 # Version 0.5.5
  * Fixed autocompletion for BIS functions

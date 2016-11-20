@@ -6,24 +6,7 @@ You need to have [sqflint](https://github.com/SkaceKamen/sqflint/releases) insta
 
 Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemName=Armitxes.sqf) extension.
 
-# Changelog
-
-## Version 0.5.6
- * Fixed exec error crashing language server
- * Added global variables to autocompletion
-
-## Version 0.5.5
- * Fixed autocompletion for BIS functions
-
-## Version 0.5.3
-
- * **Optimization:** Limited number of sqflint calls when writing code
-   * previously, sqflint was called on every change, which caused high CPU usage
-
-## Version 0.5.2
-
- * Some little optimizations
- * Fixed signature help
+# [Changelog](CHANGELOG.md)
 
 # Features
 
