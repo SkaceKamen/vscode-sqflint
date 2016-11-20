@@ -1,4 +1,5 @@
 out
 server
+debugger
 node_modules
 server/*.xml
