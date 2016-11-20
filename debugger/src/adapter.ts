@@ -1,11 +1,15 @@
 import {
 	DebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent, Event,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint
+	Thread, StackFrame, Scope, Source, Handles, Breakpoint, Variable
 } from 'vscode-debugadapter';
 
 import {DebugProtocol} from 'vscode-debugprotocol';
 import { RptMonitor, RptError, RptMessage } from './debugger';
+
+export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
+	rptPath?: string
+}
 
 class SQFDebug extends DebugSession {
 	private static THREAD_ID = 1;
@@ -25,13 +29,61 @@ class SQFDebug extends DebugSession {
 		// The frontend will end the configuration sequence by calling 'configurationDone' request.
 		this.sendEvent(new InitializedEvent());
 
+		response.body.supportsConfigurationDoneRequest = true;
+
 		this.sendResponse(response);
 	}
 
-	protected launchRequest(response: DebugProtocol.LaunchResponse): void {
-		this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: SQFDebug.THREAD_ID });
+	/*
+	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
 
-		this.monitor = new RptMonitor();
+		this.sendEvent(new OutputEvent("Scopes request received.", "console"));
+
+		const frameReference = args.frameId;
+		const scopes = new Array<Scope>();
+		scopes.push(new Scope("missionNamespace", 0, false));
+		scopes.push(new Scope("uiNamespace", 1, false));
+		scopes.push(new Scope("profileNamespace", 2, true));
+
+		response.body = {
+			scopes: scopes
+		};
+
+		this.sendResponse(response);
+	}
+
+	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
+		const variables: Variable[] = [];
+
+		this.sendEvent(new OutputEvent("Variables request received.", "console"));
+
+		variables.push({
+			name: "test_var",
+			value: "TEST",
+			variablesReference: 0
+		});
+		
+		response.body = {
+			variables: variables
+		};
+
+		this.sendResponse(response);
+	}
+	*/
+
+	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
+		response.body = {
+			threads: [
+				new Thread(SQFDebug.THREAD_ID, "thread 1")
+			]
+		};
+		this.sendResponse(response);
+	}
+
+	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
+		// this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: SQFDebug.THREAD_ID });
+
+		this.monitor = new RptMonitor(args.rptPath);
 		
 		this.monitor.addListener('message', (message: RptMessage) => {
 			this.sendEvent(new OutputEvent(message.message + "\n", "console"));
@@ -40,6 +92,14 @@ class SQFDebug extends DebugSession {
 		this.monitor.addListener('error', (error: RptError) => {
 			this.sendEvent(new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr"));
 		});
+
+		this.sendResponse(response);
+
+		/*
+		this.sendEvent(new StoppedEvent("exception", SQFDebug.THREAD_ID, "There was error!"));
+		this.sendEvent(new OutputEvent("exception in line: 5\n", 'stderr'));
+		this.sendEvent(new OutputEvent("Stopped", "stderr"));
+		*/
 	}
 }
 

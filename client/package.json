@@ -60,7 +60,13 @@
 
         "configurationAttributes": {
           "launch": {
-            "required": [ "program" ]
+            "properties": {
+              "rptPath": {
+                "type": "string",
+                "description": "Path to folder with rpt files.",
+                "default": null
+              }
+            }
           }
         },
         "initialConfigurations": "extension.sqflint.provideInitialConfigurations"

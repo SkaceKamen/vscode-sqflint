@@ -7,35 +7,40 @@ export class RptMonitor extends EventEmitter {
 	private watcher: fs.FSWatcher;
 	private files: { [filename: string]: RptFile };
 
-	constructor() {
+	constructor(
+		private rptPath?: string
+	) {
 		super();
 
 		this.files = {};
 
-		let rptPath = this.getRptPath();
+		if (!this.rptPath) {
+			this.rptPath = this.getRptPath();
+		}
 
-		this.watcher = fs.watch(rptPath, { persistent: true });
-		this.watcher.addListener('change', (eventType, filename) => this.onPathChange(rptPath, eventType, filename));
+		this.watcher = fs.watch(this.rptPath, { persistent: true });
+		this.watcher.addListener('change', (eventType, filename) => this.onPathChange(this.rptPath, eventType, filename));
 	}
 
 	private onPathChange(root: string, eventType: 'rename' | 'change', filename: string) {
-		console.log('Event', eventType, 'filename', filename);
-
 		let absPath = path.join(root, filename);
-		fs.exists(absPath, (exists) => {
-			if (!exists) {
-				if (this.files[filename]) {
-					delete(this.files[filename]);
-				}
-			} else {
-				let file = this.files[filename];
-				if (!file) {
-					file = this.files[filename] = new RptFile(this, absPath);
-				}
+		
+		if (path.extname(filename).toLowerCase() == ".rpt") {
+			fs.exists(absPath, (exists) => {
+				if (!exists) {
+					if (this.files[filename]) {
+						delete(this.files[filename]);
+					}
+				} else {
+					let file = this.files[filename];
+					if (!file) {
+						file = this.files[filename] = new RptFile(this, absPath);
+					}
 
-				file.notify();
-			}
-		});
+					file.notify();
+				}
+			});
+		}
 	}
 
 	public notify(source: RptFile, message: RptMessage | RptError) {
@@ -66,8 +71,6 @@ class RptFile {
 			let lines = data.toString().split("\n");
 			let error: RptError = null;
 			let errorCounter = 0;
-
-			console.log("Lines:", lines.length);
 
 			lines.forEach((line) => {
 				let parse = this.parseLine(line);

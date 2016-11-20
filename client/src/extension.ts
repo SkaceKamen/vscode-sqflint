@@ -15,7 +15,8 @@ const initialConfigurations = {
 	{
 		type: 'sqflint',
 		request: 'launch',
-		name: 'SQFLint'
+		name: 'SQFLint',
+		rptPath: path.join(process.env.LOCALAPPDATA, 'Arma 3')
 	}
 ]}
 
