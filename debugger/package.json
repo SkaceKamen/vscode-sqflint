@@ -1,0 +1,21 @@
+{
+  "name": "vscode-sqflint-debugger",
+  "description": "SQFLint debugger.",
+  "version": "0.0.1",
+  "author": "Jan Zipek",
+  "license": "MIT",
+  "engines": {
+    "node": "*"
+  },
+  "dependencies": {
+		"vscode-debugprotocol": "^1.15.0-pre.1",
+		"vscode-debugadapter": "^1.15.0-pre.1"
+	},
+  "devDependencies": {
+    "typescript": "^1.8.9"
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc --watch -p ../debugger"
+  }
+}
