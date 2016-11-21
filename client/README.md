@@ -2,13 +2,24 @@
 Integrates sqflint tool into VS code.
 
 # Prerequisites
-You need to have [sqflint](https://github.com/SkaceKamen/sqflint/releases) installed for syntax error checking to work.
+Java ( You no longer need to have sqflint installed as it's bundled with extension. )
 
 Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemName=Armitxes.sqf) extension.
 
 # [Changelog](CHANGELOG.md)
 
+# Debugger
+
+Experimental debugger that'll scan RPT file for changes and output new messages and errors to console.
+Go to Debug tab to create debugger config.
+
 # Features
+
+Debugger (just watches RPT files for new output)
+
+![Debugger launch choice example](http://sqflint.zipek.cz/images/sqflint-debugger-launch.png)
+
+![Debugger output example](http://sqflint.zipek.cz/images/sqflint-debugger.png)
 
 Syntax error checking
 
