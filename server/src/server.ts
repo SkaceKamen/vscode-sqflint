@@ -408,6 +408,10 @@ class SQFLintServer {
 
 					// Load variables info
 					result.variables.forEach((item: SQFLint.VariableInfo) => {	
+						// Skip those
+						if (item.name == "this" || item.name == "_this")
+							return;
+						
 						// Try to use actual name (output of sqflint is always lower as language is case insensitive)
 						if (item.definitions.length > 0 || item.usage.length > 0) {
 							let definition = item.definitions[0] || item.usage[0];

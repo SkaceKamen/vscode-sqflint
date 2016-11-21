@@ -1,4 +1,6 @@
-import { spawn } from 'child_process';
+// import { spawn } from 'child_process';
+import { Java } from './java';
+import * as path from 'path';
 
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
@@ -30,87 +32,95 @@ export class SQFLint {
 	 * Runs the sqflint task.
 	 */
 	private process(success, reject, contents) {
-		let child = spawn("sqflint", [ "-j", "-v" ]);
+		let child = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), ["-j", "-v"]); // spawn("java", [ "-jar", "bin/SQFLint.jar", "-j", "-v" ]);
 
-		let info = new SQFLint.ParseInfo();
+		if (child) {
+			let info = new SQFLint.ParseInfo();
 
-		let errors: SQFLint.Error[] = info.errors;
-		let warnings: SQFLint.Warning[] = info.warnings;
-		let variables: SQFLint.VariableInfo[] = info.variables;
+			let errors: SQFLint.Error[] = info.errors;
+			let warnings: SQFLint.Warning[] = info.warnings;
+			let variables: SQFLint.VariableInfo[] = info.variables;
 
-		child.stdout.on('data', data => {
-			if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
-				return;
-			}
-			
-			let lines = data.toString().split("\n");
-			for(let i in lines) {
-				let line = lines[i];
-				try {
-					if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0)
-						continue;
-
-					// Parse message
-					let message = <RawMessage>JSON.parse(line);
-					
-					// Preload position if present
-					let position: SQFLint.Range = null;
-					if (message.line && message.column) {
-						position = this.parsePosition(message);
-					}
-
-					// Create different wrappers based on type
-					if (message.type == "error") {
-						errors.push(new SQFLint.Error(
-							message.error || message.message,
-							position
-						));
-					} else if (message.type == "warning") {
-						warnings.push(new SQFLint.Warning(
-							message.error || message.message,
-							position
-						));
-					} else if (message.type == "variable") {
-						// Build variable info wrapper
-						let variable = new SQFLint.VariableInfo();
-						
-						variable.name = message.variable;
-						variable.comment = this.parseComment(message.comment);
-						variable.usage = [];
-						variable.definitions = [];
-
-						// We need to convert raw positions to our format (compatible with vscode format)
-						for(let i in message.definitions) {
-							variable.definitions.push(this.parsePosition(message.definitions[i]));
-						}
-
-						for(let i in message.usage) {
-							variable.usage.push(this.parsePosition(message.usage[i]));
-						}
-
-						variables.push(variable);
-					}
-				} catch(e) {
-					// console.log("Failed to parse response: >" + line + "<");
+			child.stdout.on('data', data => {
+				if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
+					return;
 				}
+				
+				let lines = data.toString().split("\n");
+				for(let i in lines) {
+					let line = lines[i];
+					try {
+						if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0)
+							continue;
+
+						// Parse message
+						let message = <RawMessage>JSON.parse(line);
+						
+						// Preload position if present
+						let position: SQFLint.Range = null;
+						if (message.line && message.column) {
+							position = this.parsePosition(message);
+						}
+
+						// Create different wrappers based on type
+						if (message.type == "error") {
+							errors.push(new SQFLint.Error(
+								message.error || message.message,
+								position
+							));
+						} else if (message.type == "warning") {
+							warnings.push(new SQFLint.Warning(
+								message.error || message.message,
+								position
+							));
+						} else if (message.type == "variable") {
+							// Build variable info wrapper
+							let variable = new SQFLint.VariableInfo();
+							
+							variable.name = message.variable;
+							variable.comment = this.parseComment(message.comment);
+							variable.usage = [];
+							variable.definitions = [];
+
+							// We need to convert raw positions to our format (compatible with vscode format)
+							for(let i in message.definitions) {
+								variable.definitions.push(this.parsePosition(message.definitions[i]));
+							}
+
+							for(let i in message.usage) {
+								variable.usage.push(this.parsePosition(message.usage[i]));
+							}
+
+							variables.push(variable);
+						}
+					} catch(e) {
+						console.error("Failed to parse response: >" + line + "<");
+					}
+				}
+			});
+
+			child.on('error', msg => {
+				console.error("SQFLint: Failed to call sqflint. Do you have java installed?");
+				reject(msg);
+			})
+
+			child.on('close', code => {
+				if (code != 0) {
+					console.error("SQFLint: Failed to run sqflint. Do you have java installed?");
+				}
+
+				success(info);
+			});
+
+			try {
+				child.stdin.write(contents);
+				child.stdin.end();
+			} catch(ex) {
+				console.error("SQFLint: Failed to contact the sqflint. Ex: " + ex);
+				child.kill();
 			}
-		});
-
-		child.on('error', msg => {
-			console.log("SQFLint: Failed to call sqflint. Are you sure you have sqflint installed?");
-			reject(msg);
-		})
-
-		child.on('close', code => {
-			success(info);
-		});
-
-		try {
-			child.stdin.write(contents);
-			child.stdin.end();
-		} catch(ex) {
-			console.log("SQFLint: Failed to contact the sqflint. Ex: " + ex);
-			child.kill();
+		} else {
+			reject("Failed to launch java process.");
 		}
 	}
 
