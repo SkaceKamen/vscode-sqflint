@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(vscode.commands.registerCommand('extension.sqflint.provideInitialConfigurations', () => {
 		return [
-			'// Use IntelliSense to learn about possible Mock debug attributes.',
+			'// Use IntelliSense to learn about possible debug attributes.',
 			'// Hover to view descriptions of existing attributes.',
 			JSON.stringify(initialConfigurations, null, '\t')
 		].join('\n');
