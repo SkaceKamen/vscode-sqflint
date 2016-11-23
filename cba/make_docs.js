@@ -1,5 +1,10 @@
 "use strict"
 
+/**
+ * This script extracts CBA documentation from CBA sqf files.
+ * You will need to clone CBA repo to CBA_A3 folder.
+ */
+
 let fs = require('fs');
 let fs_path = require('path');
 
