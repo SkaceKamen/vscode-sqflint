@@ -6,8 +6,6 @@ Java ( You no longer need to have sqflint installed as it's bundled with extensi
 
 Works best with [SQF Language](https://marketplace.visualstudio.com/items?itemName=Armitxes.sqf) extension.
 
-# [Changelog](CHANGELOG.md)
-
 # Debugger
 
 Experimental debugger that'll scan RPT file for changes and output new messages and errors to console.
