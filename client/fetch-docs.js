@@ -161,9 +161,21 @@ function parseDocument(doc, type, extended) {
 
 fs.readFile(__dirname + '/server/operatorsExport.xml', (err, data) => {
 	if (err) throw err;
+	
 	var docs = parseDocument(data.toString(), "command");
 	fs.readFile(__dirname + '/server/functionsExport.xml', (err, data) => {
+		if (err) throw err;
+		
 		docs = parseDocument(data.toString(), "function", docs);
-		fs.writeFile(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
+		fs.readFile(__dirname + '/../cba/cba.json', (err, data) => {
+			if (err) throw err;
+			
+			var items = JSON.parse(data);
+			for(var ident in items) {
+				docs[ident] = items[ident];
+			}
+
+			fs.writeFile(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
+		});
 	});
 });
