@@ -5,7 +5,7 @@
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.4.0"
@@ -68,7 +68,7 @@
         },
         "sqflint.checkPaths": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Check paths existence for file functions (execVM...)"
         }
       }
