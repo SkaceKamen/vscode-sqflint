@@ -20,10 +20,26 @@
   ],
   "activationEvents": [
     "onLanguage:sqf",
-    "onCommand:extension.sqflint.provideInitialConfigurations"
+    "onCommand:extension.sqflint.provideInitialConfigurations",
+    "onCommand:extension.sqflint.unitEvents",
+    "onCommand:extension.sqflint.uiEvents"
   ],
   "main": "./out/src/extension",
   "contributes": {
+    "commands": [
+      {
+        "command": "extension.sqflint.unitEvents",
+        "title": "SQF Unit Event Handlers"
+      },
+      {
+        "command": "extension.sqflint.uiEvents",
+        "title": "SQF UI Event Handlers"
+      },
+      {
+        "command": "extension.sqflint.commandsList",
+        "title": "SQF Commands list"
+      }
+    ],
     "languages": [
       {
         "id": "sqf",
@@ -31,7 +47,9 @@
           "SQF",
           "sqf"
         ],
-        "extensions": [ ".sqf" ]
+        "extensions": [
+          ".sqf"
+        ]
       }
     ],
     "configuration": {
@@ -47,6 +65,11 @@
           "type": "boolean",
           "default": true,
           "description": "Scan workspace for sqf files and parse them upon opening."
+        },
+        "sqflint.checkPaths": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check paths existence for file functions (execVM...)"
         }
       }
     },
@@ -54,10 +77,8 @@
       {
         "type": "sqflint",
         "label": "SQFLint debugger",
-
         "program": "./debugger/adapter.js",
         "runtime": "node",
-
         "configurationAttributes": {
           "launch": {
             "properties": {
@@ -79,14 +100,16 @@
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "devDependencies": {
+    "jsdom": "^9.8.3",
     "typescript": "^1.8.9",
     "vscode": "^0.11.0",
     "xmldoc": "^0.5.1"
   },
   "dependencies": {
-    "vscode-languageclient": "^2.2.1",
-    "vscode-languageserver": "^2.5.0",
+    "openurl": "^1.1.1",
+    "vscode-debugadapter": "^1.15.0-pre.1",
     "vscode-debugprotocol": "^1.15.0-pre.1",
-    "vscode-debugadapter": "^1.15.0-pre.1"
+    "vscode-languageclient": "^2.2.1",
+    "vscode-languageserver": "^2.5.0"
   }
 }

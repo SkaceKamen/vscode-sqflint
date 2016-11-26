@@ -9,6 +9,8 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 
+import * as openurl from 'openurl';
+
 const initialConfigurations = {
 	version: '0.2.0',
 	configurations: [
@@ -19,6 +21,12 @@ const initialConfigurations = {
 		rptPath: path.join(process.env.LOCALAPPDATA, 'Arma 3')
 	}
 ]}
+
+const links = {
+    unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
+    uiEventHandlers: "https://community.bistudio.com/wiki/User_Interface_Event_Handlers",
+	commandsList: "https://community.bistudio.com/wiki/Category:Scripting_Commands"
+}
 
 export function activate(context: vscode.ExtensionContext) {
 	// The server is implemented in node
@@ -47,6 +55,18 @@ export function activate(context: vscode.ExtensionContext) {
 			'// Hover to view descriptions of existing attributes.',
 			JSON.stringify(initialConfigurations, null, '\t')
 		].join('\n');
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('extension.sqflint.unitEvents', () => {
+		openurl.open(links.unitEventHandlers);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('extension.sqflint.uiEvents', () => {
+		openurl.open(links.uiEventHandlers);
+	}));
+
+	context.subscriptions.push(vscode.commands.registerCommand('extension.sqflint.commandsList', () => {
+		openurl.open(links.commandsList);
 	}));
 	
 	// Create the language client and start the client.
