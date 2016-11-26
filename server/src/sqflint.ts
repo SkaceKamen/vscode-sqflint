@@ -2,13 +2,14 @@
 import { Java } from './java';
 import * as path from 'path';
 
+
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
  */
 export class SQFLint {
 	
 	// This is current linting waiting to be done
-	private top: { success: () => any, reject: () => any, contents: string } = null;
+	private top: { success: () => any, reject: () => any, contents: string, options: SQFLint.Options } = null;
 	
 	// This is timeout waiting to actually do the linting
 	private timeout: NodeJS.Timer = null;
@@ -22,7 +23,8 @@ export class SQFLint {
 		this.process(
 			this.top.success,
 			this.top.reject,
-			this.top.contents
+			this.top.contents,
+			this.top.options
 		);
 
 		this.top = null;
@@ -31,8 +33,19 @@ export class SQFLint {
 	/**
 	 * Runs the sqflint task.
 	 */
-	private process(success, reject, contents) {
-		let child = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), ["-j", "-v"]); // spawn("java", [ "-jar", "bin/SQFLint.jar", "-j", "-v" ]);
+	private process(success, reject, contents: string, options: SQFLint.Options) {
+		let args = ["-j", "-v"];
+
+		if (options) {
+			if (typeof(options.checkPaths) !== "undefined" && options.checkPaths) {
+				args.push("-cp");
+			}
+			if (typeof(options.pathsRoot) !== "undefined" && options.pathsRoot) {
+				args.push("-r", options.pathsRoot);
+			}
+		}
+
+		let child = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), args);
 
 		if (child) {
 			let info = new SQFLint.ParseInfo();
@@ -128,7 +141,7 @@ export class SQFLint {
 	 * Parses content and returns result wrapped in helper classes.
 	 * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
 	 */
-	public parse(contents: string): Promise<SQFLint.ParseInfo> {		
+	public parse(contents: string, options: SQFLint.Options = null): Promise<SQFLint.ParseInfo> {		
 		// If there is any task waiting, we'll replace it
 		if (this.timeout != null) {
 			clearTimeout(this.timeout);
@@ -140,7 +153,7 @@ export class SQFLint {
 
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
 			// Assign this task as lastest
-			this.top = { success: success, reject: reject, contents: contents };
+			this.top = { success: success, reject: reject, contents: contents, options: options };
 			
 			// Wait for few seconds, this stops linter running when user writes code.
 			// Java is not fast enought do do that.
@@ -272,5 +285,10 @@ export namespace SQFLint {
 			public line: number,
 			public character: number
 		) {}
+	}
+
+	export interface Options {
+		checkPaths?: boolean;
+		pathsRoot?: string;
 	}
 }

@@ -20,6 +20,12 @@ import Uri from './uri';
 
 import { Queue } from './queue';
 
+const links = {
+    unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
+    uiEventHandlers: "https://community.bistudio.com/wiki/User_Interface_Event_Handlers",
+	commandsList: "https://community.bistudio.com/wiki/Category:Scripting_Commands"
+}
+
 /**
  * Interface used to receive settings
  */
@@ -33,6 +39,7 @@ interface Settings {
 interface SQFLintSettings {
 	warnings: boolean;
 	indexWorkspace: boolean;
+	checkPaths: boolean;
 }
 
 /**
@@ -95,6 +102,15 @@ interface WikiDocumentationSignature {
 	returns?: string;
 }
 
+interface EventDocumentation {
+	id: string,
+	title: string,
+	description: string,
+	args: string,
+	type: string,
+	scope?: string
+}
+
 /**
  * SQFLint language server.
  */
@@ -121,6 +137,8 @@ class SQFLintServer {
 	/** Contains documentation for operators */
 	private documentation: { [name: string]: WikiDocumentation };
 
+	private events: { [name: string]: EventDocumentation };
+
 	/** Contains client used to parse documents */
 	private sqflint: SQFLint;
 
@@ -133,6 +151,7 @@ class SQFLintServer {
 	constructor() {
 		this.loadOperators();
 		this.loadDocumentation();
+		this.loadEvents();
 
 		this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 		
@@ -158,7 +177,8 @@ class SQFLintServer {
 		
 		this.settings = {
 			warnings: true,
-			indexWorkspace: true
+			indexWorkspace: true,
+			checkPaths: true
 		};
 	}
 
@@ -252,6 +272,14 @@ class SQFLintServer {
 		} finally {
 
 		}
+	}
+
+	private loadEvents() {
+		fs.readFile(__dirname + "/definitions/events.json", (err, data) => {
+			if (err) throw err;
+			
+			this.events = JSON.parse(data.toString());
+		})
 	}
 
 	private loadOperators() {
@@ -382,7 +410,12 @@ class SQFLintServer {
 
 			// Parse document
 			let contents = textDocument.getText();
-			client.parse(contents)
+			let options = <SQFLint.Options>{
+				pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
+				checkPaths: this.settings.checkPaths
+			}
+
+			client.parse(contents, options)
 				.then((result: SQFLint.ParseInfo) => {
 					// Add found errors
 					result.errors.forEach((item: SQFLint.Error) => {
@@ -533,6 +566,7 @@ class SQFLintServer {
 		} else {
 			let docs = this.documentation[this.getNameFromParams(params).toLowerCase()];
 			let op = this.findOperator(params);
+			let ev = this.findEvent(params);
 			
 			if (docs) {
 				return {
@@ -543,6 +577,21 @@ class SQFLintServer {
 			if (op) {
 				return {
 					contents: "```sqf\r\n(command) " + op[0].documentation + "\r\n```"
+				};
+			}
+
+			if (ev) {
+				let contents = "";
+
+				if (ev.type == 'units') {
+					contents = `**${ev.title}** - _Unit event_\n\n**Arguments**\n\n${ev.args}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.unitEventHandlers}#${ev.id}))`;
+				}
+				if (ev.type == 'ui') {
+					contents = `**${ev.title}** - _UI event_\n\n**Arguments**\n\n${ev.args}\n\n**Scope**\n\n${ev.scope}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.uiEventHandlers}))`;
+				}
+
+				return {
+					contents: contents
 				};
 			}
 		}
@@ -769,30 +818,24 @@ class SQFLintServer {
 
 		for(let ident in this.globalVariables) {
 			let variable = this.globalVariables[ident];
-			
-			// Only autocomplete variables outside this file
-			/*let used = false;
-			for(let uri in variable.definitions) {
-				if (uri != params.textDocument.uri && variable.definitions[uri].length > 0) {
-					used = true;
-					break;
-				}
-			}
 
-			if (!used) {
-				for(let uri in variable.usage) {
-					if (uri != params.textDocument.uri && variable.usage[uri].length > 0) {
-						used = true;
-						break;
-					}
-				}
-			}*/
-			let used = true;
-
-			if (used && ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
 				items.push({
 					label: variable.name,
 					kind: CompletionItemKind.Variable
+				});
+			}
+		}
+
+		for(let ident in this.events) {
+			let event = this.events[ident];
+			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+				items.push({
+					label: '"' + event.title + '"',
+					data: ident,
+					filterText: event.title,
+					insertText: event.title,
+					kind: CompletionItemKind.Enum
 				});
 			}
 		}
@@ -803,15 +846,22 @@ class SQFLintServer {
 	private onCompletionResolve(item: CompletionItem): CompletionItem {
 		let documentation = this.documentation[item.label.toLowerCase()];
 		let operator = this.operators[item.label.toLowerCase()];
+		let event: EventDocumentation = null;
 		let text = "";
-		
-		if (!documentation) {
+
+		if (item.data) {
+			event = this.events[item.data];
+		}
+
+		if (event) {
+			text = event.description;
+		} else if (!documentation && operator) {
 			let ops = [];
 			for(let f in operator) {
 				ops.push(operator[f].documentation);
 			}
 			text = ops.join("\r\n");
-		} else {
+		} else if (documentation) {
 			text = documentation.description.plain;
 		}
 
@@ -820,8 +870,22 @@ class SQFLintServer {
 		return item;
 	}
 
+	/**
+	 * Tries to fetch operator info at specified position.
+	 */
 	private findOperator(params: TextDocumentPositionParams, prefix: boolean = false) {
 		return this.operators[this.getNameFromParams(params).toLowerCase()];
+	}
+
+	/**
+	 * Tries to fetch event info at specified position.
+	 */
+	private findEvent(params: TextDocumentPositionParams, prefix: boolean = false) {
+		// Only search for events, when we find plain ident enclosed in quotes
+		let found = this.getNameFromParams(params, "[a-z0-9_\"']").toLowerCase();
+		if (/["']/.test(found.charAt(0)) && /["']/.test(found.charAt(found.length - 1))) {
+			return this.events[found.substring(1, found.length - 1)];
+		}
 	}
 
 	private findOperators(params: TextDocumentPositionParams): Operator[] {
@@ -920,22 +984,29 @@ class SQFLintServer {
 	/**
 	 * Tries to load name from position params.
 	 */
-	private getNameFromParams(params: TextDocumentPositionParams) {
-		return this.getName(params.textDocument.uri, params.position.line, params.position.character);
+	private getNameFromParams(params: TextDocumentPositionParams, allowed?: string) {
+		return this.getName(params.textDocument.uri, params.position.line, params.position.character, allowed);
 	}
 
 	/**
 	 * Tries to load name from specified position and contents.
 	 */
-	private getName(uri: string, line: number, character: number) {
+	private getName(uri: string, line: number, character: number, allowed?: string) {
 		let content = this.documents.get(uri).getText();
 		let lines = content.split("\n");
 		let str = lines[line];
 		let position = character;
 
+		if (!allowed) {
+			allowed = "[a-z0-9_]";
+		}
+
+		let matchChar = new RegExp(allowed, "i");
+		let matchAll = new RegExp("(" + allowed + "*)", "i");
+
 		while(position > 0) {
 			position--;
-			if (!/[a-z0-9_]/i.test(str.substr(position, 1))) {
+			if (!matchChar.test(str.substr(position, 1))) {
 				position++;
 				break;
 			}
@@ -944,7 +1015,7 @@ class SQFLintServer {
 		let def = str.substr(position);
 		let match:RegExpExecArray = null;
 
-		if ((match = /^([a-z0-9_]*)/i.exec(def))) {
+		if ((match = matchAll.exec(def))) {
 			return match[1];
 		}
 
