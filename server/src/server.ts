@@ -178,7 +178,7 @@ class SQFLintServer {
 		this.settings = {
 			warnings: true,
 			indexWorkspace: true,
-			checkPaths: true
+			checkPaths: false
 		};
 	}
 
@@ -393,157 +393,160 @@ class SQFLintServer {
 	 * Parses document and dispatches diagnostics if required.
 	 */
 	private parseDocument(textDocument: TextDocument, linter: SQFLint = null): Promise<void> {
-		return new Promise<void>((accept, refuse) => {
-			let diagnostics: Diagnostic[] = [];
-			let client = linter || this.sqflint; 
+		// Only parse sqf files
+		if (fs_path.extname(Uri.parse(textDocument.uri).fsPath).toLowerCase() == ".sqf") {
+			return new Promise<void>((accept, refuse) => {
+				let diagnostics: Diagnostic[] = [];
+				let client = linter || this.sqflint; 
 
-			// Reset variables local to document
-			this.documentVariables[textDocument.uri] = {};
+				// Reset variables local to document
+				this.documentVariables[textDocument.uri] = {};
 
-			// Remove info about global variables created from this document
-			for (let global in this.globalVariables) {
-				let variable = this.globalVariables[global];
-				
-				delete(variable.usage[textDocument.uri]);
-				delete(variable.definitions[textDocument.uri]);
-			}
+				// Remove info about global variables created from this document
+				for (let global in this.globalVariables) {
+					let variable = this.globalVariables[global];
+					
+					delete(variable.usage[textDocument.uri]);
+					delete(variable.definitions[textDocument.uri]);
+				}
 
-			// Parse document
-			let contents = textDocument.getText();
-			let options = <SQFLint.Options>{
-				pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
-				checkPaths: this.settings.checkPaths
-			}
+				// Parse document
+				let contents = textDocument.getText();
+				let options = <SQFLint.Options>{
+					pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
+					checkPaths: this.settings.checkPaths
+				}
 
-			client.parse(contents, options)
-				.then((result: SQFLint.ParseInfo) => {
-					// Add found errors
-					result.errors.forEach((item: SQFLint.Error) => {
-						diagnostics.push({
-							severity: DiagnosticSeverity.Error,
-							range: item.range,
-							message: item.message,
-							source: "sqflint"
-						});
-					});
-
-					if (this.settings.warnings) {
-						// Add local warnings
-						result.warnings.forEach((item: SQFLint.Warning) => {
+				client.parse(contents, options)
+					.then((result: SQFLint.ParseInfo) => {
+						// Add found errors
+						result.errors.forEach((item: SQFLint.Error) => {
 							diagnostics.push({
-								severity: DiagnosticSeverity.Warning,
+								severity: DiagnosticSeverity.Error,
 								range: item.range,
 								message: item.message,
 								source: "sqflint"
 							});
 						});
-					}
 
-					// Load variables info
-					result.variables.forEach((item: SQFLint.VariableInfo) => {	
-						// Skip those
-						if (item.name == "this" || item.name == "_this")
-							return;
-						
-						// Try to use actual name (output of sqflint is always lower as language is case insensitive)
-						if (item.definitions.length > 0 || item.usage.length > 0) {
-							let definition = item.definitions[0] || item.usage[0];
-							let range = [
-								textDocument.offsetAt(definition.start),
-								textDocument.offsetAt(definition.end)
-							];
-							item.name = contents.substr(range[0], range[1] - range[0]);
+						if (this.settings.warnings) {
+							// Add local warnings
+							result.warnings.forEach((item: SQFLint.Warning) => {
+								diagnostics.push({
+									severity: DiagnosticSeverity.Warning,
+									range: item.range,
+									message: item.message,
+									source: "sqflint"
+								});
+							});
 						}
 
-						item.ident = item.name.toLowerCase();
-
-						if (item.isLocal()) {
-							// Add variable to list. Variable messages are unique, so no need to check.
-							this.setLocalVariable(textDocument, item.ident, {
-								name: item.name,
-								comment: item.comment,
-								definitions: item.definitions,
-								usage: item.usage
-							});
-						} else {
-							// Skip predefined functions and operators.
-							if (this.documentation[item.ident])
+						// Load variables info
+						result.variables.forEach((item: SQFLint.VariableInfo) => {	
+							// Skip those
+							if (item.name == "this" || item.name == "_this")
 								return;
 							
-							// Try to load existing global variable.
-							let variable = this.getGlobalVariable(item.ident);
+							// Try to use actual name (output of sqflint is always lower as language is case insensitive)
+							if (item.definitions.length > 0 || item.usage.length > 0) {
+								let definition = item.definitions[0] || item.usage[0];
+								let range = [
+									textDocument.offsetAt(definition.start),
+									textDocument.offsetAt(definition.end)
+								];
+								item.name = contents.substr(range[0], range[1] - range[0]);
+							}
 
-							// Create variable if not defined.
-							if (!variable) {
-								variable = this.setGlobalVariable(item.ident, {
+							item.ident = item.name.toLowerCase();
+
+							if (item.isLocal()) {
+								// Add variable to list. Variable messages are unique, so no need to check.
+								this.setLocalVariable(textDocument, item.ident, {
 									name: item.name,
 									comment: item.comment,
-									usage: {},
-									definitions: {}
+									definitions: item.definitions,
+									usage: item.usage
 								});
-							}
+							} else {
+								// Skip predefined functions and operators.
+								if (this.documentation[item.ident])
+									return;
+								
+								// Try to load existing global variable.
+								let variable = this.getGlobalVariable(item.ident);
 
-							// Set positions local to this document for this global variable.
-							variable.usage[textDocument.uri] = item.usage;
-							variable.definitions[textDocument.uri] = item.definitions;
-
-							// Check if global variable was defined anywhere.
-							let defined = false;
-							for(let doc in variable.definitions) {
-								if (variable.definitions[doc].length > 0) {
-									defined = true;
-									break;
-								}
-							}
-
-							// Add warning if global variable wasn't defined.
-							if (!defined && this.settings.warnings) {
-								for(let u in item.usage) {
-									diagnostics.push({
-										severity: DiagnosticSeverity.Warning,
-										range: item.usage[u],
-										message: "Possibly undefined variable " + item.name,
-										source: "sqflint"
+								// Create variable if not defined.
+								if (!variable) {
+									variable = this.setGlobalVariable(item.ident, {
+										name: item.name,
+										comment: item.comment,
+										usage: {},
+										definitions: {}
 									});
 								}
+
+								// Set positions local to this document for this global variable.
+								variable.usage[textDocument.uri] = item.usage;
+								variable.definitions[textDocument.uri] = item.definitions;
+
+								// Check if global variable was defined anywhere.
+								let defined = false;
+								for(let doc in variable.definitions) {
+									if (variable.definitions[doc].length > 0) {
+										defined = true;
+										break;
+									}
+								}
+
+								// Add warning if global variable wasn't defined.
+								if (!defined && this.settings.warnings) {
+									for(let u in item.usage) {
+										diagnostics.push({
+											severity: DiagnosticSeverity.Warning,
+											range: item.usage[u],
+											message: "Possibly undefined variable " + item.name,
+											source: "sqflint"
+										});
+									}
+								}
 							}
-						}
-					});
+						});
 
-					// Remove unused global variables
-					for (let global in this.globalVariables) {
-						let variable = this.globalVariables[global];
-						let used = false;
+						// Remove unused global variables
+						for (let global in this.globalVariables) {
+							let variable = this.globalVariables[global];
+							let used = false;
 
-						for(let uri in variable.definitions) {
-							if (variable.definitions[uri].length > 0) {
-								used = true;
-								break;
-							}
-						}
-
-						if (!used) {
-							for(let uri in variable.usage) {
-								if (variable.usage[uri].length > 0) {
+							for(let uri in variable.definitions) {
+								if (variable.definitions[uri].length > 0) {
 									used = true;
 									break;
 								}
 							}
+
+							if (!used) {
+								for(let uri in variable.usage) {
+									if (variable.usage[uri].length > 0) {
+										used = true;
+										break;
+									}
+								}
+							}
+
+							if (!used) {
+								delete(this.globalVariables[global]);
+							}
 						}
 
-						if (!used) {
-							delete(this.globalVariables[global]);
-						}
-					}
+						this.connection.sendDiagnostics({
+							uri: textDocument.uri,
+							diagnostics: diagnostics
+						});
 
-					this.connection.sendDiagnostics({
-						uri: textDocument.uri,
-						diagnostics: diagnostics
+						accept();
 					});
-
-					accept();
-				});
-		});
+			});
+		}
 	}
 
 	/**
