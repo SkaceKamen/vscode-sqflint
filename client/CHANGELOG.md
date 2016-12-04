@@ -1,3 +1,10 @@
+# Version 0.6.2
+ * Added double indexing to resolve global variables (`indexWorkspaceTwice` option)
+ * Added option to exclude files from indexing (`exclude` option)
+ * Marcos and includes are now correctly parsed
+ * Fixed incorrect operator parsing (issue #3)
+ * Fixed incorrect parsing of `try`, `catch` and `throw` (issue #2)
+
 # Version 0.6.1
  * Better variable definition detection (now correctly detects variables in `for` and `params`)
  * Added CBA functions
