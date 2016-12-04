@@ -8,6 +8,7 @@
     "node": "*"
   },
   "dependencies": {
+    "glob": "^7.1.1",
     "vscode-languageserver": "^2.2.0"
   },
   "devDependencies": {
