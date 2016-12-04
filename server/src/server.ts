@@ -12,6 +12,7 @@ import {
 
 import { spawn } from 'child_process';
 import { SQFLint } from './sqflint';
+import { Glob } from './glob';
 
 import * as fs from 'fs';
 import * as fs_path from 'path';
@@ -19,6 +20,8 @@ import * as fs_path from 'path';
 import Uri from './uri';
 
 import { Queue } from './queue';
+
+import * as glob from 'glob';
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -39,7 +42,9 @@ interface Settings {
 interface SQFLintSettings {
 	warnings: boolean;
 	indexWorkspace: boolean;
+	indexWorkspaceTwice: boolean;
 	checkPaths: boolean;
+	exclude: string[];
 }
 
 /**
@@ -178,6 +183,8 @@ class SQFLintServer {
 		this.settings = {
 			warnings: true,
 			indexWorkspace: true,
+			indexWorkspaceTwice: true,
+			exclude: [],
 			checkPaths: false
 		};
 	}
@@ -186,10 +193,26 @@ class SQFLintServer {
 		let settings = <Settings>params.settings;
 	
 		this.settings.indexWorkspace = settings.sqflint.indexWorkspace;
+		this.settings.indexWorkspaceTwice = settings.sqflint.indexWorkspaceTwice;
 		this.settings.warnings = settings.sqflint.warnings;
+		this.settings.exclude = settings.sqflint.exclude;
+
+		/*this.settings.exclude = settings.sqflint.exclude.map((item) => {
+			return Glob.toRegexp(<any>item);
+		});*/
 
 		if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
-			this.indexWorkspace();
+			this.connection.console.log("Indexing workspace...");
+			
+			this.indexWorkspace(() => {
+				this.connection.console.log("Done indexing workspace.");
+				if (this.settings.indexWorkspaceTwice) {
+					this.connection.console.log("Indexing workspace again, to resolve global variables.");
+					this.indexWorkspace(() => {
+						this.connection.console.log("Done reindexing workspace.");
+					});
+				}
+			});
 			this.indexed = true;
 		}
 	}
@@ -225,18 +248,23 @@ class SQFLintServer {
 	/**
 	 * Tries to parse all sqf files in workspace.
 	 */
-	private indexWorkspace() {
+	private indexWorkspace(done?: () => void) {
 		// Queue that executes callback in sequence with predefined delay between each
 		// This limits calls to sqflint
-		let workQueue = new Queue(50);
+		let workQueue = new Queue(20);
 
-		this.walkPath(this.workspaceRoot, (file) => {
+		this.walkPath("**/*.sqf", (file) => {
 			fs.readFile(file, (err, data) => {
 				if (data) {
 					let uri = Uri.file(file).toString();
-					workQueue.add((done) => {
+					workQueue.add((queue_done) => {
 						this.parseDocument(TextDocument.create(uri, "sqf", 0, data.toString()), new SQFLint())
-							.then(() => done());
+							.then(() => {
+								queue_done();
+								if (workQueue.isEmpty()) {
+									if (done) done();
+								}
+							});
 					});
 				}
 			});
@@ -246,32 +274,13 @@ class SQFLintServer {
 	/**
 	 * Walks specified path while calling callback for each sqf file found.
 	 */
-	private walkPath(path: string, callback: (file: string) => void) {
-		let results: string[] = [];
-
-		try {
-			fs.readdir(path, (err, files) => {
-				if (err) return;
-
-				files.forEach((file) => {
-					if (file) {
-						file = fs_path.join(path, file);
-
-						fs.stat(file, (err, stat) => {
-							if (stat) {
-								if (stat.isDirectory()) {
-									this.walkPath(file, callback);
-								} else if (fs_path.extname(file).toLowerCase() == ".sqf") {
-									callback(file);
-								}
-							}
-						});
-					}
-				});
+	private walkPath(path: string, callback: (file: string) => void, done?: () => void) {
+		glob(path, { ignore: this.settings.exclude, root: this.workspaceRoot }, (err, files) => {
+			files.forEach(file => {
+				callback(fs_path.join(this.workspaceRoot, file));
 			});
-		} finally {
-
-		}
+			if (done) done();
+		});
 	}
 
 	private loadEvents() {
