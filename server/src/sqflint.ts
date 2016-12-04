@@ -53,6 +53,7 @@ export class SQFLint {
 			let errors: SQFLint.Error[] = info.errors;
 			let warnings: SQFLint.Warning[] = info.warnings;
 			let variables: SQFLint.VariableInfo[] = info.variables;
+			let macros: SQFLint.Macroinfo[] = info.macros;
 
 			child.stdout.on('data', data => {
 				if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
@@ -105,6 +106,20 @@ export class SQFLint {
 							}
 
 							variables.push(variable);
+						} else if (message.type == "macro") {
+							let macro = new SQFLint.Macroinfo();
+
+							macro.name = message.macro;
+							macro.definitions = [];
+
+							let defs = <{ range: RawMessagePosition, value: string }[]>(<any[]>message.definitions);
+							for(let i in defs) {
+								var definition = new SQFLint.MacroDefinition();
+								definition.position = this.parsePosition(defs[i].range);
+								definition.value = defs[i].value;
+							}
+
+							macros.push(macro);
 						}
 					} catch(e) {
 						console.error("Failed to parse response: >" + line + "<");
@@ -215,6 +230,7 @@ interface RawMessage extends RawMessagePosition {
 	type: string;
 	error?: string;
 	message?: string;
+	macro?: string;
 
 	variable?: string;
 	comment?: string;
@@ -250,6 +266,7 @@ export namespace SQFLint {
 		errors: Error[] = [];
 		warnings: Warning[] = [];
 		variables: VariableInfo[] = [];
+		macros: Macroinfo[] = [];
 	}
 
 	/**
@@ -265,6 +282,22 @@ export namespace SQFLint {
 		public isLocal() {
 			return this.name.charAt(0) == '_';
 		}
+	}
+
+	/**
+	 * Info about macro.
+	 */
+	export class Macroinfo {
+		name: string;
+		definitions: MacroDefinition[]
+	}
+
+	/**
+	 * Info about one specific macro definition.
+	 */
+	export class MacroDefinition {
+		position: Range;
+		value: string;
 	}
 
 	/**
