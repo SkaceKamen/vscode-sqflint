@@ -13,6 +13,10 @@ export class Queue {
 		this.check();
 	}
 
+	public isEmpty() {
+		return this.items.length == 0;
+	}
+
 	private check() {
 		if (this.items.length == 0) {
 			return;
