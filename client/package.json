@@ -5,7 +5,7 @@
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.4.0"
@@ -22,7 +22,8 @@
     "onLanguage:sqf",
     "onCommand:extension.sqflint.provideInitialConfigurations",
     "onCommand:extension.sqflint.unitEvents",
-    "onCommand:extension.sqflint.uiEvents"
+    "onCommand:extension.sqflint.uiEvents",
+    "onCommand:extension.sqflint.commandsList"
   ],
   "main": "./out/src/extension",
   "contributes": {
@@ -65,6 +66,16 @@
           "type": "boolean",
           "default": true,
           "description": "Scan workspace for sqf files and parse them upon opening."
+        },
+        "sqflint.indexWorkspaceTwice": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan workspace twice, solving problems with global variables defined in files parsed later than files that are using them."
+        },
+        "sqflint.exclude": {
+          "type": "array",
+          "default": [],
+          "description": "List of paths to be excluded from workspace indexing."
         },
         "sqflint.checkPaths": {
           "type": "boolean",
