@@ -12,7 +12,6 @@ import {
 
 import { spawn } from 'child_process';
 import { SQFLint } from './sqflint';
-import { Glob } from './glob';
 
 import * as fs from 'fs';
 import * as fs_path from 'path';
@@ -464,6 +463,11 @@ class SQFLintServer {
 									textDocument.offsetAt(definition.end)
 								];
 								item.name = contents.substr(range[0], range[1] - range[0]);
+								
+								// Variables defined in string (for, params, private ...)
+								if (item.name.charAt(0) == '"') {
+									item.name = item.name.substring(1, item.name.length - 1);
+								}
 							}
 
 							item.ident = item.name.toLowerCase();
