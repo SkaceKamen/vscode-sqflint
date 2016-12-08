@@ -1,11 +1,11 @@
 {
   "name": "sqflint",
   "displayName": "SQFLint",
-  "description": "SQFLint integration to vscode",
+  "description": "Parse errors, hover help for functions/commands and more.",
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.4.0"
