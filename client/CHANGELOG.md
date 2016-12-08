@@ -1,3 +1,6 @@
+# Version 0.6.3
+ * Fixed variables declared in `params` or `for` being suggested with string quotations
+
 # Version 0.6.2
  * Added double indexing to resolve global variables (`indexWorkspaceTwice` option)
  * Added option to exclude files from indexing (`exclude` option)
