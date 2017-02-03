@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "glob": "^7.1.1",
-    "vscode-languageserver": "^2.2.0"
+    "vscode-languageserver": "^2.2.0",
+    "nearley": "^2.7.11"
   },
   "devDependencies": {
     "typescript": "^1.8.9"
