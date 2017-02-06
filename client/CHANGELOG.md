@@ -2,6 +2,7 @@
  * Result of `if` can now be assigned to variable (issue #4)
  * Macros and includes now properly works (issue #6)
  * Part of the grammar was rewritten to support more complex structures and analytics (assignable `switch` should be in next release)
+ * Added new operators / functions
 
 # Version 0.6.3
  * Fixed variables declared in `params` or `for` being suggested with string quotations
