@@ -1,4 +1,4 @@
-import * as grammar from './grammars/hpp';
+import { grammar } from './grammars/hpp';
 import * as fs from 'fs'
 import * as path from 'path'
 import * as nearley from 'nearley'

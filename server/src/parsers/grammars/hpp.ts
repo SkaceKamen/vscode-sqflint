@@ -1,8 +1,10 @@
-// Generated automatically by nearley
-// http://github.com/Hardmath123/nearley
-(function () {
+export interface Rule {
+	name: string;
+	symbols: any[];
+	postprocess?: (d: any[], l?: number, r?: any) => void;
+}
 function id(x) {return x[0]; }
-var grammar = {
+export let grammar: { ParserRules: Rule[], ParserStart: string } = {
     ParserRules: [
     {"name": "main$ebnf$1", "symbols": ["comment"], "postprocess": id},
     {"name": "main$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
@@ -111,9 +113,4 @@ var grammar = {
 ]
   , ParserStart: "main"
 }
-if (typeof module !== 'undefined'&& typeof module.exports !== 'undefined') {
-   module.exports = grammar;
-} else {
-   window.grammar = grammar;
-}
-})();
+ 

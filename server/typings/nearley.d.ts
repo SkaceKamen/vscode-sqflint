@@ -2,7 +2,7 @@ declare module "nearley" {
 	export interface Rule {
 		name: string;
 		symbols: any[];
-		postprocess: (d: any[]) => void;
+		postprocess?: (d: any[], l?: number, r?: any) => void;
 	}
 
 
