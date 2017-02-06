@@ -121,7 +121,7 @@ export namespace Hpp {
 
 					context.classes[cls.name.toLowerCase()] = cls;
 				} else if (item.variable) {
-					context.variables[item.variable] = item.value;
+					context.variables[item.variable.toLowerCase()] = item.value;
 				}
 			});
 		}

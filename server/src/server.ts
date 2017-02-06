@@ -12,6 +12,8 @@ import {
 
 import { spawn } from 'child_process';
 import { SQFLint } from './sqflint';
+import { Hpp } from './parsers/hpp';
+import { ExtModule } from './modules/ext';
 
 import * as fs from 'fs';
 import * as fs_path from 'path';
@@ -152,10 +154,14 @@ class SQFLintServer {
 	/** Is workspace indexed already */
 	private indexed: boolean = false;
 
+	private extModule: ExtModule;
+
 	constructor() {
 		this.loadOperators();
 		this.loadDocumentation();
 		this.loadEvents();
+
+		this.extModule = new ExtModule();
 
 		this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 		
@@ -244,10 +250,25 @@ class SQFLintServer {
 		};
 	}
 
+	private parseExtFile(path: string) {
+		this.extModule.parseFile(path, (filename, diag: Diagnostic[]) => {
+			this.connection.sendDiagnostics({
+				uri: Uri.file(filename).toString(),
+				diagnostics: diag
+			});
+		});
+	}
+
 	/**
 	 * Tries to parse all sqf files in workspace.
 	 */
 	private indexWorkspace(done?: () => void) {
+		// Parse description.ext if present
+		/*let extFilename = fs_path.join(this.workspaceRoot, "description.ext");
+		if (fs.existsSync(extFilename)) {
+			this.parseExtFile(extFilename);
+		}*/
+
 		// Queue that executes callback in sequence with predefined delay between each
 		// This limits calls to sqflint
 		let workQueue = new Queue(20);
