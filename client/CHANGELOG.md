@@ -1,5 +1,6 @@
 # Version 0.6.4
  * Fixed `if` result not being assignable to variable (issue #4)
+ * Fixed faulty string being accepted (issue #8)
  * Macros and includes now properly works (issue #6)
  * Part of the grammar was rewritten to support more complex structures and analytics (assignable `switch` should be in next release)
  * Added new operators / functions
