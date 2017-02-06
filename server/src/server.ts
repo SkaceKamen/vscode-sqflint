@@ -72,14 +72,23 @@ interface GlobalVariables {
 	[ key: string ] : GlobalVariable;
 }
 
+interface GlobalMacros {
+	[ key: string ] : GlobalMacro;
+}
+
+interface GlobalMacro {
+	name: string;
+	definitions: { [ uri: string ]: SQFLint.MacroDefinition[] };
+}
+
 /**
  * Global variable info. Contains locations in separate documents.
  */
 interface GlobalVariable {
 	name: string;
 	comment: string;
-	definitions: { [ uri: string]: SQFLint.Range[] };
-	usage: { [ uri: string]: SQFLint.Range[] };
+	definitions: { [ uri: string ]: SQFLint.Range[] };
+	usage: { [ uri: string ]: SQFLint.Range[] };
 }
 
 enum OperatorType { Binary, Unary, Noargs };
@@ -135,6 +144,9 @@ class SQFLintServer {
 
 	/** Global variables */
 	private globalVariables: GlobalVariables = {};
+
+	/** List of defined macros */
+	private globalMacros: GlobalMacros = {};
 
 	/** SQF Language operators */
 	private operators: { [name: string]: Operator[] } = {};
@@ -439,6 +451,11 @@ class SQFLintServer {
 					delete(variable.definitions[textDocument.uri]);
 				}
 
+				// Remove global defined macros originating from this document
+				for (let macro in this.globalMacros) {
+					delete(this.globalMacros[macro][textDocument.uri]);
+				}
+
 				// Parse document
 				let contents = textDocument.getText();
 				let options = <SQFLint.Options>{
@@ -545,6 +562,33 @@ class SQFLintServer {
 								}
 							}
 						});
+
+						// Save macros define in this file
+						result.macros.forEach((item: SQFLint.Macroinfo) => {
+							let macro = this.globalMacros[item.name.toLowerCase()];
+
+							if (!macro) {
+								this.globalMacros[item.name.toLowerCase()] = {
+									name: item.name,
+									definitions: {}
+								};
+							}
+
+							macro.definitions[textDocument.uri] = item.definitions;
+						});
+
+						// Remove unused macros
+						for (let mac in this.globalMacros) {
+							let used = false;
+							for (let uri in this.globalMacros[mac]) {
+								used = true;
+								break;
+							}
+
+							if (!used) {
+								delete(this.globalMacros[mac]);
+							}
+						}
 
 						// Remove unused global variables
 						for (let global in this.globalVariables) {
@@ -718,6 +762,23 @@ class SQFLintServer {
 						range: pos
 					});
 				}
+			} else if (ref.macro) {
+				let macro = ref.macro;
+
+				for (let document in macro.definitions) {
+					macro.definitions[document].forEach((definition) => {
+						let uri = params.textDocument.uri;
+						if (definition.filename) {
+							uri = Uri.file(definition.filename).toString();
+						}
+
+						locations.push({
+							uri: uri,
+							range: definition.position
+						});
+					});
+				}
+
 			}
 		}
 
@@ -1014,8 +1075,16 @@ class SQFLintServer {
 	private findReferencesByName(source: TextDocumentIdentifier, name: string) {
 		return {
 			local: this.getLocalVariable(source, name),
-			global: this.getGlobalVariable(name)
+			global: this.getGlobalVariable(name),
+			macro: this.getGlobalMacro(name)
 		};
+	}
+
+	/**
+	 * Tries to load macro info by name.
+	 */
+	private getGlobalMacro(name: string) {
+		return this.globalMacros[name.toLowerCase()] || null;
 	}
 
 	/**

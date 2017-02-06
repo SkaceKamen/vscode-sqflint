@@ -112,11 +112,13 @@ export class SQFLint {
 							macro.name = message.macro;
 							macro.definitions = [];
 
-							let defs = <{ range: RawMessagePosition, value: string }[]>(<any[]>message.definitions);
+							let defs = <{ range: RawMessagePosition, value: string, filename: string }[]>(<any[]>message.definitions);
 							for(let i in defs) {
 								var definition = new SQFLint.MacroDefinition();
 								definition.position = this.parsePosition(defs[i].range);
 								definition.value = defs[i].value;
+								definition.filename = defs[i].filename;
+								macro.definitions.push(definition);
 							}
 
 							macros.push(macro);
@@ -298,6 +300,7 @@ export namespace SQFLint {
 	export class MacroDefinition {
 		position: Range;
 		value: string;
+		filename: string;
 	}
 
 	/**
