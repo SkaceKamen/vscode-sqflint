@@ -81,6 +81,11 @@
           "type": "boolean",
           "default": false,
           "description": "Check paths existence for file functions (execVM...)"
+        },
+        "sqflint.ignoredVariables": {
+          "type": "array",
+          "default": [],
+          "description": "Ignored variables are treaded as internal commands, without definition check."
         }
       }
     },
