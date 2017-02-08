@@ -1,3 +1,7 @@
+# Version 0.6.5
+ * Variables used before being defined are now correctly marked as undefined
+ * Added option to ignore specific variables when checking for definition (`ignoredVariables` option)
+
 # Version 0.6.4
  * Fixed `if` result not being assignable to variable (issue #4)
  * Fixed faulty string being accepted (issue #8)
