@@ -46,6 +46,7 @@ interface SQFLintSettings {
 	indexWorkspaceTwice: boolean;
 	checkPaths: boolean;
 	exclude: string[];
+	ignoredVariables: string[];
 }
 
 /**
@@ -168,6 +169,8 @@ class SQFLintServer {
 
 	private extModule: ExtModule;
 
+	private ignoredVariablesSet: { [ident: string]: boolean };
+
 	constructor() {
 		this.loadOperators();
 		this.loadDocumentation();
@@ -202,8 +205,11 @@ class SQFLintServer {
 			indexWorkspace: true,
 			indexWorkspaceTwice: true,
 			exclude: [],
-			checkPaths: false
+			checkPaths: false,
+			ignoredVariables: []
 		};
+
+		this.ignoredVariablesSet = {};
 	}
 
 	private onConfiguration(params: DidChangeConfigurationParams) {
@@ -213,6 +219,12 @@ class SQFLintServer {
 		this.settings.indexWorkspaceTwice = settings.sqflint.indexWorkspaceTwice;
 		this.settings.warnings = settings.sqflint.warnings;
 		this.settings.exclude = settings.sqflint.exclude;
+		this.settings.ignoredVariables = settings.sqflint.ignoredVariables;
+
+		this.ignoredVariablesSet = {};
+		this.settings.ignoredVariables.forEach((v) => {
+			this.ignoredVariablesSet[v.toLowerCase()] = true;
+		})
 
 		/*this.settings.exclude = settings.sqflint.exclude.map((item) => {
 			return Glob.toRegexp(<any>item);
@@ -460,7 +472,8 @@ class SQFLintServer {
 				let contents = textDocument.getText();
 				let options = <SQFLint.Options>{
 					pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
-					checkPaths: this.settings.checkPaths
+					checkPaths: this.settings.checkPaths,
+					ignoredVariables: this.settings.ignoredVariables
 				}
 
 				client.parse(contents, options)
@@ -490,8 +503,9 @@ class SQFLintServer {
 						// Load variables info
 						result.variables.forEach((item: SQFLint.VariableInfo) => {	
 							// Skip those
-							if (item.name == "this" || item.name == "_this")
+							if (item.name == "this" || item.name == "_this") {
 								return;
+							}
 							
 							// Try to use actual name (output of sqflint is always lower as language is case insensitive)
 							if (item.definitions.length > 0 || item.usage.length > 0) {
@@ -550,7 +564,7 @@ class SQFLintServer {
 								}
 
 								// Add warning if global variable wasn't defined.
-								if (!defined && this.settings.warnings) {
+								if (!defined && this.settings.warnings && !this.ignoredVariablesSet[item.ident]) {
 									for(let u in item.usage) {
 										diagnostics.push({
 											severity: DiagnosticSeverity.Warning,

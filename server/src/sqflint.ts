@@ -43,6 +43,11 @@ export class SQFLint {
 			if (typeof(options.pathsRoot) !== "undefined" && options.pathsRoot) {
 				args.push("-r", options.pathsRoot);
 			}
+			if (typeof(options.ignoredVariables) !== "undefined" && options.ignoredVariables) {
+				for(let i in options.ignoredVariables) {
+					args.push("-iv", options.ignoredVariables[i]);
+				}
+			}
 		}
 
 		let child = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), args);
@@ -326,5 +331,6 @@ export namespace SQFLint {
 	export interface Options {
 		checkPaths?: boolean;
 		pathsRoot?: string;
+		ignoredVariables?: string[];
 	}
 }
