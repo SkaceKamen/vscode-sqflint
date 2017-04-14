@@ -1,3 +1,8 @@
+# Version 0.7.0
+ * Added basic description.ext parser, which will try to parse cfgFunctions and load user defined functions (issue #5)
+ * Added new functions and operators
+ * Fixed double indexing
+
 # Version 0.6.5
  * Variables used before being defined are now correctly marked as undefined
  * Added option to ignore specific variables when checking for definition (`ignoredVariables` option)
