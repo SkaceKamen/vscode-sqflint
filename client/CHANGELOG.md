@@ -1,3 +1,10 @@
+# Version 0.7.2
+ * Fixed more HPP parser issues
+
+# Version 0.7.1
+ * Fixed hover not vorking
+ * Fixed some HPP parser issues
+
 # Version 0.7.0
  * Added basic description.ext parser, which will try to parse cfgFunctions and load user defined functions (issue #5)
  * Added new functions and operators
