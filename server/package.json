@@ -17,6 +17,7 @@
   },
   "scripts": {
     "compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
-    "watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p ."
+    "watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p .",
+    "grammar": "node_modules/.bin/nearleyc src/parsers/grammars/hpp.ne > src/parsers/grammars/hpp.js && node convert-grammar.js src/parsers/grammars/hpp.js > src/parsers/grammars/hpp.ts && rm src/parsers/grammars/hpp.js"
   }
 }
