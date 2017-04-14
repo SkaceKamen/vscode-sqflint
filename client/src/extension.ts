@@ -43,7 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
 	
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: ['sqf'],
+		documentSelector: ['sqf', 'ext', 'hpp'],
 		synchronize: {
 			configurationSection: 'sqflint'
 		}
