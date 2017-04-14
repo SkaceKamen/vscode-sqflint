@@ -11,7 +11,7 @@ import Uri from "../uri";
 export class ExtModule extends Module {
 	private descriptionFile: string = null;
 	
-	public functions: { [functionName: string]: Function };
+	public functions: { [functionName: string]: Function } = {};
 
 	public indexWorkspace(root: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
