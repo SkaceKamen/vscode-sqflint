@@ -33,6 +33,8 @@ export class ExtModule extends Module {
 				resolve(this.parseFile(uri.fsPath));
 			} else if (path.extname(uri.fsPath) == ".hpp") {
 				resolve(this.parse());
+			} else {
+				resolve();
 			}
 		});
 	}
@@ -118,6 +120,7 @@ export class ExtModule extends Module {
 					this.process(Hpp.parse(data.toString(), filename), filename);
 				} catch(error) {
 					if (error instanceof Hpp.ParseError && error.filename) {
+						console.log("Error", error);
 						this.sendDiagnostics({
 							uri: Uri.file(error.filename).toString(),
 							diagnostics:  [
@@ -153,11 +156,13 @@ export class ExtModule extends Module {
 	 * Loads list of functions and paths to their files.
 	 */
 	private processCfgFunctions(cfgFunctions: Hpp.ContextClass, root_filename: string) {
+		let diagnostics: Diagnostic[] = [];
+		let root = path.dirname(root_filename);
+
 		this.functions = {};
 
-		let diagnostics: Diagnostic[] = [];
-		
-		let root = path.dirname(root_filename);
+		console.log("Processing parsed data");
+
 		for (let tag in cfgFunctions.context.classes) {
 			let tagClass = cfgFunctions.context.classes[tag];
 			tag = tagClass.name;
