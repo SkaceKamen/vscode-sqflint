@@ -20,6 +20,7 @@
   ],
   "activationEvents": [
     "onLanguage:sqf",
+    "onLanguage:ext",
     "onCommand:extension.sqflint.provideInitialConfigurations",
     "onCommand:extension.sqflint.unitEvents",
     "onCommand:extension.sqflint.uiEvents",
@@ -44,13 +45,13 @@
     "languages": [
       {
         "id": "sqf",
-        "aliases": [
-          "SQF",
-          "sqf"
-        ],
-        "extensions": [
-          ".sqf"
-        ]
+        "aliases": [ "SQF", "sqf" ],
+        "extensions": [ ".sqf" ]
+      },
+      {
+        "id": "ext",
+        "aliases": [ "Arma EXT file", "Arma header file" ],
+        "extensions": [ ".ext", ".hpp" ]
       }
     ],
     "configuration": {
