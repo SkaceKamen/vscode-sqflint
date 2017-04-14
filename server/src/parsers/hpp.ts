@@ -8,12 +8,14 @@ export namespace Hpp {
 	export function parse(data: string, filename: string = null, context: Context = null) {
 		// First, parse the file
 		let parser = new nearley.Parser(grammar.ParserRules, grammar.ParserStart);
-		let result;
+		let result;;
 		
-		// Load raw data, remove CR
-		let contents = data.toString()
+		// Load raw data, remove CR, BOM and comments (WHYY)
+		let contents = data
+			.replace(/^\uFEFF/, '')
 			.replace(/\r/g, "")
-			.replace(/\t/g, "    ");
+			.replace(/\t/g, " ")
+			.replace(/(\/\*[^*]*\*\/)|(\/\/.*)/, '');
 
 		// Initialize empty context if needed
 		context = context || new Context(null, '<root>');
@@ -39,6 +41,7 @@ export namespace Hpp {
 	}
 
 	function parseFile(filename: string, context: Context) {
+		console.log("Parse", filename);
 		let data = fs.readFileSync(filename);
 		return parse(data.toString(), filename, context);
 	}
@@ -90,25 +93,17 @@ export namespace Hpp {
 					let cls = new ContextClass();
 					cls.name = item.class.name;
 					cls.extends = item.class.extends;
+					cls.context = new Context(context, cls.name);
 					
-					// console.log("Parsing class " + cls.name + ":" + cls.extends + " in " + context.name);
-					cls.context = loadBlock(item.block, new Context(context, cls.name), filename, contents);
-					// console.log("Done " + cls.name + ":" + cls.extends + " in " + context.name);
-
 					if (cls.extends) {
 						let ctx = context;
 						let extended = false;
-						while(ctx) {
+						while (ctx) {							
 							let c = ctx.classes[cls.extends.toLowerCase()];
 							if (c) {
 								cls.extend(c);
 								extended = true;
 								break;
-							} else {
-								/*console.log("Class not found in " + ctx.name + ". Going up.");
-								for(let ident in ctx.classes) {
-									console.log("Context class: " + ident);
-								}*/
 							}
 
 							ctx = ctx.parent;
@@ -118,6 +113,8 @@ export namespace Hpp {
 							throw new Error("Failed to find class " + cls.extends + " for extending " + cls.name + ".");
 						}
 					}
+
+					loadBlock(item.block, cls.context, filename, contents);
 
 					context.classes[cls.name.toLowerCase()] = cls;
 				} else if (item.variable) {
