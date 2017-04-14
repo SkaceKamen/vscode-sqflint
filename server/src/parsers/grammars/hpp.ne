@@ -1,6 +1,7 @@
 main -> _ ClassBody comment:? {% function(d) { return d[1] } %}
 
 IncludeDef -> "#include" __ String whiteSpaceOnly:? "\n" {% function(d, l) { return { 'include': d[2].string, 'location': d[2].location } } %}
+DefineDef -> "#define" __ Name __ [^\n]:* "\n" {% function(d, l) { return { 'define': d[2], 'value': d[4] } } %}
 
 ArrayDef -> Name _ "[]" _ "=" _ "{" _ "}"  _ ";" {% function(d) { return { 'variable': d[0] } } %}
 	| Name _ "[]" _ "=" _ "{" _ ArrayValue _ "}"  _ ";" {% function(d) {
@@ -34,6 +35,7 @@ Statement -> VariableDef {% id %}
 	| ArrayDef {% id %}
 	| ClassDef {% id %}
 	| IncludeDef {% id %}
+	| DefineDef {% id %}
 
 VariableValue -> Number {% id %}
 	| String {% function(d) { return d[0].string } %}

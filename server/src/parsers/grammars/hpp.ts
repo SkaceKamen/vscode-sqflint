@@ -13,6 +13,10 @@ export let grammar: { ParserRules: Rule[], ParserStart: string } = {
     {"name": "IncludeDef$ebnf$1", "symbols": ["whiteSpaceOnly"], "postprocess": id},
     {"name": "IncludeDef$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "IncludeDef", "symbols": ["IncludeDef$string$1", "__", "String", "IncludeDef$ebnf$1", {"literal":"\n"}], "postprocess": function(d, l) { return { 'include': d[2].string, 'location': d[2].location } }},
+    {"name": "DefineDef$string$1", "symbols": [{"literal":"#"}, {"literal":"d"}, {"literal":"e"}, {"literal":"f"}, {"literal":"i"}, {"literal":"n"}, {"literal":"e"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "DefineDef$ebnf$1", "symbols": []},
+    {"name": "DefineDef$ebnf$1", "symbols": [/[^\n]/, "DefineDef$ebnf$1"], "postprocess": function arrconcat(d) {return [d[0]].concat(d[1]);}},
+    {"name": "DefineDef", "symbols": ["DefineDef$string$1", "__", "Name", "__", "DefineDef$ebnf$1", {"literal":"\n"}], "postprocess": function(d, l) { return { 'define': d[2], 'value': d[4] } }},
     {"name": "ArrayDef$string$1", "symbols": [{"literal":"["}, {"literal":"]"}], "postprocess": function joiner(d) {return d.join('');}},
     {"name": "ArrayDef", "symbols": ["Name", "_", "ArrayDef$string$1", "_", {"literal":"="}, "_", {"literal":"{"}, "_", {"literal":"}"}, "_", {"literal":";"}], "postprocess": function(d) { return { 'variable': d[0] } }},
     {"name": "ArrayDef$string$2", "symbols": [{"literal":"["}, {"literal":"]"}], "postprocess": function joiner(d) {return d.join('');}},
@@ -44,6 +48,7 @@ export let grammar: { ParserRules: Rule[], ParserStart: string } = {
     {"name": "Statement", "symbols": ["ArrayDef"], "postprocess": id},
     {"name": "Statement", "symbols": ["ClassDef"], "postprocess": id},
     {"name": "Statement", "symbols": ["IncludeDef"], "postprocess": id},
+    {"name": "Statement", "symbols": ["DefineDef"], "postprocess": id},
     {"name": "VariableValue", "symbols": ["Number"], "postprocess": id},
     {"name": "VariableValue", "symbols": ["String"], "postprocess": function(d) { return d[0].string }},
     {"name": "VariableValue", "symbols": ["Name"], "postprocess": id},
@@ -113,4 +118,5 @@ export let grammar: { ParserRules: Rule[], ParserStart: string } = {
 ]
   , ParserStart: "main"
 }
- 
+
+
