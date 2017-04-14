@@ -23,6 +23,7 @@ import Uri from './uri';
 import { Queue } from './queue';
 
 import * as glob from 'glob';
+import { Module } from "./module";
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -40,7 +41,7 @@ interface Settings {
 /**
  * Interface used to receive our settings
  */
-interface SQFLintSettings {
+export interface SQFLintSettings {
 	warnings: boolean;
 	indexWorkspace: boolean;
 	indexWorkspaceTwice: boolean;
@@ -130,9 +131,9 @@ interface EventDocumentation {
 /**
  * SQFLint language server.
  */
-class SQFLintServer {
+export class SQFLintServer {
 	/** Connection to client */
-	private connection: IConnection;
+	public connection: IConnection;
 
 	/** Used to watch documents */
 	private documents: TextDocuments;
@@ -169,6 +170,8 @@ class SQFLintServer {
 
 	private extModule: ExtModule;
 
+	private modules: Module[];
+
 	private ignoredVariablesSet: { [ident: string]: boolean };
 
 	constructor() {
@@ -176,7 +179,10 @@ class SQFLintServer {
 		this.loadDocumentation();
 		this.loadEvents();
 
-		this.extModule = new ExtModule();
+		this.extModule = new ExtModule(this);
+		this.modules = [
+			this.extModule
+		];
 
 		this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 		
@@ -230,6 +236,10 @@ class SQFLintServer {
 			return Glob.toRegexp(<any>item);
 		});*/
 
+		for (let i in this.modules) {
+			this.modules[i].onConfiguration(settings.sqflint);
+		}
+
 		if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
 			this.connection.console.log("Indexing workspace...");
 			
@@ -251,6 +261,10 @@ class SQFLintServer {
 	 */
 	private onInitialize(params: InitializeParams): InitializeResult {
 		this.workspaceRoot = params.rootPath;
+
+		for (let i in this.modules) {
+			this.modules[i].onInitialize(params);
+		}
 
 		return {
 			capabilities: {
@@ -274,45 +288,38 @@ class SQFLintServer {
 		};
 	}
 
-	private parseExtFile(path: string) {
-		this.extModule.parseFile(path, (filename, diag: Diagnostic[]) => {
-			this.connection.sendDiagnostics({
-				uri: Uri.file(filename).toString(),
-				diagnostics: diag
-			});
-		});
+	private runModules(method: string, ...args: any[]) {
+		return this.modules.reduce((promise, current) => promise.then(result => <Promise<any>>current[method].apply(current, args)), Promise.resolve())
 	}
 
 	/**
 	 * Tries to parse all sqf files in workspace.
 	 */
 	private indexWorkspace(done?: () => void) {
-		// Parse description.ext if present
-		/*let extFilename = fs_path.join(this.workspaceRoot, "description.ext");
-		if (fs.existsSync(extFilename)) {
-			this.parseExtFile(extFilename);
-		}*/
+		// Calls indexWorkspace for all modules in sequence
+		this.runModules("indexWorkspace", this.workspaceRoot)
+			.then(() => {
+				// Queue that executes callback in sequence with predefined delay between each
+				// This limits calls to sqflint
+				let workQueue = new Queue(20);
 
-		// Queue that executes callback in sequence with predefined delay between each
-		// This limits calls to sqflint
-		let workQueue = new Queue(20);
-
-		this.walkPath("**/*.sqf", (file) => {
-			fs.readFile(file, (err, data) => {
-				if (data) {
-					let uri = Uri.file(file).toString();
-					workQueue.add((queue_done) => {
-						this.parseDocument(TextDocument.create(uri, "sqf", 0, data.toString()), new SQFLint())
-							.then(() => {
-								queue_done();
-								if (workQueue.isEmpty()) {
-									if (done) done();
-								}
+				this.walkPath("**/*.sqf", (file) => {
+					fs.readFile(file, (err, data) => {
+						if (data) {
+							let uri = Uri.file(file).toString();
+							workQueue.add((queue_done) => {
+								this.parseDocument(TextDocument.create(uri, "sqf", 0, data.toString()), new SQFLint())
+									.then(() => {
+										queue_done();
+										if (workQueue.isEmpty()) {
+											if (done) done();
+										}
+									});
 							});
+						}
 					});
-				}
+				});
 			});
-		});
 	}
 
 	/**
@@ -446,8 +453,14 @@ class SQFLintServer {
 	 * Parses document and dispatches diagnostics if required.
 	 */
 	private parseDocument(textDocument: TextDocument, linter: SQFLint = null): Promise<void> {
-		// Only parse sqf files
-		if (fs_path.extname(Uri.parse(textDocument.uri).fsPath).toLowerCase() == ".sqf") {
+		// Calls all modules in sequence
+		this.modules.reduce((promise, current) => {
+			return promise.then((result) => current.parseDocument(textDocument, linter))
+		}, Promise.resolve());
+
+		// Parse SQF file
+		let uri = Uri.parse(textDocument.uri);
+		if (fs_path.extname(uri.fsPath).toLowerCase() == ".sqf") {
 			return new Promise<void>((accept, refuse) => {
 				let diagnostics: Diagnostic[] = [];
 				let client = linter || this.sqflint; 
@@ -534,8 +547,14 @@ class SQFLintServer {
 								});
 							} else {
 								// Skip predefined functions and operators.
-								if (this.documentation[item.ident])
+								if (this.documentation[item.ident]) {
 									return;
+								}
+
+								// Skip user defined functions
+								if (this.extModule.getFunction(item.ident.toLowerCase())) {
+									return;
+								}
 								
 								// Try to load existing global variable.
 								let variable = this.getGlobalVariable(item.ident);
@@ -691,6 +710,14 @@ class SQFLintServer {
 			}
 		}
 
+		let name = this.getNameFromParams(params).toLowerCase();
+		let hover;
+		for (let i in this.modules) {
+			if ((hover = this.modules[i].onHover(name))) {
+				return hover;
+			}
+		}
+
 		return null;
 	}
 
@@ -793,6 +820,15 @@ class SQFLintServer {
 					});
 				}
 
+			}
+		}
+
+		let name = this.getNameFromParams(params);
+
+		for (let i in this.modules) {
+			let result = this.modules[i].onDefinition(name);
+			if (result) {
+				locations = locations.concat(result);
 			}
 		}
 
@@ -908,7 +944,7 @@ class SQFLintServer {
 		// Use prefix lookup for smaller items
 		if (hover.length <= 3) {
 			let operators = this.operatorsByPrefix[hover];
-			for(let index in operators) {
+			for (let index in operators) {
 				let operator = operators[index];
 				items.push({
 					label: operator.name,
@@ -916,7 +952,7 @@ class SQFLintServer {
 				});
 			}
 		} else {
-			for(let ident in this.operators) {
+			for (let ident in this.operators) {
 				let operator = this.operators[ident];
 
 				if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
@@ -928,7 +964,7 @@ class SQFLintServer {
 			}
 		}
 
-		for(let ident in this.globalVariables) {
+		for (let ident in this.globalVariables) {
 			let variable = this.globalVariables[ident];
 
 			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
@@ -939,7 +975,7 @@ class SQFLintServer {
 			}
 		}
 
-		for(let ident in this.events) {
+		for (let ident in this.events) {
 			let event = this.events[ident];
 			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
 				items.push({
@@ -950,6 +986,10 @@ class SQFLintServer {
 					kind: CompletionItemKind.Enum
 				});
 			}
+		}
+
+		for (let i in this.modules) {
+			items = items.concat(this.modules[i].onCompletion(hover));
 		}
 
 		return items;
@@ -978,6 +1018,10 @@ class SQFLintServer {
 		}
 
 		item.documentation = text;
+
+		for (let i in this.modules) {
+			this.modules[i].onCompletionResolve(item);
+		}
 
 		return item;
 	}
@@ -1090,7 +1134,8 @@ class SQFLintServer {
 		return {
 			local: this.getLocalVariable(source, name),
 			global: this.getGlobalVariable(name),
-			macro: this.getGlobalMacro(name)
+			macro: this.getGlobalMacro(name),
+			func: this.extModule.getFunction(name)
 		};
 	}
 
