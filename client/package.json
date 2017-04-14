@@ -50,7 +50,7 @@
       },
       {
         "id": "ext",
-        "aliases": [ "Arma EXT file", "Arma header file" ],
+        "aliases": [ "Arma header file" ],
         "extensions": [ ".ext", ".hpp" ]
       }
     ],
