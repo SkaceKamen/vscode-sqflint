@@ -120,7 +120,6 @@ export class ExtModule extends Module {
 					this.process(Hpp.parse(data.toString(), filename), filename);
 				} catch(error) {
 					if (error instanceof Hpp.ParseError && error.filename) {
-						console.log("Error", error);
 						this.sendDiagnostics({
 							uri: Uri.file(error.filename).toString(),
 							diagnostics:  [
@@ -160,8 +159,6 @@ export class ExtModule extends Module {
 		let root = path.dirname(root_filename);
 
 		this.functions = {};
-
-		console.log("Processing parsed data");
 
 		for (let tag in cfgFunctions.context.classes) {
 			let tagClass = cfgFunctions.context.classes[tag];
