@@ -47,19 +47,31 @@ export class SQFLint {
 
 		this.childProcess.stderr.on('data', data => {
 			console.error("SQFLint: Error message", data.toString());
-		})
+		});
 
 		this.childProcess.on('error', msg => {
 			console.error("SQFLint: Process crashed", msg);
 			this.childProcess = null;
-		})
+			this.flushWaiters();
+		});
 
 		this.childProcess.on('close', code => {
 			if (code != 0) {
 				console.error("SQFLint: Process crashed with code", code);
 			}
 			this.childProcess = null;
+			this.flushWaiters();
 		});
+	}
+
+	/**
+	 * Calls all waiters with empty result and clears the waiters list.
+	 */
+	private flushWaiters() {
+		for (var i in this.waiting) {
+			this.waiting[i](new SQFLint.ParseInfo());
+		}
+		this.waiting = {};
 	}
 
 	/**
@@ -175,79 +187,6 @@ export class SQFLint {
 	}
 
 	/**
-	 * Runs the sqflint task.
-	 * @deprecated
-	 */
-	private process(success, reject, contents: string, options: SQFLint.Options) {
-		let args = ["-j", "-v"];
-
-		if (options) {
-			if (typeof(options.checkPaths) !== "undefined" && options.checkPaths) {
-				args.push("-cp");
-			}
-			if (typeof(options.pathsRoot) !== "undefined" && options.pathsRoot) {
-				args.push("-r", options.pathsRoot);
-			}
-			if (typeof(options.ignoredVariables) !== "undefined" && options.ignoredVariables) {
-				for (let i in options.ignoredVariables) {
-					args.push("-iv", options.ignoredVariables[i]);
-				}
-			}
-		}
-
-		let child = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), args);
-
-		if (child) {
-			let info = new SQFLint.ParseInfo();
-
-			child.stdout.on('data', data => {
-				if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
-					return;
-				}
-				
-				let lines = data.toString().split("\n");
-				for(let i in lines) {
-					let line = lines[i];
-					try {
-						if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0)
-							continue;
-
-						// Parse message
-						let message = <RawMessage>JSON.parse(line);
-						
-						this.processMessage(message, info);
-					} catch(e) {
-						console.error("SQFLint: Failed to parse response: >" + line + "<");
-					}
-				}
-			});
-
-			child.on('error', msg => {
-				console.error("SQFLint: Failed to call sqflint. Do you have java installed?");
-				reject(msg);
-			})
-
-			child.on('close', code => {
-				if (code != 0) {
-					console.error("SQFLint: Failed to run sqflint. Do you have java installed?");
-				}
-
-				success(info);
-			});
-
-			try {
-				child.stdin.write(contents);
-				child.stdin.end();
-			} catch(ex) {
-				console.error("SQFLint: Failed to contact the sqflint. Ex: " + ex);
-				child.kill();
-			}
-		} else {
-			reject("Failed to launch java process.");
-		}
-	}
-
-	/**
 	 * Parses content and returns result wrapped in helper classes.
 	 * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
 	 */
@@ -263,7 +202,7 @@ export class SQFLint {
 			}
 
 			this.waiting[filename] = success;
-			this.childProcess.stdin.write(JSON.stringify({ "file": filename }) + "\n");
+			this.childProcess.stdin.write(JSON.stringify({ "file": filename, "options": options }) + "\n");
 		});
 	}
 
