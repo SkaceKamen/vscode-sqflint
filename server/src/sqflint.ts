@@ -1,37 +1,182 @@
-// import { spawn } from 'child_process';
 import { Java } from './java';
 import * as path from 'path';
+import { ChildProcess } from "child_process";
 
+
+function emitLines(stream) {
+	var backlog = ''
+	stream.on('data', function (data) {
+		backlog += data
+		var n = backlog.indexOf('\n')
+		// got a \n? emit one or more 'line' events
+		while (~n) {
+			stream.emit('line', backlog.substring(0, n))
+			backlog = backlog.substring(n + 1)
+			n = backlog.indexOf('\n')
+		}
+	})
+	stream.on('end', function () {
+		if (backlog) {
+			stream.emit('line', backlog)
+		}
+	})
+}
 
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
  */
 export class SQFLint {
-	
-	// This is current linting waiting to be done
-	private top: { success: () => any, reject: () => any, contents: string, options: SQFLint.Options } = null;
-	
-	// This is timeout waiting to actually do the linting
-	private timeout: NodeJS.Timer = null;
+	// This is list of waiting results
+	private waiting: { [filename: string]: ((info: SQFLint.ParseInfo) => any) } = {};
+
+	// Currently running sqflint process
+	private childProcess: ChildProcess;
 
 	/**
-	 * Runs the lastest task assigned
+	 * Launches sqflint process and assigns basic handlers.
 	 */
-	private runLint() {
-		this.timeout = null;
+	private launchProcess() {
+		this.childProcess = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), ["-j", "-v", "-s"]);
+		
+		// Fix for nodejs issue (see https://gist.github.com/TooTallNate/1785026)
+		emitLines(this.childProcess.stdout);
 
-		this.process(
-			this.top.success,
-			this.top.reject,
-			this.top.contents,
-			this.top.options
-		);
+		this.childProcess.stdout.resume();
+		this.childProcess.stdout.setEncoding('utf-8');
+		this.childProcess.stdout.on('line', line => this.processLine(line.toString()));
 
-		this.top = null;
+		this.childProcess.stderr.on('data', data => {
+			console.error("SQFLint: Error message", data.toString());
+		})
+
+		this.childProcess.on('error', msg => {
+			console.error("SQFLint: Process crashed", msg);
+			this.childProcess = null;
+		})
+
+		this.childProcess.on('close', code => {
+			if (code != 0) {
+				console.error("SQFLint: Process crashed with code", code);
+			}
+			this.childProcess = null;
+		});
+	}
+
+	/**
+	 * Processes sqflint server line
+	 * @param line sqflint output line in server mode
+	 */
+	private processLine(line: string) {
+		// Prepare result info
+		let info = new SQFLint.ParseInfo();
+		
+		// Skip empty lines
+		if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0) {
+			return;
+		}
+
+		// Parse message
+		let serverMessage: RawServerMessage;
+		try {
+			serverMessage = <RawServerMessage>JSON.parse(line);
+		} catch (ex) {
+			console.error("SQFLint: Failed to parse server output.");
+			console.error(line);
+			return;
+		}
+
+		// Parse messages
+		for (let l in serverMessage.messages) {
+			this.processMessage(serverMessage.messages[l], info);
+		}
+
+		// Pass result to waiter
+		let waiter = this.waiting[serverMessage.file];
+		if (waiter) {
+			delete this.waiting[serverMessage.file];
+			waiter(info);
+		} else {
+			console.error("SQFLint: Received unrequested info.");
+		}
+	}
+
+	/**
+	 * Converts raw sqflint message into specific classes.
+	 * @param message sqflint info message
+	 * @param info used to store parsed messages
+	 */
+	private processMessage(message: RawMessage, info: SQFLint.ParseInfo) {
+		let errors: SQFLint.Error[] = info.errors;
+		let warnings: SQFLint.Warning[] = info.warnings;
+		let variables: SQFLint.VariableInfo[] = info.variables;
+		let macros: SQFLint.Macroinfo[] = info.macros;
+		
+		// Preload position if present
+		let position: SQFLint.Range = null;
+		if (message.line && message.column) {
+			position = this.parsePosition(message);
+		}
+
+		// Create different wrappers based on type
+		if (message.type == "error") {
+			errors.push(new SQFLint.Error(
+				message.error || message.message,
+				position
+			));
+		} else if (message.type == "warning") {
+			warnings.push(new SQFLint.Warning(
+				message.error || message.message,
+				position
+			));
+		} else if (message.type == "variable") {
+			// Build variable info wrapper
+			let variable = new SQFLint.VariableInfo();
+			
+			variable.name = message.variable;
+			variable.comment = this.parseComment(message.comment);
+			variable.usage = [];
+			variable.definitions = [];
+
+			// We need to convert raw positions to our format (compatible with vscode format)
+			for(let i in message.definitions) {
+				variable.definitions.push(this.parsePosition(message.definitions[i]));
+			}
+
+			for(let i in message.usage) {
+				variable.usage.push(this.parsePosition(message.usage[i]));
+			}
+
+			variables.push(variable);
+		} else if (message.type == "macro") {
+			let macro = new SQFLint.Macroinfo();
+
+			macro.name = message.macro;
+			macro.definitions = [];
+
+			if (macro.name.indexOf('(') >= 0) {
+				macro.arguments = macro.name.substr(macro.name.indexOf('('));
+				if (macro.arguments.indexOf(')') >= 0) {
+					macro.arguments = macro.arguments.substr(0, macro.arguments.indexOf(')') + 1);
+				}
+				macro.name = macro.name.substr(0, macro.name.indexOf('('));
+			}
+
+			let defs = <{ range: RawMessagePosition, value: string, filename: string }[]>(<any[]>message.definitions);
+			for(let i in defs) {
+				var definition = new SQFLint.MacroDefinition();
+				definition.position = this.parsePosition(defs[i].range);
+				definition.value = defs[i].value;
+				definition.filename = defs[i].filename;
+				macro.definitions.push(definition);
+			}
+			
+			macros.push(macro);
+		}
 	}
 
 	/**
 	 * Runs the sqflint task.
+	 * @deprecated
 	 */
 	private process(success, reject, contents: string, options: SQFLint.Options) {
 		let args = ["-j", "-v"];
@@ -44,7 +189,7 @@ export class SQFLint {
 				args.push("-r", options.pathsRoot);
 			}
 			if (typeof(options.ignoredVariables) !== "undefined" && options.ignoredVariables) {
-				for(let i in options.ignoredVariables) {
+				for (let i in options.ignoredVariables) {
 					args.push("-iv", options.ignoredVariables[i]);
 				}
 			}
@@ -54,11 +199,6 @@ export class SQFLint {
 
 		if (child) {
 			let info = new SQFLint.ParseInfo();
-
-			let errors: SQFLint.Error[] = info.errors;
-			let warnings: SQFLint.Warning[] = info.warnings;
-			let variables: SQFLint.VariableInfo[] = info.variables;
-			let macros: SQFLint.Macroinfo[] = info.macros;
 
 			child.stdout.on('data', data => {
 				if (!data && data.toString().replace(/(\r\n|\n|\r)/gm, "").length == 0) {
@@ -75,61 +215,9 @@ export class SQFLint {
 						// Parse message
 						let message = <RawMessage>JSON.parse(line);
 						
-						// Preload position if present
-						let position: SQFLint.Range = null;
-						if (message.line && message.column) {
-							position = this.parsePosition(message);
-						}
-
-						// Create different wrappers based on type
-						if (message.type == "error") {
-							errors.push(new SQFLint.Error(
-								message.error || message.message,
-								position
-							));
-						} else if (message.type == "warning") {
-							warnings.push(new SQFLint.Warning(
-								message.error || message.message,
-								position
-							));
-						} else if (message.type == "variable") {
-							// Build variable info wrapper
-							let variable = new SQFLint.VariableInfo();
-							
-							variable.name = message.variable;
-							variable.comment = this.parseComment(message.comment);
-							variable.usage = [];
-							variable.definitions = [];
-
-							// We need to convert raw positions to our format (compatible with vscode format)
-							for(let i in message.definitions) {
-								variable.definitions.push(this.parsePosition(message.definitions[i]));
-							}
-
-							for(let i in message.usage) {
-								variable.usage.push(this.parsePosition(message.usage[i]));
-							}
-
-							variables.push(variable);
-						} else if (message.type == "macro") {
-							let macro = new SQFLint.Macroinfo();
-
-							macro.name = message.macro;
-							macro.definitions = [];
-
-							let defs = <{ range: RawMessagePosition, value: string, filename: string }[]>(<any[]>message.definitions);
-							for(let i in defs) {
-								var definition = new SQFLint.MacroDefinition();
-								definition.position = this.parsePosition(defs[i].range);
-								definition.value = defs[i].value;
-								definition.filename = defs[i].filename;
-								macro.definitions.push(definition);
-							}
-
-							macros.push(macro);
-						}
+						this.processMessage(message, info);
 					} catch(e) {
-						console.error("Failed to parse response: >" + line + "<");
+						console.error("SQFLint: Failed to parse response: >" + line + "<");
 					}
 				}
 			});
@@ -163,25 +251,19 @@ export class SQFLint {
 	 * Parses content and returns result wrapped in helper classes.
 	 * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
 	 */
-	public parse(contents: string, options: SQFLint.Options = null): Promise<SQFLint.ParseInfo> {		
-		// If there is any task waiting, we'll replace it
-		if (this.timeout != null) {
-			clearTimeout(this.timeout);
-
-			if (this.top != null) {
-				this.top.reject();
-			}
+	public parse(filename: string, options: SQFLint.Options = null): Promise<SQFLint.ParseInfo> {
+		// Don't queue if already queued
+		if (this.waiting[filename]) {
+			return Promise.resolve(new SQFLint.ParseInfo());
 		}
 
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
-			// Assign this task as lastest
-			this.top = { success: success, reject: reject, contents: contents, options: options };
-			
-			// Wait for few seconds, this stops linter running when user writes code.
-			// Java is not fast enought do do that.
-			this.timeout = setTimeout(() => {
-				this.runLint();
-			}, 200);
+			if (!this.childProcess) {
+				this.launchProcess();
+			}
+
+			this.waiting[filename] = success;
+			this.childProcess.stdin.write(JSON.stringify({ "file": filename }) + "\n");
 		});
 	}
 
@@ -220,6 +302,14 @@ export class SQFLint {
 
 		return comment;
 	}
+}
+
+/**
+ * Raw message received from server.
+ */
+interface RawServerMessage {
+	file: string;
+	messages: RawMessage[]
 }
 
 /**
@@ -296,6 +386,7 @@ export namespace SQFLint {
 	 */
 	export class Macroinfo {
 		name: string;
+		arguments: string = null;
 		definitions: MacroDefinition[]
 	}
 
