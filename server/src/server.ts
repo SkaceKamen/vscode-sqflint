@@ -533,21 +533,6 @@ export class SQFLintServer {
 										return;
 									}
 
-									// Try to use actual name (output of sqflint is always lower as language is case insensitive)
-									if (item.definitions.length > 0 || item.usage.length > 0) {
-										let definition = item.definitions[0] || item.usage[0];
-										let range = [
-											textDocument.offsetAt(definition.start),
-											textDocument.offsetAt(definition.end)
-										];
-										item.name = contents.substr(range[0], range[1] - range[0]);
-
-										// Variables defined in string (for, params, private ...)
-										if (item.name.charAt(0) == '"') {
-											item.name = item.name.substring(1, item.name.length - 1);
-										}
-									}
-
 									item.ident = item.name.toLowerCase();
 
 									if (item.isLocal()) {
