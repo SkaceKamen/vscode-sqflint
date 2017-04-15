@@ -1,3 +1,6 @@
+# Version 0.7.5
+ * Macros with arguments are now properly handled
+
 # Version 0.7.4
  * `switch` and `try` results can now be assigned to variable
  * Fixed parser not woring at all (don't kill me pls)
