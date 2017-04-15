@@ -1,3 +1,8 @@
+# Version 0.7.4
+ * `switch` and `try` results can now be assigned to variable
+ * Fixed parser not woring at all (don't kill me pls)
+ * Fixed empty files throwing errors
+
 # Version 0.7.3
  * Workspace indexing optimization, SQFLint can now parse multiple files in one process, which greatly incerases performance (this means we have language server behind language server, which is sad)
  * Fixed some issues with preprocessor
