@@ -27,7 +27,7 @@ function emitLines(stream) {
  */
 export class SQFLint {
 	// This is list of waiting results
-	private waiting: { [filename: string]: ((info: SQFLint.ParseInfo) => any)[] } = {};
+	private waiting: { [filename: string]: ((info: SQFLint.ParseInfo) => any) } = {};
 
 	// Currently running sqflint process
 	private childProcess: ChildProcess;
@@ -69,11 +69,8 @@ export class SQFLint {
 	 */
 	private flushWaiters() {
 		for (var i in this.waiting) {
-			for (var l in this.waiting[i]) {
-				this.waiting[i][l](new SQFLint.ParseInfo());
-			}
+			this.waiting[i](new SQFLint.ParseInfo());
 		}
-		
 		this.waiting = {};
 	}
 
@@ -107,14 +104,11 @@ export class SQFLint {
 
 		// Pass result to waiter
 		let waiter = this.waiting[serverMessage.file];
-		if (waiter && waiter.length > 0) {
-			waiter.shift()(info);
+		if (waiter) {
+			delete this.waiting[serverMessage.file];
+			waiter(info);
 		} else {
 			console.error("SQFLint: Received unrequested info.");
-		}
-
-		if (waiter && waiter.length == 0) {
-			delete this.waiting[serverMessage.file];
 		}
 	}
 
@@ -196,18 +190,20 @@ export class SQFLint {
 	 * Parses content and returns result wrapped in helper classes.
 	 * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
 	 */
-	public parse(filename: string, options: SQFLint.Options = null): Promise<SQFLint.ParseInfo> {
+	public parse(filename: string, contents: string, options: SQFLint.Options): Promise<SQFLint.ParseInfo> {
+		// Cancel previous callback if exists
+		if (this.waiting[filename]) {
+			this.waiting[filename](null);
+			delete(this.waiting[filename]);
+		}
+
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
 			if (!this.childProcess) {
 				this.launchProcess();
 			}
 
-			if (!this.waiting[filename]) {
-				this.waiting[filename] = [];
-			}
-
-			this.waiting[filename].push(success);
-			this.childProcess.stdin.write(JSON.stringify({ "file": filename, "options": options }) + "\n");
+			this.waiting[filename] = success;
+			this.childProcess.stdin.write(JSON.stringify({ "file": filename, "contents": contents, "options": options }) + "\n");
 		});
 	}
 

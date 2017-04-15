@@ -497,10 +497,12 @@ export class SQFLintServer {
 							ignoredVariables: this.settings.ignoredVariables
 						}
 
-						client.parse(uri.fsPath, options)
+						client.parse(uri.fsPath, contents, options)
 							.then((result: SQFLint.ParseInfo) => {
 								accept();
 								
+								if (!result) return;
+
 								try {
 								// Add found errors
 								result.errors.forEach((item: SQFLint.Error) => {
