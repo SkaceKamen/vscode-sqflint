@@ -207,6 +207,15 @@ export class SQFLint {
 	}
 
 	/**
+	 * Stops subprocess if running.
+	 */
+	public stop() {
+		if (this.childProcess != null) {
+			this.childProcess.kill();
+		}
+	}
+
+	/**
 	 * Converts raw position to result position.
 	 */
 	private parsePosition(position: RawMessagePosition) {
