@@ -41,7 +41,6 @@ export namespace Hpp {
 	}
 
 	function parseFile(filename: string, context: Context) {
-		console.log("Parse", filename);
 		let data = fs.readFileSync(filename);
 		return parse(data.toString(), filename, context);
 	}
