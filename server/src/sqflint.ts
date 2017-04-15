@@ -211,7 +211,7 @@ export class SQFLint {
 	 */
 	public stop() {
 		if (this.childProcess != null) {
-			this.childProcess.kill();
+			this.childProcess.stdin.write(JSON.stringify({ "type": "exit" }) + "\n");
 		}
 	}
 
