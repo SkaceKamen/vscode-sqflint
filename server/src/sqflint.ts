@@ -27,7 +27,7 @@ function emitLines(stream) {
  */
 export class SQFLint {
 	// This is list of waiting results
-	private waiting: { [filename: string]: ((info: SQFLint.ParseInfo) => any) } = {};
+	private waiting: { [filename: string]: ((info: SQFLint.ParseInfo) => any)[] } = {};
 
 	// Currently running sqflint process
 	private childProcess: ChildProcess;
@@ -69,8 +69,11 @@ export class SQFLint {
 	 */
 	private flushWaiters() {
 		for (var i in this.waiting) {
-			this.waiting[i](new SQFLint.ParseInfo());
+			for (var l in this.waiting[i]) {
+				this.waiting[i][l](new SQFLint.ParseInfo());
+			}
 		}
+		
 		this.waiting = {};
 	}
 
@@ -104,11 +107,14 @@ export class SQFLint {
 
 		// Pass result to waiter
 		let waiter = this.waiting[serverMessage.file];
-		if (waiter) {
-			delete this.waiting[serverMessage.file];
-			waiter(info);
+		if (waiter && waiter.length > 0) {
+			waiter.shift()(info);
 		} else {
 			console.error("SQFLint: Received unrequested info.");
+		}
+
+		if (waiter && waiter.length == 0) {
+			delete this.waiting[serverMessage.file];
 		}
 	}
 
@@ -191,17 +197,16 @@ export class SQFLint {
 	 * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
 	 */
 	public parse(filename: string, options: SQFLint.Options = null): Promise<SQFLint.ParseInfo> {
-		// Don't queue if already queued
-		if (this.waiting[filename]) {
-			return Promise.resolve(new SQFLint.ParseInfo());
-		}
-
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
 			if (!this.childProcess) {
 				this.launchProcess();
 			}
 
-			this.waiting[filename] = success;
+			if (!this.waiting[filename]) {
+				this.waiting[filename] = [];
+			}
+
+			this.waiting[filename].push(success);
 			this.childProcess.stdin.write(JSON.stringify({ "file": filename, "options": options }) + "\n");
 		});
 	}
