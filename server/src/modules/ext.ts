@@ -70,7 +70,7 @@ export class ExtModule extends Module {
 				contents += " " + item.returns + " =";
 			}
 
-			contents += " arguments call " + item.name + "\r\n```";
+			contents += " ANY call " + item.name + "\r\n```";
 
 			return { contents };
 		}
