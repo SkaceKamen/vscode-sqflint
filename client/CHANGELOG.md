@@ -1,3 +1,7 @@
+# Version 0.7.3
+ * Workspace indexing optimization, SQFLint can now parse multiple files in one process, which greatly incerases performance (this means we have language server behind language server, which is sad)
+ * Fixed some issues with preprocessor
+
 # Version 0.7.2
  * Fixed more HPP parser issues
 
