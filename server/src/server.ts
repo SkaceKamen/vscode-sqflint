@@ -190,6 +190,8 @@ export class SQFLintServer {
 		this.documents.listen(this.connection);
 
 		this.connection.onInitialize((params) => this.onInitialize(params));
+		this.connection.onShutdown(() => this.onShutdown());
+
 		this.connection.onHover((params) => this.onHover(params));
 		this.connection.onReferences((params) => this.onReferences(params));
 		this.connection.onDefinition((params) => this.onDefinition(params));
@@ -216,6 +218,10 @@ export class SQFLintServer {
 		};
 
 		this.ignoredVariablesSet = {};
+	}
+
+	private onShutdown() {
+		this.sqflint.stop();
 	}
 
 	private onConfiguration(params: DidChangeConfigurationParams) {
@@ -313,6 +319,7 @@ export class SQFLintServer {
 									.then(() => {
 										queue_done();
 										if (workQueue.isEmpty()) {
+											linter.stop();
 											if (done) done();
 										}
 									});
