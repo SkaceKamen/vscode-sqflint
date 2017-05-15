@@ -11,7 +11,6 @@ export namespace Hpp {
 		var processed: string = null;
 		try {
 			processed = preprocess(filename);
-			fs.writeFileSync("output.ext", processed);
 			return <ClassBody>hppParser.parse(processed);
 		} catch (e) {
 			if (e.location !== undefined) {

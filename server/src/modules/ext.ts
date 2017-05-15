@@ -147,8 +147,6 @@ export class ExtModule extends Module {
 
 
 	private process(context: Hpp.ClassBody, filename: string) {
-		fs.writeFileSync("output.json", JSON.stringify(context));
-		
 		let cfgFunctions = context.classes["cfgfunctions"];
 		if (cfgFunctions) {
 			this.processCfgFunctions(cfgFunctions, filename);
