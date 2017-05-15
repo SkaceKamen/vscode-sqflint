@@ -7,10 +7,12 @@ import { TextDocument, Diagnostic, DiagnosticSeverity, InitializeParams, Complet
 import { Module } from "../module";
 import { SQFLintSettings, SQFLintServer } from "../server";
 import Uri from "../uri";
+import { SingleRunner } from '../single.runner';
 
 export class ExtModule extends Module {
 	private descriptionFile: string = null;
-	
+	private single: SingleRunner = new SingleRunner(50);
+
 	public functions: { [functionName: string]: Function } = {};
 
 	public indexWorkspace(root: string): Promise<void> {
@@ -27,15 +29,17 @@ export class ExtModule extends Module {
 
 	public parseDocument(textDocument: TextDocument, linter?: SQFLint): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			let uri = Uri.parse(textDocument.uri);
-			if (path.basename(uri.fsPath) == "description.ext") {
-				this.descriptionFile = uri.fsPath;
-				resolve(this.parseFile(uri.fsPath));
-			} else if (path.extname(uri.fsPath) == ".hpp") {
-				resolve(this.parse());
-			} else {
-				resolve();
-			}
+			this.single.run(() => {
+				let uri = Uri.parse(textDocument.uri);
+				if (path.basename(uri.fsPath) == "description.ext") {
+					this.descriptionFile = uri.fsPath;
+					resolve(this.parseFile(uri.fsPath));
+				} else if (path.extname(uri.fsPath) == ".hpp") {
+					resolve(this.parse());
+				} else {
+					resolve();
+				}
+			}, textDocument.uri);
 		});
 	}
 
