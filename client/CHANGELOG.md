@@ -1,3 +1,6 @@
+# Version 0.7.6
+ * Fixed HPP parser not working in same cases (switched to different parser generator)
+
 # Version 0.7.5
  * Macros with arguments are now properly handled
 
