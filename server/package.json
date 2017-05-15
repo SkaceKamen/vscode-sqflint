@@ -9,8 +9,8 @@
   },
   "dependencies": {
     "glob": "^7.1.1",
-    "vscode-languageserver": "^2.2.0",
-    "nearley": "^2.7.11"
+    "pegjs": "^0.10.0",
+    "vscode-languageserver": "^2.2.0"
   },
   "devDependencies": {
     "typescript": "^1.8.9"
@@ -18,6 +18,6 @@
   "scripts": {
     "compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
     "watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p .",
-    "grammar": "node_modules/.bin/nearleyc src/parsers/grammars/hpp.ne > src/parsers/grammars/hpp.js && node convert-grammar.js src/parsers/grammars/hpp.js > src/parsers/grammars/hpp.ts && rm src/parsers/grammars/hpp.js"
+    "grammar": "node_modules/.bin/pegjs -o src/parsers/grammars/pegjs-hpp.ts src/parsers/grammars/hpp.pegjs && node_modules/.bin/pegjs -o src/parsers/grammars/pegjs-hpp-pre.ts src/parsers/grammars/hpp.pre.pegjs"
   }
 }

@@ -117,7 +117,7 @@ export class ExtModule extends Module {
 		return new Promise<void>((resolve, reject) => {
 			fs.readFile(filename, (err, data) => {
 				try {
-					this.process(Hpp.parse(data.toString(), filename), filename);
+					this.process(Hpp.parse(filename), filename);
 				} catch(error) {
 					if (error instanceof Hpp.ParseError && error.filename) {
 						this.sendDiagnostics({
@@ -141,10 +141,10 @@ export class ExtModule extends Module {
 		});
 	}
 
-	/**
-	 * Process description.ext contents.
-	 */
-	private process(context: Hpp.Context, filename: string) {
+
+	private process(context: Hpp.ClassBody, filename: string) {
+		fs.writeFileSync("output.json", JSON.stringify(context));
+		
 		let cfgFunctions = context.classes["cfgfunctions"];
 		if (cfgFunctions) {
 			this.processCfgFunctions(cfgFunctions, filename);
@@ -154,38 +154,38 @@ export class ExtModule extends Module {
 	/**
 	 * Loads list of functions and paths to their files.
 	 */
-	private processCfgFunctions(cfgFunctions: Hpp.ContextClass, root_filename: string) {
+	private processCfgFunctions(cfgFunctions: Hpp.Class, root_filename: string) {
 		let diagnostics: Diagnostic[] = [];
 		let root = path.dirname(root_filename);
 
 		this.functions = {};
 
-		for (let tag in cfgFunctions.context.classes) {
-			let tagClass = cfgFunctions.context.classes[tag];
+		for (let tag in cfgFunctions.body.classes) {
+			let tagClass = cfgFunctions.body.classes[tag];
 			tag = tagClass.name;
 			
-			for (let category in tagClass.context.classes) {
-				let categoryClass = tagClass.context.classes[category];
+			for (let category in tagClass.body.classes) {
+				let categoryClass = tagClass.body.classes[category];
 				category = categoryClass.name;
 
 				// Default path used for this category
 				let categoryPath = path.join(root, "functions", category);
-				
+
 				// Tagname for this category, can be overriden
-				let categoryTag = categoryClass.context.variables["tag"] || tag;
+				let categoryTag = (categoryClass.body.variables["tag"]) || tag;
 
 				// Category path can be overriden if requested
-				let categoryOverride = categoryClass.context.variables["file"];
+				let categoryOverride = categoryClass.body.variables["file"];
 				if (categoryOverride) {
 					categoryPath = path.join(root, categoryOverride);
 				}
 				
-				for (let functionName in categoryClass.context.classes) {
-					let functionClass = categoryClass.context.classes[functionName];
+				for (let functionName in categoryClass.body.classes) {
+					let functionClass = categoryClass.body.classes[functionName];
 					functionName = functionClass.name;
 					
 					// Extension can be changed to sqm
-					let ext = functionClass.context.variables["ext"] || ".sqf";
+					let ext = functionClass.body.variables["ext"] || ".sqf";
 
 					// Full function name
 					let fullFunctionName = categoryTag + "_fnc_" + functionName;
@@ -194,7 +194,7 @@ export class ExtModule extends Module {
 					let filename = path.join(categoryPath, "fn_" + functionName + ext);
 
 					// Filename can be overriden by attribute
-					let filenameOverride = functionClass.context.variables["file"];
+					let filenameOverride = functionClass.body.variables["file"];
 					if (filenameOverride) {
 						filename = path.join(root, filenameOverride);
 					}
@@ -230,7 +230,7 @@ export class ExtModule extends Module {
 
 		this.tryToLoadDocs();
 	}
-
+	
 	private tryToLoadDocs() {
 		let commentRegex = /\s*\/\*((?:.|\n|\r)*)\*\//;
 		let descRegex = /description:(?:\s|\n|\r)*(.*)/i;

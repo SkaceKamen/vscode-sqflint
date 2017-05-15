@@ -1,183 +1,120 @@
-import { grammar } from './grammars/hpp';
-import * as fs from 'fs'
-import * as path from 'path'
-import * as nearley from 'nearley'
+import * as pegjs from 'pegjs';
+import * as fs from 'fs';
+import * as fs_path from 'path';
 import { SQFLint } from '../sqflint'
 
+var hppParser = <pegjs.Parser>require('./grammars/pegjs-hpp');
+var hppPreprocessor = <pegjs.Parser>require('./grammars/pegjs-hpp-pre');
+
 export namespace Hpp {
-	export function parse(data: string, filename: string = null, context: Context = null) {
-		// First, parse the file
-		let parser = new nearley.Parser(grammar.ParserRules, grammar.ParserStart);
-		let result;;
-		
-		// Load raw data, remove CR, BOM and comments (WHYY)
-		let contents = data
-			.replace(/^\uFEFF/, '')
-			.replace(/\r/g, "")
-			.replace(/\t/g, " ")
-			.replace(/(\/\*[^*]*\*\/)|(\/\/.*)/, '');
-
-		// Initialize empty context if needed
-		context = context || new Context(null, '<root>');
-
+	export function parse(filename: string) {
+		var processed: string = null;
 		try {
-			parser.feed(contents);
-			result = parser.finish();
-		} catch(error) {
-			if (error.offset) {
-				let range = offsetToRange(contents, error.offset);
-				throw new ParseError(filename, range, error.toString());
+			processed = preprocess(filename);
+			fs.writeFileSync("output.ext", processed);
+			return <ClassBody>hppParser.parse(processed);
+		} catch (e) {
+			if (e.location !== undefined) {
+				var location = (<pegjs.PegjsError>e).location;
+
+				if (processed) {
+					var lines = processed.split("\n");
+					for (var i = -2; i <= 2; i++) {
+						var index = location.start.line - 1 + i;
+						if (index >= 0 && index < lines.length) {
+							console.log((index + 1) + "\t" + lines[index]);
+						}
+					}
+				}
+
+				throw new ParseError(
+					filename, pegjsLocationToSqflint(location), e.message
+				)
 			} else {
-				throw error;
+				throw e;
 			}
 		}
-
-		// Now try postprocess the result
-		if (result && result.length > 0) {
-			loadBlock(result[0], context, filename, contents);
-		}
-
-		return context;
 	}
 
-	function parseFile(filename: string, context: Context) {
-		let data = fs.readFileSync(filename);
-		return parse(data.toString(), filename, context);
-	}
-
-	function offsetToPosition(contents: string, offset: number) {
-		let part = contents.substr(0, offset);
-		let line = part.split("\n").length;
-		let character = offset - part.lastIndexOf("\n");
-
-		return {
-			line: line - 1,
-			character: character - 1
-		};
-	}
-
-	function offsetToRange(contents: string, start: number, end: number = null) {
-		if (end == null) {
-			end = start + 1
-		}
-		
+	export function pegjsLocationToSqflint(location: pegjs.LocationRange) {
 		return <SQFLint.Range>{
-			start: offsetToPosition(contents, start),
-			end: offsetToPosition(contents, end)
-		};
+			start: {
+				line: location.start.line,
+				character: location.start.column
+			},
+			end: {
+				line: location.end.line,
+				character: location.end.column
+			}
+		}
 	}
 
-	function loadBlock(block: Statement[], context: Context = null, filename: string, contents: string) {
-		let root = path.dirname(filename);
-		
-		context = context || new Context();
+	function preprocess(filename: string): string {
+		try {
+			var contents = fs.readFileSync(filename).toString();
+			var result = <PreprocessorOutput>hppPreprocessor.parse(contents);
+			var offset = 0;
 
-		if (block) {
-			block.forEach((item) => {
+			var basepath = fs_path.dirname(filename);
+
+			for (var i in result) {
+				var item = result[i];
 				if (item.include) {
-					try {
-						parseFile(path.join(root, item.include), context);
-					} catch(error) {
-						if (error instanceof ParseError) {
-							throw error;
-						} else {
-							throw new ParseError(
-								filename,
-								offsetToRange(contents, item.location[0], item.location[1]),
-								"Failed to load " + item.include + ": " + error.toString()
-							);
-						}
+					var itempath = fs_path.join(basepath, item.include);
+
+					if (fs.existsSync(itempath)) {
+						var output = preprocess(itempath);
+						contents = contents.substr(0, offset + item.location.start.offset) +
+							output +
+							contents.substr(offset + item.location.end.offset);
+						
+						offset += output.length;
+					} else {
+						// @TODO: Maybe continue?
+						throw new ParseError(
+							filename, pegjsLocationToSqflint(item.location), "Failed to find '" + itempath + "'"
+						);
 					}
-				} else if (item.class) {
-					let cls = new ContextClass();
-					cls.name = item.class.name;
-					cls.extends = item.class.extends;
-					cls.context = new Context(context, cls.name);
-					
-					if (cls.extends) {
-						let ctx = context;
-						let extended = false;
-						while (ctx) {							
-							let c = ctx.classes[cls.extends.toLowerCase()];
-							if (c) {
-								cls.extend(c);
-								extended = true;
-								break;
-							}
-
-							ctx = ctx.parent;
-						}
-
-						if (!extended) {
-							throw new Error("Failed to find class " + cls.extends + " for extending " + cls.name + ".");
-						}
-					}
-
-					loadBlock(item.block, cls.context, filename, contents);
-
-					context.classes[cls.name.toLowerCase()] = cls;
-				} else if (item.variable) {
-					context.variables[item.variable.toLowerCase()] = item.value;
+				} else {
+					contents = contents.substr(0, offset + item.location.start.offset) +
+						contents.substr(offset + item.location.end.offset);
 				}
-			});
-		}
 
-		return context;
-	}
-
-	export class Context {
-		classes: ContextClasses = {};
-		variables: ContextVariables = {};
-
-		constructor(
-			public parent: Context = null, 
-			public name: string = null
-		) {}
-
-		extend(ctx: Context) {
-			for (let i in ctx.classes) {
-				if (typeof(this.classes[i]) === "undefined") {
-					this.classes[i] = new ContextClass(ctx.classes[i]);
-					this.classes[i].context.parent = this;
-				}
-			}
-			
-			for (let i in ctx.variables) {
-				if (typeof(this.variables[i]) === "undefined") {
-					this.variables[i] = ctx.variables[i];
-				}
+				offset -= (item.location.end.offset - item.location.start.offset);
 			}
 
-			return this;
+			return contents;
+		} catch (e) {
+			if (e.location !== undefined) {
+				throw new ParseError(
+					filename, pegjsLocationToSqflint((<pegjs.PegjsError>e).location), e.message
+				)
+			} else {
+				throw e;
+			}
 		}
 	}
 
-	export class ContextClasses {
-		[ name: string ]: ContextClass;
+	export type PreprocessorOutput = IncludeOrDefine[];
+
+	export interface IncludeOrDefine {
+		include: string;
+		define: string;
+		location: pegjs.LocationRange
 	}
 
-	export class ContextVariables {
-		[ name: string ]: string | number | (string | number)[];
+
+	export interface ClassBody {
+		classes: { [name: string]: Class };
+		variables: { [name: string]: string };
 	}
 
-	export class ContextClass {
+	export interface Class {
 		name: string;
-		extends: string;
-		context: Context;
-
-		constructor(copy?: ContextClass) {
-			if (copy) {
-				this.name = copy.name;
-				this.extends = copy.extends;
-				this.context = new Context().extend(copy.context);
-				this.context.name = this.name;
-			}
-		}
-
-		extend(source: ContextClass) {
-			// console.log(this.name, "extends", source.name);
-			this.context.extend(source.context);
-		}
+		extends?: string;
+		body?: ClassBody;
+		location: pegjs.LocationRange;
+		filename: string;
 	}
 
 	export class ParseError {
@@ -186,20 +123,5 @@ export namespace Hpp {
 			public range: SQFLint.Range,
 			public message: string
 		) {}
-	}
-
-	export interface ClassName {
-		name: string;
-		extends?: string;
-	}
-
-	export interface Statement {
-		include?: string;
-		location?: number[];
-		class?: ClassName;
-		variable?: string;
-		value?: string | number | (string | number)[];
-
-		block: Statement[];
 	}
 }
