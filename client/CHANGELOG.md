@@ -1,3 +1,6 @@
+# Version 0.7.7
+ * Removed debug output (sorry)
+
 # Version 0.7.6
  * Fixed HPP parser not working in same cases (switched to different parser generator)
 
