@@ -45,13 +45,23 @@
     "languages": [
       {
         "id": "sqf",
-        "aliases": [ "SQF", "sqf" ],
-        "extensions": [ ".sqf" ]
+        "aliases": [
+          "SQF",
+          "sqf"
+        ],
+        "extensions": [
+          ".sqf"
+        ]
       },
       {
         "id": "ext",
-        "aliases": [ "Arma header file" ],
-        "extensions": [ ".ext", ".hpp" ]
+        "aliases": [
+          "Arma header file"
+        ],
+        "extensions": [
+          ".ext",
+          ".hpp"
+        ]
       }
     ],
     "configuration": {
@@ -124,10 +134,10 @@
   },
   "dependencies": {
     "openurl": "^1.1.1",
+    "pegjs": "^0.10.0",
     "vscode-debugadapter": "^1.15.0-pre.1",
     "vscode-debugprotocol": "^1.15.0-pre.1",
     "vscode-languageclient": "^2.2.1",
-    "vscode-languageserver": "^2.5.0",
-    "nearley": "^2.7.11"
+    "vscode-languageserver": "^2.5.0"
   }
 }
