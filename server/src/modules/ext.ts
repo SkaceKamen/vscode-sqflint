@@ -9,11 +9,36 @@ import { SQFLintSettings, SQFLintServer } from "../server";
 import Uri from "../uri";
 import { SingleRunner } from '../single.runner';
 
+interface Documentation {
+	name: string;
+	type: string;
+	description: string;
+	link: string;
+}
+
 export class ExtModule extends Module {
 	private descriptionFile: string = null;
 	private single: SingleRunner = new SingleRunner(50);
 
 	public functions: { [functionName: string]: Function } = {};
+	private documentation: { [variable: string]: Documentation } = {};
+
+	public onInitialize(params: InitializeParams) {
+		this.loadDocumentation();
+	}
+
+	private loadDocumentation() {
+		fs.readFile(__dirname + "/../definitions/description-values.json", (err, data) => {
+			if (err) throw err;
+
+			var info = JSON.parse(data.toString());
+			var items = info.properties;
+			for (var i = 0; i < items.length; i++) {
+				var item = items[i];
+				this.documentation[item.name.toLowerCase()] = item;
+			}
+		});
+	}
 
 	public indexWorkspace(root: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
@@ -43,46 +68,89 @@ export class ExtModule extends Module {
 		});
 	}
 
-	public onCompletion(name: string): CompletionItem[] {
+	public onCompletion(params: TextDocumentPositionParams, name: string): CompletionItem[] {
 		let items: CompletionItem[] = [];
-		for (var ident in this.functions) {
-			let fnc = this.functions[ident];
-			if (ident.length >= name.length && ident.substr(0, name.length) == name) {
-				items.push({
-					label: fnc.name,
-					data: ident,
-					filterText: fnc.name,
-					insertText: fnc.name,
-					kind: CompletionItemKind.Function
-				});
+
+		if (path.extname(params.textDocument.uri).toLowerCase() == ".sqf") {
+			for (var ident in this.functions) {
+				let fnc = this.functions[ident];
+				if (ident.length >= name.length && ident.substr(0, name.length) == name) {
+					items.push({
+						label: fnc.name,
+						data: ident,
+						filterText: fnc.name,
+						insertText: fnc.name,
+						kind: CompletionItemKind.Function
+					});
+				}
 			}
 		}
+
+		if (path.basename(params.textDocument.uri).toLowerCase() == "description.ext") {
+			for (var ident in this.documentation) {
+				let value = this.documentation[ident];
+				if (ident.length >= name.length && ident.substr(0, name.length) == name) {
+					// Build replacement string based on value type
+					let replace = value.name;
+					switch(value.type.toLowerCase()) {
+						case "string": replace = value.name + " = \""; break;
+						case "array":
+						case "array of strings": replace = value.name + "[] = {"; break;
+						case "class": replace = "class " + value.name + "\n{\n"; break;
+						default: replace = value.name + " = "; break;
+					}
+
+					items.push({
+						label: value.name,
+						data: ident,
+						filterText: replace,
+						insertText: replace,
+						kind: CompletionItemKind.Property,
+						documentation: value.description
+					});
+				}
+			}
+		} else {
+			console.log("Not description.ext");
+		}
+
 		return items;
 	}
 
-	public onHover(name: string): Hover {
-		let item = this.functions[name];
-		if (item) {
-			let contents = "";
+	public onHover(params: TextDocumentPositionParams, name: string): Hover {
+		if (path.extname(params.textDocument.uri).toLowerCase() == ".sqf") {
+			let item = this.functions[name];
+			if (item) {
+				let contents = "";
 
-			if (item.description) {
-				contents += item.description + "\r\n";
+				if (item.description) {
+					contents += item.description + "\r\n";
+				}
+
+				contents += "```sqf\r\n(function)";
+				if (item.returns) {
+					contents += " " + item.returns + " =";
+				}
+
+				contents += " ANY call " + item.name + "\r\n```";
+
+				return { contents };
 			}
+		}
 
-			contents += "```sqf\r\n(function)";
-			if (item.returns) {
-				contents += " " + item.returns + " =";
+		if (path.basename(params.textDocument.uri).toLowerCase() == "description.ext") {
+			let item = this.documentation[name];
+
+			if (item) {
+				let contents = item.description + " _([more info](" + item.link + "))_";
+				return { contents };
 			}
-
-			contents += " ANY call " + item.name + "\r\n```";
-
-			return { contents };
 		}
 
 		return null;
 	}
 
-	public onDefinition(name: string): Location[] {
+	public onDefinition(params: TextDocumentPositionParams, name: string): Location[] {
 		let fun = this.getFunction(name);
 		if (!fun) return [];
 

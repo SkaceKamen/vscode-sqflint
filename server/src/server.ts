@@ -168,7 +168,7 @@ export class SQFLintServer {
 	/** Is workspace indexed already */
 	private indexed: boolean = false;
 
-	private extModule: ExtModule;
+	public extModule: ExtModule;
 
 	private modules: Module[];
 
@@ -668,60 +668,110 @@ export class SQFLintServer {
 		});
 	}
 
+	private getDefinitionLine(document: TextDocument, definition: SQFLint.Range) {
+		let start = document.offsetAt(definition.start);
+		let end = document.offsetAt(definition.end);
+		let contents = document.getText();
+
+		while (end < contents.length && contents.charAt(end) != '\n' && contents.charAt(end) != ';') {
+			end++;
+		}
+
+		let line = document.getText().substring(
+			start,
+			end
+		);
+
+		return line;
+	}
+
 	/**
 	 * Handles hover over text request.
 	 */
 	private onHover(params: TextDocumentPositionParams): Hover {
 		// params.context.includeDeclaration.valueOf()
-		let ref = this.findReferences(params);
+		if (this.ext(params) == ".sqf") {
+			let ref = this.findReferences(params);
 
-		if (ref && (ref.global || ref.local)) {
-			if (ref.global) {
-				return {
-					contents: ref.global.comment || null
+			if (ref && (ref.global || ref.local)) {
+				let contents = [];
+
+				if (ref.global) {
+					if (ref.global.comment) {
+						contents.push(ref.global.comment + "\n");
+					}
+					
+					for (var uri in ref.global.definitions) {
+						// let document = this.documents.get(uri);
+						let document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
+						if (document) {
+							let definitions = ref.global.definitions[uri];
+							for (var i = 0; i < definitions.length; i++) {
+								let definition = definitions[i];
+								let line = this.getDefinitionLine(document, definition);
+
+								contents.push("```sqf\r\n" + line + "\r\n```");
+							}
+						} else {
+							console.log("Failed to get document", uri);
+						}
+					}					
+				} else if (ref.local) {
+					if (ref.local.comment) {
+						contents.push(ref.local.comment + "\n");
+					}
+
+					let document = this.documents.get(params.textDocument.uri);
+					for (var i = 0; i < ref.local.definitions.length; i++) {
+						let definition = ref.local.definitions[i];
+						let line = this.getDefinitionLine(document, definition);
+
+						contents.push("```sqf\r\n" + line + "\r\n```");
+					}
 				}
-			} else if (ref.local) {
+
 				return {
-					contents: ref.local.comment || null
-				}
-			}
-		} else {
-			let docs = this.documentation[this.getNameFromParams(params).toLowerCase()];
-			let op = this.findOperator(params);
-			let ev = this.findEvent(params);
-			
-			if (docs) {
-				return {
-					contents: this.buildHoverDocs(docs)
+					contents: contents.join("\n")
 				};
-			}
+			} else {
+				let name = this.getNameFromParams(params).toLowerCase();
+				let docs = this.documentation[name];
+				let op = this.findOperator(params);
+				let ev = this.findEvent(params);
 
-			if (op) {
-				return {
-					contents: "```sqf\r\n(command) " + op[0].documentation + "\r\n```"
-				};
-			}
-
-			if (ev) {
-				let contents = "";
-
-				if (ev.type == 'units') {
-					contents = `**${ev.title}** - _Unit event_\n\n**Arguments**\n\n${ev.args}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.unitEventHandlers}#${ev.id}))`;
-				}
-				if (ev.type == 'ui') {
-					contents = `**${ev.title}** - _UI event_\n\n**Arguments**\n\n${ev.args}\n\n**Scope**\n\n${ev.scope}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.uiEventHandlers}))`;
+				if (docs) {
+					return {
+						contents: this.buildHoverDocs(docs)
+					};
 				}
 
-				return {
-					contents: contents
-				};
+				if (op) {
+					return {
+						contents: "```sqf\r\n(command) " + op[0].documentation + "\r\n```"
+					};
+				}
+
+				if (ev) {
+					let contents = "";
+
+					if (ev.type == 'units') {
+						contents = `**${ev.title}** - _Unit event_\n\n**Arguments**\n\n${ev.args}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.unitEventHandlers}#${ev.id}))`;
+					}
+					if (ev.type == 'ui') {
+						contents = `**${ev.title}** - _UI event_\n\n**Arguments**\n\n${ev.args}\n\n**Scope**\n\n${ev.scope}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.uiEventHandlers}))`;
+					}
+
+					return {
+						contents: contents
+					};
+				}
 			}
 		}
 
 		let name = this.getNameFromParams(params).toLowerCase();
 		let hover;
 		for (let i in this.modules) {
-			if ((hover = this.modules[i].onHover(name))) {
+			if ((hover = this.modules[i].onHover(params, name))) {
 				return hover;
 			}
 		}
@@ -834,7 +884,7 @@ export class SQFLintServer {
 		let name = this.getNameFromParams(params);
 
 		for (let i in this.modules) {
-			let result = this.modules[i].onDefinition(name);
+			let result = this.modules[i].onDefinition(params, name);
 			if (result) {
 				locations = locations.concat(result);
 			}
@@ -844,58 +894,60 @@ export class SQFLintServer {
 	}
 
 	private onSignatureHelp(params: TextDocumentPositionParams): SignatureHelp {
-		let backup = this.walkBackToOperator(params);
+		if (this.ext(params) == ".sqf") {
+			let backup = this.walkBackToOperator(params);
 
-		if (backup) {
-			let op = this.findOperator({ textDocument: params.textDocument, position: backup.position});
-			let docs = this.documentation[this.getNameFromParams({textDocument: params.textDocument, position: backup.position}).toLowerCase()];
+			if (backup) {
+				let op = this.findOperator({ textDocument: params.textDocument, position: backup.position});
+				let docs = this.documentation[this.getNameFromParams({textDocument: params.textDocument, position: backup.position}).toLowerCase()];
 
-			let signatures: SignatureInformation[] = [];
-			let signature: SignatureHelp = {
-				signatures: signatures,
-				activeSignature: 0,
-				activeParameter: 0
-			};
+				let signatures: SignatureInformation[] = [];
+				let signature: SignatureHelp = {
+					signatures: signatures,
+					activeSignature: 0,
+					activeParameter: 0
+				};
 
-			if (docs) {
-				//signature.activeSignature = 0;
-				signature.activeParameter = backup.commas;
+				if (docs) {
+					//signature.activeSignature = 0;
+					signature.activeParameter = backup.commas;
 
-				for(let i in docs.signatures) {
-					let params = [];
-					let parameters = [];
-					let sig = docs.signatures[i].signature;
-					let match = /\[(.*?)\]/.exec(sig);
-					if (match) {
-						params = match[1].replace(/ /g, "").split(",");
-						for(let p in params) {
-							parameters.push({ label: params[p] });
+					for(let i in docs.signatures) {
+						let params = [];
+						let parameters = [];
+						let sig = docs.signatures[i].signature;
+						let match = /\[(.*?)\]/.exec(sig);
+						if (match) {
+							params = match[1].replace(/ /g, "").split(",");
+							for(let p in params) {
+								parameters.push({ label: params[p] });
+							}
 						}
+
+						signatures.push({
+							label: docs.signatures[i].signature,
+							documentation: docs.description.plain,
+							parameters: parameters
+						});
 					}
 
-					signatures.push({
-						label: docs.signatures[i].signature,
-						documentation: docs.description.plain,
-						parameters: parameters
-					});
+					return signature;
+				} else if (op) {
+					for(let i in op) {
+						let item = op[i];
+						let parameters = [];
+
+						if (item.left) parameters.push(item.left);
+						if (item.right) parameters.push(item.right);
+
+						signatures.push({
+							label: (item.left ? (item.left + " ") : "") + item.name + (item.right ? (" " + item.right) : ""),
+							parameters: parameters
+						});
+					}
+
+					return signature;
 				}
-
-				return signature;
-			} else if (op) {
-				for(let i in op) {
-					let item = op[i];
-					let parameters = [];
-
-					if (item.left) parameters.push(item.left);
-					if (item.right) parameters.push(item.right);
-
-					signatures.push({
-						label: (item.left ? (item.left + " ") : "") + item.name + (item.right ? (" " + item.right) : ""),
-						parameters: parameters
-					});
-				}
-
-				return signature;
 			}
 		}
 
@@ -942,62 +994,69 @@ export class SQFLintServer {
 		return null;
 	}
 
+	private ext(params: TextDocumentPositionParams) {
+		return fs_path.extname(params.textDocument.uri).toLowerCase();
+	}
+
 	/**
 	 * Provides completion items.
 	 */
 	private onCompletion(params: TextDocumentPositionParams): CompletionItem[] {
+	
 		let items: CompletionItem[] = [];
 		let hover = this.getNameFromParams(params).toLowerCase();
 		
-		// Use prefix lookup for smaller items
-		if (hover.length <= 3) {
-			let operators = this.operatorsByPrefix[hover];
-			for (let index in operators) {
-				let operator = operators[index];
-				items.push({
-					label: operator.name,
-					kind: CompletionItemKind.Function
-				});
+		if (this.ext(params) == ".sqf") {
+			// Use prefix lookup for smaller items
+			if (hover.length <= 3) {
+				let operators = this.operatorsByPrefix[hover];
+				for (let index in operators) {
+					let operator = operators[index];
+					items.push({
+						label: operator.name,
+						kind: CompletionItemKind.Function
+					});
+				}
+			} else {
+				for (let ident in this.operators) {
+					let operator = this.operators[ident];
+
+					if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+						items.push({
+							label: operator[0].name,
+							kind: CompletionItemKind.Function
+						});
+					}
+				}
 			}
-		} else {
-			for (let ident in this.operators) {
-				let operator = this.operators[ident];
+
+			for (let ident in this.globalVariables) {
+				let variable = this.globalVariables[ident];
 
 				if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
 					items.push({
-						label: operator[0].name,
-						kind: CompletionItemKind.Function
+						label: variable.name,
+						kind: CompletionItemKind.Variable
+					});
+				}
+			}
+
+			for (let ident in this.events) {
+				let event = this.events[ident];
+				if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
+					items.push({
+						label: '"' + event.title + '"',
+						data: ident,
+						filterText: event.title,
+						insertText: event.title,
+						kind: CompletionItemKind.Enum
 					});
 				}
 			}
 		}
 
-		for (let ident in this.globalVariables) {
-			let variable = this.globalVariables[ident];
-
-			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
-				items.push({
-					label: variable.name,
-					kind: CompletionItemKind.Variable
-				});
-			}
-		}
-
-		for (let ident in this.events) {
-			let event = this.events[ident];
-			if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
-				items.push({
-					label: '"' + event.title + '"',
-					data: ident,
-					filterText: event.title,
-					insertText: event.title,
-					kind: CompletionItemKind.Enum
-				});
-			}
-		}
-
 		for (let i in this.modules) {
-			items = items.concat(this.modules[i].onCompletion(hover));
+			items = items.concat(this.modules[i].onCompletion(params, hover));
 		}
 
 		return items;
@@ -1098,7 +1157,7 @@ export class SQFLintServer {
 	/**
 	 * Returns local variable info or null/undefined;
 	 */
-	private getLocalVariable(document: TextDocumentIdentifier, name: string) {
+	private getLocalVariable(document: TextDocumentIdentifier, name: string): DocumentVariable {
 		let ns;
 		if (typeof(ns = this.documentVariables[document.uri]) === "undefined")
 			return null;

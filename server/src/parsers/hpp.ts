@@ -11,7 +11,7 @@ export namespace Hpp {
 		var processed: string = null;
 		try {
 			processed = preprocess(filename);
-			return <ClassBody>hppParser.parse(processed);
+			return applyExtends(<ClassBody>hppParser.parse(processed));
 		} catch (e) {
 			if (e.location !== undefined) {
 				var location = (<pegjs.PegjsError>e).location;
@@ -33,6 +33,40 @@ export namespace Hpp {
 				throw e;
 			}
 		}
+	}
+
+	function applyExtends(context: ClassBody): ClassBody {
+		for (var i in context.classes) {
+			context.classes[i].body.parent = context;
+			applyExtendsClass(context.classes[i]);
+		}
+
+		return context;
+	}
+
+	function applyExtendsClass(context: Class) {
+		if (context.extends) {
+			let parent = context.body.parent;
+			while (parent != null) {
+				let ext = parent.classes[context.extends.toLowerCase()];
+				if (ext) {
+					for (var i in ext.body.variables) {
+						context.body.variables[i] = ext.body.variables[i];
+					}
+					for (var i in ext.body.classes) {
+						context.body.classes[i] = ext.body.classes[i];
+					}
+				}
+
+				if (parent.parent != null) {
+					parent = parent.parent;
+				} else {
+					parent = null;
+				}
+			}
+		}
+
+		applyExtends(context.body);
 	}
 
 	export function pegjsLocationToSqflint(location: pegjs.LocationRange) {
@@ -104,6 +138,7 @@ export namespace Hpp {
 
 
 	export interface ClassBody {
+		parent: ClassBody;
 		classes: { [name: string]: Class };
 		variables: { [name: string]: string };
 	}

@@ -1,6 +1,6 @@
 import { SQFLintSettings, SQFLintServer } from './server'
 import { SQFLint } from './sqflint';
-import { TextDocument, InitializeParams, PublishDiagnosticsParams, CompletionItem, Hover, TextDocumentPositionParams, Location } from 'vscode-languageserver';
+import { TextDocument, InitializeParams, PublishDiagnosticsParams, CompletionItem, Hover, TextDocumentPositionParams, Location, SignatureHelp } from 'vscode-languageserver';
 
 export abstract class Module
 {
@@ -21,7 +21,7 @@ export abstract class Module
 		return Promise.resolve();
 	}
 
-	public onCompletion(name: string): CompletionItem[] {
+	public onCompletion(params: TextDocumentPositionParams, name: string): CompletionItem[] {
 		return [];
 	}
 
@@ -29,12 +29,16 @@ export abstract class Module
 		return item;
 	}
 
-	public onHover(name: string): Hover {
+	public onHover(params: TextDocumentPositionParams, name: string): Hover {
 		return null;
 	}
 
-	public onDefinition(name: string): Location[] {
+	public onDefinition(params: TextDocumentPositionParams, name: string): Location[] {
 		return [];
+	}
+
+	public onSignatureHelp(params: TextDocumentPositionParams, name: string): SignatureHelp {
+		return null;
 	}
 
 	protected sendDiagnostics(params: PublishDiagnosticsParams) {
