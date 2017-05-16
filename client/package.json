@@ -45,23 +45,21 @@
     "languages": [
       {
         "id": "sqf",
-        "aliases": [
-          "SQF",
-          "sqf"
-        ],
-        "extensions": [
-          ".sqf"
-        ]
+        "aliases": [ "SQF", "sqf" ],
+        "extensions": [ ".sqf" ]
       },
       {
         "id": "ext",
-        "aliases": [
-          "Arma header file"
-        ],
-        "extensions": [
-          ".ext",
-          ".hpp"
-        ]
+        "aliases": [ "Arma header file" ],
+        "extensions": [ ".ext", ".hpp" ],
+        "configuration": "./languages/config/ext.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ext",
+        "scopeName": "description.ext",
+        "path": "./languages/syntaxes/ext.json"
       }
     ],
     "configuration": {
