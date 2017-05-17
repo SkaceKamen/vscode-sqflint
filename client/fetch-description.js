@@ -17,6 +17,29 @@ if (!fs.existsSync(cache)) {
 	parseDescription(cache);	
 };
 
+function clearElement(el) {
+	let content = [];
+	for (var i = 0; i < el.childNodes.length; i++) {
+		var child = el.childNodes[i];
+		if (child.nodeType == 3) {
+			content.push(child.textContent);
+		}
+		if (child.nodeType == 1) {
+			if (child.nodeName.toLowerCase() == 'a') {
+				var link = child.attributes.getNamedItem('href').value;
+				if (link.charAt(0) == '/') {
+					link = "https://community.bistudio.com" + link;
+				} else {
+					link = url + link;
+				}
+
+				content.push(" [" + child.textContent + "](" + link + ") ");
+			}
+		}
+	}
+	return clearText(content.join(""));
+}
+
 function clearText(text) {
 	return text.replace(/[\r\n]/g, "").replace(/<\s*br\s*\/\s*>/, "\n");
 }
@@ -44,7 +67,7 @@ function parseDescription(filepath) {
 		let row = rows[i];
 		let name = clearText(row.children[1].textContent);
 		let type = clearText(row.children[2].textContent).toLowerCase();
-		let description = clearText(row.children[3].childNodes[0].textContent);
+		let description = clearElement(row.children[3]);
 		let link = url + "#" + name;
 
 		values.push({
