@@ -7,7 +7,8 @@ import {
 	InitializeParams, InitializeResult, TextDocumentPositionParams,
 	CompletionItem, CompletionItemKind, ReferenceParams, Location,
 	Hover, TextDocumentIdentifier, SignatureHelp, SignatureInformation,
-	DidChangeConfigurationParams
+	DidChangeConfigurationParams,
+	MarkedString
 } from 'vscode-languageserver';
 
 import { spawn } from 'child_process';
@@ -565,6 +566,10 @@ export class SQFLintServer {
 												usage: {},
 												definitions: {}
 											});
+										} else {
+											if (!variable.comment) {
+												variable.comment = item.comment;
+											}
 										}
 
 										// Set positions local to this document for this global variable.
@@ -694,13 +699,9 @@ export class SQFLintServer {
 			let ref = this.findReferences(params);
 
 			if (ref && (ref.global || ref.local)) {
-				let contents = [];
+				let contents: MarkedString[] = [];
 
-				if (ref.global) {
-					if (ref.global.comment) {
-						contents.push(ref.global.comment + "\n");
-					}
-					
+				if (ref.global) {					
 					for (var uri in ref.global.definitions) {
 						// let document = this.documents.get(uri);
 						let document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
@@ -710,29 +711,37 @@ export class SQFLintServer {
 								let definition = definitions[i];
 								let line = this.getDefinitionLine(document, definition);
 
-								contents.push("```sqf\r\n" + line + "\r\n```");
+								contents.push({
+									language: "sqf",
+									value: line
+								});
 							}
 						} else {
 							console.log("Failed to get document", uri);
 						}
-					}					
-				} else if (ref.local) {
-					if (ref.local.comment) {
-						contents.push(ref.local.comment + "\n");
-					}
+					}		
 
+					if (ref.global.comment) {
+						contents.push(ref.global.comment);
+					}
+				} else if (ref.local) {
 					let document = this.documents.get(params.textDocument.uri);
 					for (var i = 0; i < ref.local.definitions.length; i++) {
 						let definition = ref.local.definitions[i];
 						let line = this.getDefinitionLine(document, definition);
 
-						contents.push("```sqf\r\n" + line + "\r\n```");
+						contents.push({
+							language: "sqf",
+							value: line
+						});
+					}
+
+					if (ref.local.comment) {
+						contents.push(ref.local.comment);
 					}
 				}
 
-				return {
-					contents: contents.join("\n")
-				};
+				return { contents };
 			} else {
 				let name = this.getNameFromParams(params).toLowerCase();
 				let docs = this.documentation[name];
@@ -747,7 +756,10 @@ export class SQFLintServer {
 
 				if (op) {
 					return {
-						contents: "```sqf\r\n(command) " + op[0].documentation + "\r\n```"
+						contents: {
+							language: "sqf",
+							value: "(command) " + op[0].documentation
+						}
 					};
 				}
 
@@ -761,9 +773,7 @@ export class SQFLintServer {
 						contents = `**${ev.title}** - _UI event_\n\n**Arguments**\n\n${ev.args}\n\n**Scope**\n\n${ev.scope}\n\n**Description**\n\n${ev.description}\n\n([more info](${links.uiEventHandlers}))`;
 					}
 
-					return {
-						contents: contents
-					};
+					return { contents };
 				}
 			}
 		}
@@ -783,7 +793,7 @@ export class SQFLintServer {
 	 * Creates formatted decoumentation.
 	 */
 	private buildHoverDocs(docs: WikiDocumentation) {
-		let res = [docs.description.formatted];
+		let texts: MarkedString[] = [];
 		
 		for(let s in docs.signatures) {
 			let sig = docs.signatures[s];
@@ -793,12 +803,15 @@ export class SQFLintServer {
 			}
 			ss += sig.signature;
 			
-			res.push("```sqf");
-			res.push(ss);
-			res.push("```");
+			texts.push({
+				language: "sqf",
+				value: ss
+			});
 		}
 
-		return res.join("\r\n");
+		texts.push(docs.description.formatted);
+
+		return texts;
 	}
 
 	/**
