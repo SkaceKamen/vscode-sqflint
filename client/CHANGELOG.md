@@ -1,3 +1,10 @@
+# Version 0.7.8
+ * Added [basic coloring](http://sqflint.zipek.cz/images/desc_color.png) for EXT/HPP files
+ * Added [code completion](http://sqflint.zipek.cz/images/desc_help.png) for description.ext
+ * Hovering over variable will now [display its definiton(s)](http://sqflint.zipek.cz/images/variable_hover_def.png)
+ * Update hover format to match default [vscode style](http://sqflint.zipek.cz/images/hover_reformat.png)
+ * Fixed [hover documentation](http://sqflint.zipek.cz/images/functions_hover.png) for some BIS functions
+
 # Version 0.7.7
  * Removed debug output (sorry)
 
