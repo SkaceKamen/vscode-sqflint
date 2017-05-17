@@ -210,6 +210,7 @@ function parseDocument(doc, type, extended) {
 					for(var s in syntax) {
 						var signature = syntax[s].trim();
 						var ret = returns[s];
+						if (ret != null) ret = ret.trim();
 
 						signatures.push({
 							signature: removeMoreTags(signature),
