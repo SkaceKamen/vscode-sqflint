@@ -42,6 +42,7 @@ function removeMoreTags(value) {
 	
 	return value
 		.replace(/<br>/ig, '')
+		.replace(/''since [^']*''/ig, '')
 		.replace(/''\(since \[.*?\]\)''/ig, '')
 		.replace(/\(''since .*?''\)/ig, '')
 		.replace(/<nowiki>(.*?)<\/nowiki>/g, '$1')
@@ -65,8 +66,8 @@ function polishSyntaxArgument(item) {
 function parseDocument(doc, type, extended) {
 	var document = new xmldoc.XmlDocument(doc);
 	var pages = document.childrenNamed("page");
-	var findCommand = /{{(?:Command|Function)\|=((?:.|\n)*?)}}/i;
-	var findVariable = /\|\s*((?:.|\n)*?)\s*\|\s*=\s*(.*)/g;
+	var findCommand = /{{(?:Command|Function)\|=((?:.|\n)*?\n)}}/i;
+	var findVariable = /\|\s*((?:.|\n)*?)\s*\|\s*=[\r\t\f\v ]*(.*)/g;
 	var results = extended || {};
 	var placeHolder = /\/\*\s*Description:\s*([^]*)\s*(?:Parameters|Parameter\(s\)):\s*([^]*)\s*Returns:\s*([^]*)\s*\*\/\s*/i;
 	var placeHolderWithExamples = /\/\*\s*Description:\s*([^]*)\s*(?:Parameters|Parameter\(s\)):\s*([^]*)\s*Returns:\s*([^]*)\s*Examples:\s*([^]*)\s*\*\/\s*/i;
@@ -98,11 +99,32 @@ function parseDocument(doc, type, extended) {
 				var returns = [];
 				var syntax = [];
 				
+				var previousIdent = null;
+
 				while (match = findVariable.exec(wiki)) {
 					var ident = match[2].toLowerCase().trim();
 					var value = match[1];
 
 					value = value.replace(/[srp][0-9]*=/ig, '');
+
+					if (title.toLowerCase() == 'setvariable') {
+						console.log("IDENT", ident);
+						console.log("VALUE", value);
+					}
+
+					// Empty nothing after description means syntax apparently
+					if (ident == "" && previousIdent == 'description') {
+						ident = "syntax";
+					}
+
+					if (ident.indexOf("syntax") == 0) {
+						ident = "syntax";
+					}
+
+					// Fix this
+					if (ident == "returnvalue") {
+						ident = "return value";
+					}
 
 					if (ident == "syntax" || ident == "return value") {
 						if (!variables[ident])
@@ -111,6 +133,8 @@ function parseDocument(doc, type, extended) {
 					} else {
 						variables[ident] = value;
 					}
+
+					previousIdent = ident;
 				}
 
 				if (variables["return value"])
