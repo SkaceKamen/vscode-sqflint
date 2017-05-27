@@ -4,3 +4,4 @@ debugger
 node_modules
 server/*.xml
 cache
+*.vsix
