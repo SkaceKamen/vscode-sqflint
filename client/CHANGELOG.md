@@ -1,7 +1,7 @@
 # Version 0.7.9
  * Fixed descriptions for some commands
- * Fixed params raising undefined property in some cases
- * Fixed hover not working, when file with definition of variable was deleted/moved
+ * Fixed `params` raising undefined property in some cases
+ * Fixed hover not working when file with definition of variable was deleted/moved
  * Fixed `if` sometimes throwing errors in console
  * Fixed wrong error offsets for HPP files
  * Fixed HPP parser using older file contents
