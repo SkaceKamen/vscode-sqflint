@@ -18,13 +18,30 @@ interface Documentation {
 
 export class ExtModule extends Module {
 	private descriptionFile: string = null;
-	private single: SingleRunner = new SingleRunner(50);
+	private single: SingleRunner = new SingleRunner(200);
 
 	public functions: { [functionName: string]: Function } = {};
 	private documentation: { [variable: string]: Documentation } = {};
 
 	public onInitialize(params: InitializeParams) {
 		this.loadDocumentation();
+
+		// This allows clearing errors when document is reparsed
+		Hpp.onFilename = (filename: string) => {
+			this.sendDiagnostics({
+				uri: Uri.file(filename).toString(),
+				diagnostics: []
+			});
+		}
+
+		// This allows loading document contents if it's opened directly
+		Hpp.tryToLoad = (filename: string) => {
+			let document = this.server.documents.get(Uri.file(filename).toString());
+			if (document) {
+				return document.getText();
+			}
+			return null;
+		}
 	}
 
 	private loadDocumentation() {
@@ -110,8 +127,6 @@ export class ExtModule extends Module {
 					});
 				}
 			}
-		} else {
-			console.log("Not description.ext");
 		}
 
 		return items;
@@ -190,6 +205,13 @@ export class ExtModule extends Module {
 			fs.readFile(filename, (err, data) => {
 				try {
 					this.process(Hpp.parse(filename), filename);
+					
+					// Clear diagnostics
+					this.sendDiagnostics({
+						uri: Uri.file(filename).toString(),
+						diagnostics: []
+					});
+
 				} catch(error) {
 					if (error instanceof Hpp.ParseError && error.filename) {
 						this.sendDiagnostics({
@@ -202,7 +224,7 @@ export class ExtModule extends Module {
 									source: "sqflint"
 								}
 							]
-						})
+						});
 					} else {
 						console.error(error);
 					}
@@ -225,7 +247,7 @@ export class ExtModule extends Module {
 	 * Loads list of functions and paths to their files.
 	 */
 	private processCfgFunctions(cfgFunctions: Hpp.Class, root_filename: string) {
-		let diagnostics: Diagnostic[] = [];
+		let diagnostics: { [uri: string]: Diagnostic[] } = {};
 		let root = path.dirname(root_filename);
 
 		this.functions = {};
@@ -277,13 +299,17 @@ export class ExtModule extends Module {
 
 					// Check file existence
 					if (!fs.existsSync(filename)) {
-						diagnostics.push(
+						let fname = functionClass.fileLocation.filename || root_filename;
+						let uri = Uri.file(fname).toString();
+
+						if (!diagnostics[uri]) {
+							diagnostics[uri] = [];
+						}
+
+						diagnostics[uri].push(
 							{
 								severity: DiagnosticSeverity.Error,
-								range: {
-									start: { character: 0, line: 0 },
-									end: { character: 10, line: 0 }
-								},
+								range: functionClass.fileLocation.range,
 								message: "Failed to find " + filename + " for function " + fullFunctionName + ".",
 								source: "sqflint"
 							}
@@ -293,10 +319,12 @@ export class ExtModule extends Module {
 			}
 		}
 
-		this.sendDiagnostics({
-			uri: Uri.file(root_filename).toString(),
-			diagnostics: diagnostics
-		});
+		for (var uri in diagnostics) {
+			this.sendDiagnostics({
+				uri: uri,
+				diagnostics: diagnostics[uri]
+			});
+		}
 
 		this.tryToLoadDocs();
 	}

@@ -137,7 +137,7 @@ export class SQFLintServer {
 	public connection: IConnection;
 
 	/** Used to watch documents */
-	private documents: TextDocuments;
+	public documents: TextDocuments;
 
 	/** Path to workspace */
 	private workspaceRoot: string;
@@ -703,23 +703,27 @@ export class SQFLintServer {
 
 				if (ref.global) {					
 					for (var uri in ref.global.definitions) {
-						// let document = this.documents.get(uri);
-						let document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
-						if (document) {
-							let definitions = ref.global.definitions[uri];
-							for (var i = 0; i < definitions.length; i++) {
-								let definition = definitions[i];
-								let line = this.getDefinitionLine(document, definition);
+						try {
+							let document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
+							if (document) {
+								let definitions = ref.global.definitions[uri];
+								for (var i = 0; i < definitions.length; i++) {
+									let definition = definitions[i];
+									let line = this.getDefinitionLine(document, definition);
 
-								contents.push({
-									language: "sqf",
-									value: line
-								});
+									contents.push({
+										language: "sqf",
+										value: line
+									});
+								}
+							} else {
+								console.log("Failed to get document", uri);
 							}
-						} else {
-							console.log("Failed to get document", uri);
+						} catch (e) {
+							console.log("Failed to load " + uri);
+							console.log(e);
 						}
-					}		
+					}
 
 					if (ref.global.comment) {
 						contents.push(ref.global.comment);

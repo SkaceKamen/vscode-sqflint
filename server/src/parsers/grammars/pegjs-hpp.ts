@@ -179,7 +179,7 @@ function peg$parse(input, options) {
                   	"name": name,
                     "extends": extend,
                     "body": body,
-                    "location": location
+                    "location": location()
                   }
               }
           },
