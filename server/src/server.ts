@@ -49,6 +49,7 @@ export interface SQFLintSettings {
 	checkPaths: boolean;
 	exclude: string[];
 	ignoredVariables: string[];
+	includePrefixes: { [key: string]: string };
 }
 
 /**
@@ -215,7 +216,8 @@ export class SQFLintServer {
 			indexWorkspaceTwice: true,
 			exclude: [],
 			checkPaths: false,
-			ignoredVariables: []
+			ignoredVariables: [],
+			includePrefixes: []
 		};
 
 		this.ignoredVariablesSet = {};
@@ -233,6 +235,7 @@ export class SQFLintServer {
 		this.settings.warnings = settings.sqflint.warnings;
 		this.settings.exclude = settings.sqflint.exclude;
 		this.settings.ignoredVariables = settings.sqflint.ignoredVariables;
+		this.settings.includePrefixes = settings.sqflint.includePrefixes;
 
 		this.ignoredVariablesSet = {};
 		this.settings.ignoredVariables.forEach((v) => {
@@ -495,7 +498,8 @@ export class SQFLintServer {
 						let options = <SQFLint.Options>{
 							pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
 							checkPaths: this.settings.checkPaths,
-							ignoredVariables: this.settings.ignoredVariables
+							ignoredVariables: this.settings.ignoredVariables,
+							includePrefixes: this.settings.includePrefixes
 						}
 
 						client.parse(uri.fsPath, contents, options)

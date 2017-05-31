@@ -372,5 +372,6 @@ export namespace SQFLint {
 		checkPaths?: boolean;
 		pathsRoot?: string;
 		ignoredVariables?: string[];
+		includePrefixes?: { [key: string]: string };
 	}
 }
