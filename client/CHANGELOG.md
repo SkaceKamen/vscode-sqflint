@@ -1,3 +1,7 @@
+# Version 0.8.0
+ * Added `includePrefixes` option, using this option, you can map prefix used in `#include` to different path. For example, you can map `\A3\` to `C:\UnpackedArma\`, so `#include "\A3\hpp.inc"` will be mapped to `#include "C:\UnpackedArma\hpp.inc"`
+ * Macros now show their definition in hover
+
 # Version 0.7.9
  * Fixed descriptions for some commands
  * Fixed `params` raising undefined property in some cases
