@@ -82,6 +82,7 @@ interface GlobalMacros {
 
 interface GlobalMacro {
 	name: string;
+	arguments: string;
 	definitions: { [ uri: string ]: SQFLint.MacroDefinition[] };
 }
 
@@ -217,7 +218,7 @@ export class SQFLintServer {
 			exclude: [],
 			checkPaths: false,
 			ignoredVariables: [],
-			includePrefixes: []
+			includePrefixes: {}
 		};
 
 		this.ignoredVariablesSet = {};
@@ -616,6 +617,7 @@ export class SQFLintServer {
 									if (!macro) {
 										macro = this.globalMacros[item.name.toLowerCase()] = {
 											name: item.name,
+											arguments: item.arguments,
 											definitions: {}
 										};
 									}
@@ -702,10 +704,10 @@ export class SQFLintServer {
 		if (this.ext(params) == ".sqf") {
 			let ref = this.findReferences(params);
 
-			if (ref && (ref.global || ref.local)) {
+			if (ref && (ref.global || ref.local || ref.macro)) {
 				let contents: MarkedString[] = [];
 
-				if (ref.global) {					
+				if (ref.global) {
 					for (var uri in ref.global.definitions) {
 						try {
 							let document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
@@ -746,6 +748,16 @@ export class SQFLintServer {
 
 					if (ref.local.comment) {
 						contents.push(ref.local.comment);
+					}
+				} else if (ref.macro) {
+					for (let uri in ref.macro.definitions) {
+						var def = ref.macro.definitions[uri];
+						for (let v = 0; v < def.length; v++) {
+							contents.push({
+								language: "ext",
+								value: "#define " + ref.macro.name + " " + def[v].value
+							});
+						}
 					}
 				}
 
