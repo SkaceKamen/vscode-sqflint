@@ -95,6 +95,11 @@
           "type": "array",
           "default": [],
           "description": "Ignored variables are treaded as internal commands, without definition check."
+        },
+        "sqflint.includePrefixes": {
+          "type": "object",
+          "default": {},
+          "description": "List of include paths, key is prefix used in include path, and value is local path."
         }
       }
     },
