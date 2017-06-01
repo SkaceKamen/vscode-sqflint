@@ -1,3 +1,8 @@
+# Version 0.8.1
+ * Fixed path normalization in `includePrefixes` (issue #13)
+ * Fixed preprocessor not recognizing multiline comments (issue #13)
+ * Incorrect path in `#include` now throws warning about invalid paths when `checkPaths` option is enabled
+
 # Version 0.8.0
  * Added `includePrefixes` option, using this option, you can map prefix used in `#include` to different path. For example, you can map `\A3\` to `C:\UnpackedArma\`, so `#include "\A3\hpp.inc"` will be mapped to `#include "C:\UnpackedArma\hpp.inc"`
  * Macros now show their definition in hover
