@@ -237,6 +237,7 @@ export class SQFLintServer {
 		this.settings.exclude = settings.sqflint.exclude;
 		this.settings.ignoredVariables = settings.sqflint.ignoredVariables;
 		this.settings.includePrefixes = settings.sqflint.includePrefixes;
+		this.settings.checkPaths = settings.sqflint.checkPaths;
 
 		this.ignoredVariablesSet = {};
 		this.settings.ignoredVariables.forEach((v) => {
@@ -475,7 +476,6 @@ export class SQFLintServer {
 					// Parse SQF file
 					let uri = Uri.parse(textDocument.uri);
 					if (fs_path.extname(uri.fsPath).toLowerCase() == ".sqf") {
-						let diagnostics: Diagnostic[] = [];
 						let client = linter || this.sqflint;
 
 						// Reset variables local to document
@@ -509,7 +509,16 @@ export class SQFLintServer {
 								
 								if (!result) return;
 
+								let diagnosticsByUri: { [uri: string]: Diagnostic[] } = {};
+								let diagnostics = diagnosticsByUri[textDocument.uri] = [];
+
 								try {
+
+								// Reset errors for any included file
+								result.includes.forEach((item) => {
+									diagnostics[Uri.file(item.expanded).toString()] = [];
+								});
+								
 								// Add found errors
 								result.errors.forEach((item: SQFLint.Error) => {
 									diagnostics.push({
@@ -522,13 +531,24 @@ export class SQFLintServer {
 
 								if (this.settings.warnings) {
 									// Add local warnings
-									result.warnings.forEach((item: SQFLint.Warning) => {
-										diagnostics.push({
-											severity: DiagnosticSeverity.Warning,
-											range: item.range,
-											message: item.message,
-											source: "sqflint"
-										});
+									result.warnings.forEach((item: SQFLint.Warning) => {										
+										if (item.filename) {
+											let uri = Uri.file(item.filename).toString();
+											if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
+											diagnosticsByUri[uri].push({
+												severity: DiagnosticSeverity.Warning,
+												range: item.range,
+												message: item.message,
+												source: "sqflint"
+											});
+										} else {
+											diagnostics.push({
+												severity: DiagnosticSeverity.Warning,
+												range: item.range,
+												message: item.message,
+												source: "sqflint"
+											});
+										}
 									});
 								}
 
@@ -664,10 +684,13 @@ export class SQFLintServer {
 									}
 								}
 
-								this.connection.sendDiagnostics({
-									uri: textDocument.uri,
-									diagnostics: diagnostics
-								});
+								for (let uri in diagnosticsByUri) {
+									this.connection.sendDiagnostics({
+										uri: uri,
+										diagnostics: diagnosticsByUri[uri]
+									});
+								}
+
 								} catch(ex) {
 									console.error(ex);
 								}

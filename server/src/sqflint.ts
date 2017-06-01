@@ -122,6 +122,7 @@ export class SQFLint {
 		let warnings: SQFLint.Warning[] = info.warnings;
 		let variables: SQFLint.VariableInfo[] = info.variables;
 		let macros: SQFLint.Macroinfo[] = info.macros;
+		let includes: SQFLint.IncludeInfo[] = info.includes;
 		
 		// Preload position if present
 		let position: SQFLint.Range = null;
@@ -138,7 +139,8 @@ export class SQFLint {
 		} else if (message.type == "warning") {
 			warnings.push(new SQFLint.Warning(
 				message.error || message.message,
-				position
+				position,
+				message.filename
 			));
 		} else if (message.type == "variable") {
 			// Build variable info wrapper
@@ -183,6 +185,12 @@ export class SQFLint {
 			}
 			
 			macros.push(macro);
+		} else if (message.type == "include") {
+			let include = new SQFLint.IncludeInfo();
+			include.filename = message.include;
+			include.expanded = message.expandedInclude;
+
+			includes.push(include);
 		}
 	}
 
@@ -277,6 +285,9 @@ interface RawMessage extends RawMessagePosition {
 	error?: string;
 	message?: string;
 	macro?: string;
+	filename?: string;
+	include?: string;
+	expandedInclude?: string;
 
 	variable?: string;
 	comment?: string;
@@ -291,7 +302,8 @@ export namespace SQFLint {
 	class Message {
 		constructor(
 			public message: string,
-			public range: Range
+			public range: Range,
+			public filename?: string
 		) {}
 	}
 	
@@ -313,6 +325,12 @@ export namespace SQFLint {
 		warnings: Warning[] = [];
 		variables: VariableInfo[] = [];
 		macros: Macroinfo[] = [];
+		includes: IncludeInfo[] = [];
+	}
+
+	export class IncludeInfo {
+		filename: string;
+		expanded: string;
 	}
 
 	/**
