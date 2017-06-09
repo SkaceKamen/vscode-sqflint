@@ -153,6 +153,9 @@ export class SQFLintServer {
 	/** List of defined macros */
 	private globalMacros: GlobalMacros = {};
 
+	/** List of includes in files */
+	private includes: { [uri: string]: SQFLint.IncludeInfo[] } = {};
+
 	/** SQF Language operators */
 	private operators: { [name: string]: Operator[] } = {};
 	private operatorsByPrefix: { [prefix: string]: Operator[] } = {};
@@ -513,6 +516,8 @@ export class SQFLintServer {
 								let diagnostics = diagnosticsByUri[textDocument.uri] = [];
 
 								try {
+
+								this.includes[textDocument.uri] = result.includes;
 
 								// Reset errors for any included file
 								result.includes.forEach((item) => {
@@ -946,7 +951,61 @@ export class SQFLintServer {
 			}
 		}
 
+		let string = this.getIncludeString(params);
+		if (string) {
+			let includes = this.includes[params.textDocument.uri];
+			if (includes) {
+				for (let i = 0; i < includes.length; i++) {
+					let include = includes[i];
+					if (include.filename.toLowerCase() == string.toLowerCase()) {
+						string = include.expanded;
+					}
+				}
+			}
+
+			// Normalize path
+			string = string.replace(/\\/g, "/");
+
+			// Remove initial backslash if needed
+			if (string.charAt(0) == '/') {
+				string = string.substr(1);
+			}
+
+			// Add workspace root if needed
+			if (!fs_path.isAbsolute(string)) {
+				string = this.workspaceRoot + "/" + string;
+			}
+
+			if (fs.existsSync(string)) {
+				locations.push({
+					uri: Uri.file(string).toString(),
+					range: {
+						start: { line: 0, character: 0 },
+						end: { line: 0, character: 1 }
+					}
+				});
+			}
+		}
+
 		return locations;
+	}
+
+	private getIncludeString(params: TextDocumentPositionParams) {
+		let document = this.documents.get(params.textDocument.uri);
+		let newPosition = {
+			line: params.position.line,
+			character: 0
+		};
+		let offset = document.offsetAt(newPosition);
+		let contents = document.getText().substr(offset);
+		let matchInclude = /^\s*#include\s+(?:"([^"]*)"|<([^>]*)>)/;
+		let match: RegExpMatchArray;
+
+		if ((match = matchInclude.exec(contents))) {
+			return match[1] || match[2];
+		}
+
+		return null;
 	}
 
 	private onSignatureHelp(params: TextDocumentPositionParams): SignatureHelp {
