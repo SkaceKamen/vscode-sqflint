@@ -287,9 +287,9 @@ function peg$parse(input, options) {
       peg$c100 = "\"",
       peg$c101 = peg$literalExpectation("\"", false),
       peg$c102 = function(chars) { return chars.join("") },
-      peg$c103 = "\\",
-      peg$c104 = peg$literalExpectation("\\", false),
-      peg$c105 = function() { return text() },
+      peg$c103 = function() { return text() },
+      peg$c104 = "\\",
+      peg$c105 = peg$literalExpectation("\\", false),
       peg$c106 = function() { return ""; },
 
       peg$currPos          = 0,
@@ -2151,12 +2151,12 @@ function peg$parse(input, options) {
     var s0, s1, s2;
 
     s0 = peg$currPos;
-    if (input.charCodeAt(peg$currPos) === 92) {
-      s1 = peg$c103;
+    if (input.charCodeAt(peg$currPos) === 34) {
+      s1 = peg$c100;
       peg$currPos++;
     } else {
       s1 = peg$FAILED;
-      if (peg$silentFails === 0) { peg$fail(peg$c104); }
+      if (peg$silentFails === 0) { peg$fail(peg$c101); }
     }
     if (s1 !== peg$FAILED) {
       if (input.charCodeAt(peg$currPos) === 34) {
@@ -2202,7 +2202,7 @@ function peg$parse(input, options) {
         s2 = peg$parseSourceCharacter();
         if (s2 !== peg$FAILED) {
           peg$savedPos = s0;
-          s1 = peg$c105();
+          s1 = peg$c103();
           s0 = s1;
         } else {
           peg$currPos = s0;
@@ -2225,11 +2225,11 @@ function peg$parse(input, options) {
 
     s0 = peg$currPos;
     if (input.charCodeAt(peg$currPos) === 92) {
-      s1 = peg$c103;
+      s1 = peg$c104;
       peg$currPos++;
     } else {
       s1 = peg$FAILED;
-      if (peg$silentFails === 0) { peg$fail(peg$c104); }
+      if (peg$silentFails === 0) { peg$fail(peg$c105); }
     }
     if (s1 !== peg$FAILED) {
       s2 = peg$parseLineTerminatorSequence();

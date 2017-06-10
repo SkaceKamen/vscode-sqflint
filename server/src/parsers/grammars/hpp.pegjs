@@ -161,7 +161,7 @@ StringLiteral "string"
   = '"' chars:DoubleStringCharacter* '"' { return chars.join("") }
 
 DoubleStringCharacter
-  = "\\" "\""
+  = "\"" "\""
   / !('"' / LineTerminator) SourceCharacter { return text() }
   / LineContinuation
   
