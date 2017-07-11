@@ -2,6 +2,7 @@
  * `#include` path can now be opened (#15)
  * Fixed incorrect macro expansion (#14)
  * Fixed empty statements causing errors
+ * Fixed comments in HPP files missing style
 
 # Version 0.8.1
  * Fixed path normalization in `includePrefixes` (issue #13)
