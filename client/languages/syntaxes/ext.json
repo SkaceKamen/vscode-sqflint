@@ -5,6 +5,7 @@
 	"patterns": [
 		{ "include": "#strings" },
 		{ "include": "#numbers" },
+		{ "include": "#comments" }, 
 		{
 			"name": "storage.type",
 			"match": "\\b(class)\\b"
@@ -104,6 +105,73 @@
 				{
 					"match": "\\b((0(x|X)[0-9a-fA-F]([0-9a-fA-F']*[0-9a-fA-F])?)|(0(b|B)[01]([01']*[01])?)|(([0-9]([0-9']*[0-9])?\\.?[0-9]*([0-9']*[0-9])?)|(\\.[0-9]([0-9']*[0-9])?))((e|E)(\\+|-)?[0-9]([0-9']*[0-9])?)?)(L|l|UL|ul|u|U|F|f|ll|LL|ull|ULL)?\\b",
 					"name": "constant.numeric.ext"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"captures": {
+						"1": {
+							"name": "meta.toc-list.banner.block.c"
+						}
+					},
+					"match": "^/\\* =(\\s*.*?)\\s*= \\*/$\\n?",
+					"name": "comment.block.c"
+				},
+				{
+					"begin": "/\\*",
+					"beginCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.begin.c"
+						}
+					},
+					"end": "\\*/",
+					"endCaptures": {
+						"0": {
+							"name": "punctuation.definition.comment.end.c"
+						}
+					},
+					"name": "comment.block.c"
+				},
+				{
+					"match": "\\*/.*\\n",
+					"name": "invalid.illegal.stray-comment-end.c"
+				},
+				{
+					"captures": {
+						"1": {
+							"name": "meta.toc-list.banner.line.c"
+						}
+					},
+					"match": "^// =(\\s*.*?)\\s*=\\s*$\\n?",
+					"name": "comment.line.banner.cpp"
+				},
+				{
+					"begin": "(^[ \\t]+)?(?=//)",
+					"beginCaptures": {
+						"1": {
+							"name": "punctuation.whitespace.comment.leading.cpp"
+						}
+					},
+					"end": "(?!\\G)",
+					"patterns": [
+						{
+							"begin": "//",
+							"beginCaptures": {
+								"0": {
+									"name": "punctuation.definition.comment.cpp"
+								}
+							},
+							"end": "(?=\\n)",
+							"name": "comment.line.double-slash.cpp",
+							"patterns": [
+								{
+									"include": "#line_continuation_character"
+								}
+							]
+						}
+					]
 				}
 			]
 		},
