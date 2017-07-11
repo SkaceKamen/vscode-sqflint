@@ -1,3 +1,8 @@
+# Version 0.8.2
+ * `#include` path can now be opened (#15)
+ * Fixed incorrect macro expansion (#14)
+ * Fixed empty statements causing errors
+
 # Version 0.8.1
  * Fixed path normalization in `includePrefixes` (issue #13)
  * Fixed preprocessor not recognizing multiline comments (issue #13)
