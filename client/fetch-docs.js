@@ -1,11 +1,11 @@
 /**
  * This script is used to convert wikimedia dump of official wiki
  * to JSON format used in this extension.
- * 
+ *
  * To get create xml files used by this file, you need to go to /Special:Export/,
  * select Functions or Commands category, then save them as functionsExport.xml and
  * operatorsExport.xml.
- * 
+ *
  */
 
 var fs = require('fs');
@@ -39,7 +39,7 @@ function parseValue(value, type) {
 function removeMoreTags(value) {
 	if (!value)
 		return value;
-	
+
 	return value
 		.replace(/<br>/ig, '')
 		.replace(/''since [^']*''/ig, '')
@@ -90,7 +90,7 @@ function parseDocument(doc, type, extended) {
 				var info;
 				var wiki = match[1];
 				var variables = {};
-				
+
 				var signatures = [];
 				var description = {
 					plain: "",
@@ -98,7 +98,7 @@ function parseDocument(doc, type, extended) {
 				};
 				var returns = [];
 				var syntax = [];
-				
+
 				var previousIdent = null;
 
 				while (match = findVariable.exec(wiki)) {
@@ -106,11 +106,6 @@ function parseDocument(doc, type, extended) {
 					var value = match[1];
 
 					value = value.replace(/[srp][0-9]*=/ig, '');
-
-					if (title.toLowerCase() == 'setvariable') {
-						console.log("IDENT", ident);
-						console.log("VALUE", value);
-					}
 
 					// Empty nothing after description means syntax apparently
 					if (ident == "" && previousIdent == 'description') {
@@ -262,15 +257,15 @@ function parseDocument(doc, type, extended) {
 
 fs.readFile(__dirname + '/server/operatorsExport.xml', (err, data) => {
 	if (err) throw err;
-	
+
 	var docs = parseDocument(data.toString(), "command");
 	fs.readFile(__dirname + '/server/functionsExport.xml', (err, data) => {
 		if (err) throw err;
-		
+
 		docs = parseDocument(data.toString(), "function", docs);
 		fs.readFile(__dirname + '/../cba/cba.json', (err, data) => {
 			if (err) throw err;
-			
+
 			var items = JSON.parse(data);
 			for(var ident in items) {
 				docs[ident] = items[ident];
