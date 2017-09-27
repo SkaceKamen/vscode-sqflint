@@ -15,22 +15,22 @@ Go to Debug tab to create debugger config.
 
 Debugger (just watches RPT files for new output)
 
-![Debugger launch choice example](http://sqflint.zipek.cz/images/sqflint-debugger-launch.png)
+![Debugger launch choice example](https://sqflint.zipek.cz/images/sqflint-debugger-launch.png)
 
-![Debugger output example](http://sqflint.zipek.cz/images/sqflint-debugger.png)
+![Debugger output example](https://sqflint.zipek.cz/images/sqflint-debugger.png)
 
 Syntax error checking
 
-![Error example](http://sqflint.zipek.cz/images/sqflint-error.png)
+![Error example](https://sqflint.zipek.cz/images/sqflint-error.png)
 
 Hover support for commands and BIS functions
 
-![Hover example](http://sqflint.zipek.cz/images/sqflint-hover.png)
+![Hover example](https://sqflint.zipek.cz/images/sqflint-hover.png)
 
 Signature help for some commands
 
-![Signature example](http://sqflint.zipek.cz/images/sqflint-signature.png)
+![Signature example](https://sqflint.zipek.cz/images/sqflint-signature.png)
 
 Autocomplete for commands and BIS functions (including basic description)
 
-![Autocomplete example](http://sqflint.zipek.cz/images/sqflint-autocomplete.png)
+![Autocomplete example](https://sqflint.zipek.cz/images/sqflint-autocomplete.png)
