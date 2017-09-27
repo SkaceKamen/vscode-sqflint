@@ -1,3 +1,6 @@
+# Version 0.8.3
+ * Added new commands and functions
+
 # Version 0.8.2
  * `#include` path can now be opened (#15)
  * Fixed incorrect macro expansion (#14)
@@ -89,7 +92,7 @@
  * Added workspace indexing
  * Added options to: disable warnings, disable workspace indexing
  * Added experimental debugger, which currently just watches for changes in lastest rpt file
- * SQFLint jar is now bundled with extension, so you now only need java installed 
+ * SQFLint jar is now bundled with extension, so you now only need java installed
  * Actual variable name is now used for warnings and autocompletion (only lowercase version was used previously)
  * Fixed exec error crashing language server
 
