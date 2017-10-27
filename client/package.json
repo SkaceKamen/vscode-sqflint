@@ -84,7 +84,7 @@
         "sqflint.exclude": {
           "type": "array",
           "default": [],
-          "description": "List of paths to be excluded from workspace indexing."
+          "description": "List of paths to be excluded from workspace indexing. Example: \"ignored/**/*\" will ignore everything in folder 'ignored'."
         },
         "sqflint.checkPaths": {
           "type": "boolean",
