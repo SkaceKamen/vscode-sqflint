@@ -1,3 +1,6 @@
+# Version 0.8.4
+ * Fixed issue with `with` command
+
 # Version 0.8.3
  * Added new commands and functions
 
