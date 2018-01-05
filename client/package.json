@@ -8,7 +8,8 @@
   "version": "0.8.4",
   "publisher": "skacekachna",
   "engines": {
-    "vscode": "^1.4.0"
+    "vscode": "^1.18.0",
+    "node": "^7.9.0"
   },
   "repository": {
     "type": "git",
@@ -21,7 +22,6 @@
   "activationEvents": [
     "onLanguage:sqf",
     "onLanguage:ext",
-    "onCommand:extension.sqflint.provideInitialConfigurations",
     "onCommand:extension.sqflint.unitEvents",
     "onCommand:extension.sqflint.uiEvents",
     "onCommand:extension.sqflint.commandsList"
@@ -45,13 +45,23 @@
     "languages": [
       {
         "id": "sqf",
-        "aliases": [ "SQF", "sqf" ],
-        "extensions": [ ".sqf" ]
+        "aliases": [
+          "SQF",
+          "sqf"
+        ],
+        "extensions": [
+          ".sqf"
+        ]
       },
       {
         "id": "ext",
-        "aliases": [ "Arma header file" ],
-        "extensions": [ ".ext", ".hpp" ],
+        "aliases": [
+          "Arma header file"
+        ],
+        "extensions": [
+          ".ext",
+          ".hpp"
+        ],
         "configuration": "./languages/config/ext.json"
       }
     ],
@@ -120,26 +130,45 @@
             }
           }
         },
-        "initialConfigurations": "extension.sqflint.provideInitialConfigurations"
+        "initialConfigurations": [
+					{
+						"type": "sqflint",
+						"request": "launch",
+            "name": "Watch RPT File"
+					}
+        ],
+				"configurationSnippets": [
+					{
+						"label": "SQFLint: Watch RPT file",
+						"description": "A new configuration for watching RPT file.",
+						"body": {
+							"type": "sqlint",
+							"request": "launch",
+							"name": "Watch RPT File"
+						}
+					}
+				]
       }
     ]
   },
   "scripts": {
+    "watch": "tsc -w -p .",
     "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
     "compile": "node ./node_modules/vscode/bin/compile -watch -p ./",
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "devDependencies": {
+    "@types/node": "^8.5.7",
     "jsdom": "^9.8.3",
-    "typescript": "^1.8.9",
-    "vscode": "^0.11.0",
+    "typescript": "^2.6.2",
+    "vscode": "^1.1.10",
     "xmldoc": "^0.5.1"
   },
   "dependencies": {
     "openurl": "^1.1.1",
     "pegjs": "^0.10.0",
-    "vscode-debugadapter": "^1.15.0-pre.1",
-    "vscode-debugprotocol": "^1.15.0-pre.1",
+    "vscode-debugadapter": "^1.25.0",
+    "vscode-debugprotocol": "^1.25.0",
     "vscode-languageclient": "^2.2.1",
     "vscode-languageserver": "^2.5.0"
   }
