@@ -1,5 +1,5 @@
 # Version 0.8.4
- * Fixed issue with `with` command
+ * Fixed issue with `with` command (#18)
 
 # Version 0.8.3
  * Added new commands and functions
