@@ -24,7 +24,7 @@ export class RptMonitor extends EventEmitter {
 
 	private onPathChange(root: string, eventType: 'rename' | 'change', filename: string) {
 		let absPath = path.join(root, filename);
-		
+
 		if (path.extname(filename).toLowerCase() == ".rpt") {
 			fs.exists(absPath, (exists) => {
 				if (!exists) {
@@ -71,12 +71,19 @@ class RptFile {
 			let lines = data.toString().split("\n");
 			let error: RptError = null;
 			let errorCounter = 0;
+			let maxTime = this.lastTime
 
 			lines.forEach((line) => {
 				let parse = this.parseLine(line);
 
-				if (parse.time && parse.time.getTime() <= this.lastTime) {
-					return;
+				if (parse.time) {
+					let time = parse.time.getTime();
+					if (time <= this.lastTime) {
+						return;
+					}
+					if (time > maxTime) {
+						maxTime = time;
+					}
 				}
 
 				if (error) {
@@ -115,6 +122,8 @@ class RptFile {
 					}
 				}
 			});
+
+			this.lastTime = maxTime;
 		});
 	}
 
