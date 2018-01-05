@@ -1,6 +1,10 @@
 # Version 0.8.4
+ * Migrated debugger to newer vscode version
+ * Added `messageFilter` and `errorFilter` to debugger configuration allowing basic filtering of output
+
+# Version 0.8.4
  * Fixed issue with `with` command (#18)
- * ```__FILE__``` and ```__LINE__``` are on longer recognized as variables
+ * `__FILE__` and `__LINE__` are on longer recognized as variables
 
 # Version 0.8.3
  * Added new commands and functions
