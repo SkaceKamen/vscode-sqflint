@@ -1,3 +1,5 @@
+import * as path from 'path';
+
 import {
 	DebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent, Event,
@@ -62,7 +64,7 @@ class SQFDebug extends DebugSession {
 			value: "TEST",
 			variablesReference: 0
 		});
-		
+
 		response.body = {
 			variables: variables
 		};
@@ -83,8 +85,10 @@ class SQFDebug extends DebugSession {
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
 		// this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: SQFDebug.THREAD_ID });
 
-		this.monitor = new RptMonitor(args.rptPath);
-		
+		let defaultPath = path.join(process.env.LOCALAPPDATA, 'Arma 3')
+
+		this.monitor = new RptMonitor(args.rptPath || defaultPath);
+
 		this.monitor.addListener('message', (message: RptMessage) => {
 			this.sendEvent(new OutputEvent(message.message + "\n", "console"));
 		});
