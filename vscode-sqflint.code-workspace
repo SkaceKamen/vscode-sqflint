@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "server"
+		},
+		{
+			"path": "debugger"
 		}
 	],
 	"settings": {
