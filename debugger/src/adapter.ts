@@ -11,6 +11,8 @@ import { RptMonitor, RptError, RptMessage } from './debugger';
 
 export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	rptPath?: string
+	messageFilter?: string
+	errorFilter?: string
 }
 
 class SQFDebug extends DebugSession {
@@ -36,43 +38,6 @@ class SQFDebug extends DebugSession {
 		this.sendResponse(response);
 	}
 
-	/*
-	protected scopesRequest(response: DebugProtocol.ScopesResponse, args: DebugProtocol.ScopesArguments): void {
-
-		this.sendEvent(new OutputEvent("Scopes request received.", "console"));
-
-		const frameReference = args.frameId;
-		const scopes = new Array<Scope>();
-		scopes.push(new Scope("missionNamespace", 0, false));
-		scopes.push(new Scope("uiNamespace", 1, false));
-		scopes.push(new Scope("profileNamespace", 2, true));
-
-		response.body = {
-			scopes: scopes
-		};
-
-		this.sendResponse(response);
-	}
-
-	protected variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments): void {
-		const variables: Variable[] = [];
-
-		this.sendEvent(new OutputEvent("Variables request received.", "console"));
-
-		variables.push({
-			name: "test_var",
-			value: "TEST",
-			variablesReference: 0
-		});
-
-		response.body = {
-			variables: variables
-		};
-
-		this.sendResponse(response);
-	}
-	*/
-
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
 		response.body = {
 			threads: [
@@ -83,27 +48,40 @@ class SQFDebug extends DebugSession {
 	}
 
 	protected launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments): void {
-		// this.continueRequest(<DebugProtocol.ContinueResponse>response, { threadId: SQFDebug.THREAD_ID });
+		let defaultPath = path.join(process.env.LOCALAPPDATA, 'Arma 3');
+		let messageFilter: RegExp = null;
+		let errorFilter: RegExp = null;
 
-		let defaultPath = path.join(process.env.LOCALAPPDATA, 'Arma 3')
+		try {
+			messageFilter = args.messageFilter ? new RegExp(args.messageFilter, 'i') : null;
+		} catch (ex) {
+			this.sendEvent(new OutputEvent("Failed to compile message filter expression: " + ex, "stderr"))
+		}
+
+		try {
+			errorFilter = args.errorFilter ? new RegExp(args.errorFilter, 'i') : null;
+		} catch (ex) {
+			this.sendEvent(new OutputEvent("Failed to compile error filter expression: " + ex, "stderr"))
+		}
+
+
+		this.sendEvent(new OutputEvent("Watching " + (args.rptPath || defaultPath) + "\n"));
 
 		this.monitor = new RptMonitor(args.rptPath || defaultPath);
 
 		this.monitor.addListener('message', (message: RptMessage) => {
-			this.sendEvent(new OutputEvent(message.message + "\n", "console"));
+			if (!messageFilter || messageFilter.test(message.message)) {
+				this.sendEvent(new OutputEvent(message.message + "\n", "console"));
+			}
 		});
 
 		this.monitor.addListener('error', (error: RptError) => {
-			this.sendEvent(new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr"));
+			if (!errorFilter || errorFilter.test(error.message)) {
+				this.sendEvent(new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr"));
+			}
 		});
 
 		this.sendResponse(response);
-
-		/*
-		this.sendEvent(new StoppedEvent("exception", SQFDebug.THREAD_ID, "There was error!"));
-		this.sendEvent(new OutputEvent("exception in line: 5\n", 'stderr'));
-		this.sendEvent(new OutputEvent("Stopped", "stderr"));
-		*/
 	}
 }
 

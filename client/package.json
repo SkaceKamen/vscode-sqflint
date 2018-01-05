@@ -126,6 +126,16 @@
                 "type": "string",
                 "description": "Path to folder with rpt files.",
                 "default": null
+              },
+              "messageFilter": {
+                "type": "string",
+                "description": "Regular expression which will be used to filter messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
+                "default": null
+              },
+              "errorFilter": {
+                "type": "string",
+                "description": "Regular expression which will be used to filter error messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
+                "default": null
               }
             }
           }
