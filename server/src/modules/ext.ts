@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as glob from 'glob';
 import { SQFLint } from '../sqflint';
 import { Hpp } from '../parsers/hpp';
 
@@ -17,11 +18,12 @@ interface Documentation {
 }
 
 export class ExtModule extends Module {
-	private descriptionFile: string = null;
 	private single: SingleRunner = new SingleRunner(200);
 
-	public functions: { [functionName: string]: Function } = {};
+	public functions: { [descriptionFile: string]: { [functionName: string]: Function } } = {};
 	private documentation: { [variable: string]: Documentation } = {};
+
+	private files: string[] = [];
 
 	public onInitialize(params: InitializeParams) {
 		this.loadDocumentation();
@@ -59,12 +61,28 @@ export class ExtModule extends Module {
 
 	public indexWorkspace(root: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			let descPath = path.join(root, "description.ext");
-			if (fs.existsSync(descPath)) {
-				this.descriptionFile = descPath;
-				resolve(this.parse());
+			let settings = this.getSettings();
+			let files = settings.descriptionFiles || [];
+
+			if (settings.descriptionDiscover) {
+				glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
+					if (err) throw err
+
+					this.files = files.concat(discovered);
+					this.files.forEach(item => {
+						this.parse(item);
+					});
+
+					resolve();
+				})
 			} else {
-				resolve();
+				let descPath = path.join(root, "description.ext");
+				if (fs.existsSync(descPath)) {
+					this.files = [descPath];
+					resolve(this.parse(descPath));
+				} else {
+					resolve();
+				}
 			}
 		});
 	}
@@ -72,12 +90,13 @@ export class ExtModule extends Module {
 	public parseDocument(textDocument: TextDocument, linter?: SQFLint): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
 			this.single.run(() => {
+				// @TODO: Rewrite this, the logic can be much simpler
 				let uri = Uri.parse(textDocument.uri);
 				if (path.basename(uri.fsPath) == "description.ext") {
-					this.descriptionFile = uri.fsPath;
 					resolve(this.parseFile(uri.fsPath));
 				} else if (path.extname(uri.fsPath) == ".hpp") {
-					resolve(this.parse());
+					this.files.forEach(item => this.parse(item));
+					resolve();
 				} else {
 					resolve();
 				}
@@ -89,16 +108,19 @@ export class ExtModule extends Module {
 		let items: CompletionItem[] = [];
 
 		if (path.extname(params.textDocument.uri).toLowerCase() == ".sqf") {
-			for (var ident in this.functions) {
-				let fnc = this.functions[ident];
-				if (ident.length >= name.length && ident.substr(0, name.length) == name) {
-					items.push({
-						label: fnc.name,
-						data: ident,
-						filterText: fnc.name,
-						insertText: fnc.name,
-						kind: CompletionItemKind.Function
-					});
+			// @TODO: Rewrite this, use functional programming
+			for (let file in this.files) {
+				for (var ident in this.functions[file]) {
+					let fnc = this.functions[file][ident];
+					if (ident.length >= name.length && ident.substr(0, name.length) == name) {
+						items.push({
+							label: fnc.name,
+							data: ident,
+							filterText: fnc.name,
+							insertText: fnc.name,
+							kind: CompletionItemKind.Function
+						});
+					}
 				}
 			}
 		}
@@ -181,16 +203,20 @@ export class ExtModule extends Module {
 	}
 
 	public getFunction(name: string) {
-		return this.functions[name.toLowerCase()] || null;
+		for (let file in this.functions) {
+			let exists = this.functions[file][name.toLowerCase()]
+			if (exists) return exists
+		}
+		return null
 	}
 
 	/**
 	 * Tries to parse mission description.ext, if exists.
 	 */
-	private parse(): Promise<void> {
+	private parse(file: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
-			if (fs.existsSync(this.descriptionFile)) {
-				resolve(this.parseFile(this.descriptionFile));
+			if (fs.existsSync(file)) {
+				resolve(this.parseFile(file));
 			} else {
 				resolve();
 			}
@@ -205,7 +231,7 @@ export class ExtModule extends Module {
 			fs.readFile(filename, (err, data) => {
 				try {
 					this.process(Hpp.parse(filename), filename);
-					
+
 					// Clear diagnostics
 					this.sendDiagnostics({
 						uri: Uri.file(filename).toString(),
@@ -250,12 +276,12 @@ export class ExtModule extends Module {
 		let diagnostics: { [uri: string]: Diagnostic[] } = {};
 		let root = path.dirname(root_filename);
 
-		this.functions = {};
+		let functions = this.functions[root_filename] = {};
 
 		for (let tag in cfgFunctions.body.classes) {
 			let tagClass = cfgFunctions.body.classes[tag];
 			tag = tagClass.name;
-			
+
 			for (let category in tagClass.body.classes) {
 				let categoryClass = tagClass.body.classes[category];
 				category = categoryClass.name;
@@ -271,11 +297,11 @@ export class ExtModule extends Module {
 				if (categoryOverride) {
 					categoryPath = path.join(root, categoryOverride);
 				}
-				
+
 				for (let functionName in categoryClass.body.classes) {
 					let functionClass = categoryClass.body.classes[functionName];
 					functionName = functionClass.name;
-					
+
 					// Extension can be changed to sqm
 					let ext = functionClass.body.variables["ext"] || ".sqf";
 
@@ -292,7 +318,7 @@ export class ExtModule extends Module {
 					}
 
 					// Save the function
-					this.functions[fullFunctionName.toLowerCase()] = {
+					functions[fullFunctionName.toLowerCase()] = {
 						filename: filename,
 						name: fullFunctionName
 					};
@@ -326,23 +352,25 @@ export class ExtModule extends Module {
 			});
 		}
 
-		this.tryToLoadDocs();
+		this.tryToLoadDocs(root_filename);
 	}
-	
-	private tryToLoadDocs() {
+
+	private tryToLoadDocs(descriptionFile: string) {
 		let commentRegex = /\s*\/\*((?:.|\n|\r)*)\*\//;
 		let descRegex = /description:(?:\s|\n|\r)*(.*)/i;
 		let returnRegex = /returns:(?:\s|\n|\r)*(.*)/i;
 		let tabRegex = /\n\t*/ig
 
-		for (let f in this.functions) {
-			let fnc = this.functions[f];
+		let functions = this.functions[descriptionFile];
+
+		for (let f in functions) {
+			let fnc = functions[f];
 			if (fs.existsSync(fnc.filename)) {
 				let contents = fs.readFileSync(fnc.filename).toString();
 				let match = commentRegex.exec(contents);
 				if (match) {
 					let comment = match[1].trim().replace(tabRegex, '\n');
-					
+
 					// Try to load description
 					match = descRegex.exec(comment);
 					if (match) {
@@ -355,7 +383,7 @@ export class ExtModule extends Module {
 						fnc.returns = match[1].trim();
 					}
 				}
-			} 
+			}
 		}
 	}
 }
