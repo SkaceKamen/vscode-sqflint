@@ -44,4 +44,8 @@ export abstract class Module
 	protected sendDiagnostics(params: PublishDiagnosticsParams) {
 		return this.server.connection.sendDiagnostics(params);
 	}
+
+	protected getSettings() {
+		return this.server.getSettings();
+	}
 }

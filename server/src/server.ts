@@ -50,6 +50,8 @@ export interface SQFLintSettings {
 	exclude: string[];
 	ignoredVariables: string[];
 	includePrefixes: { [key: string]: string };
+	descriptionDiscover: boolean;
+	descriptionFiles: string[];
 }
 
 /**
@@ -191,7 +193,7 @@ export class SQFLintServer {
 		];
 
 		this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-		
+
 		this.documents = new TextDocuments();
 		this.documents.listen(this.connection);
 
@@ -213,7 +215,7 @@ export class SQFLintServer {
 		this.connection.listen();
 
 		this.sqflint = new SQFLint();
-		
+
 		this.settings = {
 			warnings: true,
 			indexWorkspace: true,
@@ -221,7 +223,9 @@ export class SQFLintServer {
 			exclude: [],
 			checkPaths: false,
 			ignoredVariables: [],
-			includePrefixes: {}
+			includePrefixes: {},
+			descriptionDiscover: true,
+			descriptionFiles: []
 		};
 
 		this.ignoredVariablesSet = {};
@@ -233,7 +237,7 @@ export class SQFLintServer {
 
 	private onConfiguration(params: DidChangeConfigurationParams) {
 		let settings = <Settings>params.settings;
-	
+
 		this.settings.indexWorkspace = settings.sqflint.indexWorkspace;
 		this.settings.indexWorkspaceTwice = settings.sqflint.indexWorkspaceTwice;
 		this.settings.warnings = settings.sqflint.warnings;
@@ -257,7 +261,7 @@ export class SQFLintServer {
 
 		if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
 			this.connection.console.log("Indexing workspace...");
-			
+
 			this.indexWorkspace(() => {
 				this.connection.console.log("Done indexing workspace.");
 				if (this.settings.indexWorkspaceTwice) {
@@ -354,7 +358,7 @@ export class SQFLintServer {
 	private loadEvents() {
 		fs.readFile(__dirname + "/definitions/events.json", (err, data) => {
 			if (err) throw err;
-			
+
 			this.events = JSON.parse(data.toString());
 		})
 	}
@@ -365,7 +369,7 @@ export class SQFLintServer {
 			if (err) {
 				throw err;
 			}
-			
+
 			// Binary commands
 			let bre = /b:([a-z,]*) ([a-z0-9_]*) ([a-z0-9,]*)/i;
 			// Unary commands
@@ -398,7 +402,7 @@ export class SQFLintServer {
 				if (ident) {
 					let op = this.operators[ident.toLowerCase()];
 					let buildPrefix = false;
-					
+
 					if (!op) {
 						op = this.operators[ident.toLowerCase()] = [];
 						buildPrefix = true;
@@ -412,9 +416,9 @@ export class SQFLintServer {
 						documentation: (left ? (left + " ") : "") + ident + (right ? (" " + right) : ""),
 						wiki: null
 					};
-					
+
 					op.push(opData);
-					
+
 					if (buildPrefix) {
 						// Build prefix storage for faster completion
 						for(let l = 1; l <= 3; l++) {
@@ -451,7 +455,7 @@ export class SQFLintServer {
 						let subop = this.operatorsByPrefix[prefix];
 						if (!subop)
 							subop = this.operatorsByPrefix[prefix] = [];
-						
+
 						subop.push({
 							name: this.documentation[ident].title,
 							left: "",
@@ -509,7 +513,7 @@ export class SQFLintServer {
 						client.parse(uri.fsPath, contents, options)
 							.then((result: SQFLint.ParseInfo) => {
 								accept();
-								
+
 								if (!result) return;
 
 								let diagnosticsByUri: { [uri: string]: Diagnostic[] } = {};
@@ -523,7 +527,7 @@ export class SQFLintServer {
 								result.includes.forEach((item) => {
 									diagnostics[Uri.file(item.expanded).toString()] = [];
 								});
-								
+
 								// Add found errors
 								result.errors.forEach((item: SQFLint.Error) => {
 									diagnostics.push({
@@ -536,7 +540,7 @@ export class SQFLintServer {
 
 								if (this.settings.warnings) {
 									// Add local warnings
-									result.warnings.forEach((item: SQFLint.Warning) => {										
+									result.warnings.forEach((item: SQFLint.Warning) => {
 										if (item.filename) {
 											let uri = Uri.file(item.filename).toString();
 											if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
@@ -842,7 +846,7 @@ export class SQFLintServer {
 	 */
 	private buildHoverDocs(docs: WikiDocumentation) {
 		let texts: MarkedString[] = [];
-		
+
 		for(let s in docs.signatures) {
 			let sig = docs.signatures[s];
 			let ss = "(" + docs.type + ") ";
@@ -850,7 +854,7 @@ export class SQFLintServer {
 				ss += sig.returns + " = ";
 			}
 			ss += sig.signature;
-			
+
 			texts.push({
 				language: "sqf",
 				value: ss
@@ -902,7 +906,7 @@ export class SQFLintServer {
 	private onDefinition(params: TextDocumentPositionParams): Location[] {
 		let locations: Location[] = [];
 		let ref = this.findReferences(params);
-		
+
 		if (ref) {
 			if (ref.global) {
 				let global = ref.global;
@@ -1076,7 +1080,7 @@ export class SQFLintServer {
 
 		let brackets = 0;
 		let commas = 0;
-		
+
 		if (contents[position] == "]")
 			position--;
 
@@ -1117,10 +1121,10 @@ export class SQFLintServer {
 	 * Provides completion items.
 	 */
 	private onCompletion(params: TextDocumentPositionParams): CompletionItem[] {
-	
+
 		let items: CompletionItem[] = [];
 		let hover = this.getNameFromParams(params).toLowerCase();
-		
+
 		if (this.ext(params) == ".sqf") {
 			// Use prefix lookup for smaller items
 			if (hover.length <= 3) {
@@ -1296,7 +1300,7 @@ export class SQFLintServer {
 	 */
 	private findReferences(params: TextDocumentPositionParams) {
 		let name = this.getNameFromParams(params).toLowerCase();
-		
+
 		if (name) {
 			let ref = this.findReferencesByName(
 				params.textDocument,
@@ -1369,6 +1373,9 @@ export class SQFLintServer {
 		return null;
 	}
 
+	public getSettings() {
+		return this.settings;
+	}
 }
 
 /*
