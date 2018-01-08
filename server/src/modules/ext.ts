@@ -62,13 +62,16 @@ export class ExtModule extends Module {
 	public indexWorkspace(root: string): Promise<void> {
 		return new Promise<void>((resolve, reject) => {
 			let settings = this.getSettings();
+
+			// Predefined files or empty list
 			let files = settings.descriptionFiles || [];
 
+			// Try to disco
 			if (settings.descriptionDiscover) {
 				glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
 					if (err) throw err
 
-					this.files = files.concat(discovered);
+					this.files = files.concat(discovered.map(item => path.join(root, item)));
 					this.files.forEach(item => {
 						this.parse(item);
 					});
@@ -78,11 +81,15 @@ export class ExtModule extends Module {
 			} else {
 				let descPath = path.join(root, "description.ext");
 				if (fs.existsSync(descPath)) {
-					this.files = [descPath];
-					resolve(this.parse(descPath));
-				} else {
-					resolve();
+					files.push(descPath)
 				}
+
+				this.files = files
+				this.files.forEach(item => {
+					this.parse(item);
+				});
+
+				resolve();
 			}
 		});
 	}
@@ -109,7 +116,7 @@ export class ExtModule extends Module {
 
 		if (path.extname(params.textDocument.uri).toLowerCase() == ".sqf") {
 			// @TODO: Rewrite this, use functional programming
-			for (let file in this.files) {
+			for (let file in this.functions) {
 				for (var ident in this.functions[file]) {
 					let fnc = this.functions[file][ident];
 					if (ident.length >= name.length && ident.substr(0, name.length) == name) {
