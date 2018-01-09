@@ -10,6 +10,8 @@ import { SQFLintSettings, SQFLintServer } from "../server";
 import Uri from "../uri";
 import { SingleRunner } from '../single.runner';
 
+import { Docstring } from '../parsers/docstring';
+
 interface Documentation {
 	name: string;
 	type: string;
@@ -163,22 +165,36 @@ export class ExtModule extends Module {
 
 	public onHover(params: TextDocumentPositionParams, name: string): Hover {
 		if (path.extname(params.textDocument.uri).toLowerCase() == ".sqf") {
-			let item = this.functions[name];
-			if (item) {
-				let contents = "";
+			for (let file in this.functions) {
+				let item = this.functions[file][name];
+				if (item) {
+					let contents = "";
+					let info = item.info;
 
-				if (item.description) {
-					contents += item.description + "\r\n";
+					if (info && info.description.short) {
+						contents += info.description.short + "\r\n";
+					}
+
+					contents += "```sqf\r\n(function)";
+					if (info && info.returns.type) {
+						contents += " " + info.returns.type + " =";
+					}
+
+					let args = "ANY";
+					if (info) {
+						if (info.parameter) {
+							args = info.parameter.type;
+						} else if (info.parameters.length > 0) {
+							args = "[" + info.parameters.map((param, index) => {
+								return param.name || `_${param.type.toLowerCase()}${index}`
+							}).join(',') + "]";
+						}
+					}
+
+					contents += ` ${args} call ${item.name}\r\n\`\`\``;
+
+					return { contents };
 				}
-
-				contents += "```sqf\r\n(function)";
-				if (item.returns) {
-					contents += " " + item.returns + " =";
-				}
-
-				contents += " ANY call " + item.name + "\r\n```";
-
-				return { contents };
 			}
 		}
 
@@ -376,19 +392,7 @@ export class ExtModule extends Module {
 				let contents = fs.readFileSync(fnc.filename).toString();
 				let match = commentRegex.exec(contents);
 				if (match) {
-					let comment = match[1].trim().replace(tabRegex, '\n');
-
-					// Try to load description
-					match = descRegex.exec(comment);
-					if (match) {
-						fnc.description = match[1].trim().replace(/(\r?\n)/g, '$1$1');
-					}
-
-					// Try to load return type
-					match = returnRegex.exec(comment);
-					if (match) {
-						fnc.returns = match[1].trim();
-					}
+					fnc.info = Docstring.parse(match[1]);
 				}
 			}
 		}
@@ -399,7 +403,5 @@ export interface Function
 {
 	name: string;
 	filename: string;
-	description?: string;
-	arguments?: string;
-	returns?: string;
+	info?: Docstring.Info;
 }
