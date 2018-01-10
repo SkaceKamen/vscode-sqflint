@@ -40,6 +40,9 @@ export namespace Docstring {
 	// Matches returns description with type, 1 = type, 2 = description
 	const returnWithDesc = /([^-:]*)[-:](.*)/;
 
+	// Matches CBA returns description with type, 1 = description, 2 = type
+	const cbaReturn = /(.*)\[([^\]]*)\]/;
+
 	// Start of CBA style example code
 	const exampleStart = /\(begin example\)/i;
 	// End of CBA style example code
@@ -164,15 +167,28 @@ export namespace Docstring {
 						break;
 
 					case Section.Returns:
+						if (!line) return;
+
 						// Try to separate type and description
-						match = returnWithDesc.exec(line)
+						match = returnWithDesc.exec(line);
 						if (match) {
 							result.returns.type = match[1].trim();
 							result.returns.description = match[2].trim();
-						} else {
+						}
+
+						// Try CBA style
+						match = cbaReturn.exec(line);
+						if (match) {
+							result.returns.type = match[2].trim();
+							result.returns.description = match[1].trim();
+						}
+
+						// Fallback when everything fails
+						if (!result.returns.type) {
 							// Use first word, which should be type
 							result.returns.type = line.split(' ').shift();
 						}
+
 						break;
 
 					case Section.Parameters:
