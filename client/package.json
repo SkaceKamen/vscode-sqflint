@@ -111,7 +111,7 @@
           "default": {},
           "description": "List of include paths, key is prefix used in include path, and value is local path. Example: \n{ \"\\\\A3\\\\\": \"C:/UnpackedArma/\" }\n"
         },
-        "sqflint.descriptionDiscovery": {
+        "sqflint.discoverDescriptionFiles": {
           "type": "boolean",
           "default": true,
           "description": "Search and parse description.ext files in subfolders."
@@ -119,7 +119,7 @@
         "sqflint.descriptionFiles": {
           "type": "array",
           "default": [],
-          "description": "List of description.ext files to be loaded. If `descriptionDiscovery` is turned on, discovered files will be added to this list."
+          "description": "List of description.ext files to be loaded. If `discoverDescriptionFiles` is turned on, discovered files will be added to this list."
         }
       }
     },

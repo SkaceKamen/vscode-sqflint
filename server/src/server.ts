@@ -50,7 +50,7 @@ export interface SQFLintSettings {
 	exclude: string[];
 	ignoredVariables: string[];
 	includePrefixes: { [key: string]: string };
-	descriptionDiscover: boolean;
+	discoverDescriptionFiles: boolean;
 	descriptionFiles: string[];
 }
 
@@ -224,7 +224,7 @@ export class SQFLintServer {
 			checkPaths: false,
 			ignoredVariables: [],
 			includePrefixes: {},
-			descriptionDiscover: true,
+			discoverDescriptionFiles: true,
 			descriptionFiles: []
 		};
 

@@ -69,7 +69,7 @@ export class ExtModule extends Module {
 			let files = settings.descriptionFiles || [];
 
 			// Try to disco
-			if (settings.descriptionDiscover) {
+			if (settings.discoverDescriptionFiles) {
 				glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
 					if (err) throw err
 
