@@ -196,7 +196,12 @@ export class ExtModule extends Module {
 							args = info.parameter.type;
 						} else if (info.parameters.length > 0) {
 							args = "[" + info.parameters.map((param, index) => {
-								return param.name || `_${param.type.toLowerCase()}${index}`
+								let name = param.name || `_${param.type.toLowerCase()}${index}`;
+								if (param.optional && param.default) {
+									return `${name}=${param.default}`
+								}
+
+								return name;
 							}).join(',') + "]";
 						}
 					}
