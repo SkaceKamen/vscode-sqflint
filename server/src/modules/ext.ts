@@ -175,6 +175,16 @@ export class ExtModule extends Module {
 						contents += info.description.short + "\r\n";
 					}
 
+					if (info && info.parameters && info.parameters.length > 0) {
+						contents +=
+							"\r\n" +
+							info.parameters
+								.map((param ,index) => {
+									return `${index}. \`${param.type}\` - ${param.description}`
+								})
+								.join("\r\n") + "\r\n\r\n";
+					}
+
 					contents += "```sqf\r\n(function)";
 					if (info && info.returns.type) {
 						contents += " " + info.returns.type + " =";
