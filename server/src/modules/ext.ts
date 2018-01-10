@@ -66,7 +66,9 @@ export class ExtModule extends Module {
 			let settings = this.getSettings();
 
 			// Predefined files or empty list
-			let files = settings.descriptionFiles || [];
+			let files =
+				settings.descriptionFiles.map(file => path.isAbsolute(file) ? file : path.join(root, file))
+				|| [];
 
 			// Try to disco
 			if (settings.discoverDescriptionFiles) {
