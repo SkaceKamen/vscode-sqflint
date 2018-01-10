@@ -180,7 +180,9 @@ export class ExtModule extends Module {
 							"\r\n" +
 							info.parameters
 								.map((param ,index) => {
-									return `${index}. \`${param.type}\` - ${param.description}`
+									if (param.name)
+										return `${index}. \`${param.name} (${param.type})\` - ${param.description}`;
+									return `${index}. \`${param.type}\` - ${param.description}`;
 								})
 								.join("\r\n") + "\r\n\r\n";
 					}
