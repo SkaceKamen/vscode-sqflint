@@ -1,10 +1,10 @@
-# Version 0.8.5
+# Version 0.8.6
  * `description.ext` files in subfolders of workspace will now be properly loaded
  * Added `discoverDescriptionFiles` options, which allows user to enable/disable automatic searching for `description.ext` files
  * Added `descriptionFiles` option, allowing user to specify list of paths to additional description files
  * cfgFunctions parser now supports docstring in both BIS and CBA formats
 
-# Version 0.8.4
+# Version 0.8.5
  * Migrated debugger to newer vscode version
  * Added `messageFilter` and `errorFilter` to debugger configuration allowing basic filtering of output
 
