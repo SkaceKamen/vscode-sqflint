@@ -245,6 +245,8 @@ export class SQFLintServer {
 		this.settings.ignoredVariables = settings.sqflint.ignoredVariables;
 		this.settings.includePrefixes = settings.sqflint.includePrefixes;
 		this.settings.checkPaths = settings.sqflint.checkPaths;
+		this.settings.discoverDescriptionFiles = settings.sqflint.discoverDescriptionFiles;
+		this.settings.descriptionFiles = settings.sqflint.descriptionFiles;
 
 		this.ignoredVariablesSet = {};
 		this.settings.ignoredVariables.forEach((v) => {
