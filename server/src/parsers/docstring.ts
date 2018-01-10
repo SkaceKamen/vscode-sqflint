@@ -14,6 +14,7 @@ export namespace Docstring {
 		parameters: InfoParamater[];
 		/// When not null, function have one _this param
 		parameter: InfoParamater;
+		examples: string[];
 	}
 
 	export interface InfoParamater {
@@ -24,8 +25,8 @@ export namespace Docstring {
 		default: string;
 	}
 
-	// Used for cleanup, newline and tabs
-	const tabRegex = /\n\t*/ig;
+	// Matches section beginning, 1 = section name, 2 = rest of the line
+	const sectionRegex = /^\s*([a-z\(\)]+):\s*(.*)/i;
 
 	// Matches param, 1 = index, 2 = optional, 3 = type, 4 = description
 	const bisParam = /(?:_this\s*select)?\s*([0-9]+)\s*(\(optional\))?\s*:\s*(\w*)\s*-\s*(.*)/i;
@@ -33,18 +34,25 @@ export namespace Docstring {
 	// Matches singular param, 1 = type, 2 = description
 	const bisParamSingular = /_this\s*:\s*(\w*)\s*-\s*(.*)/i;
 
+	// Matches CBA style param, 1 = name, 2 = description, 3 = type, 4 = default value
+	const cbaParam = /(_\w+)\s*-\s*([^[]*)(?:\[([^,]*)(?:,\s*defaults\s+to\s+(.*))?\])?/i;
+
 	// Matches returns description with type, 1 = type, 2 = description
 	const returnWithDesc = /([^-:]*)[-:](.*)/;
 
-	// Matches section beginning, 1 = section name, 2 = rest of the line
-	const sectionRegex = /^\s*([a-z\(\)]+):\s*(.*)/i;
+	// Start of CBA style example code
+	const exampleStart = /\(begin example\)/i;
+	// End of CBA style example code
+	const exampleEnd = /\(end\)/i;
 
 	// Sections in docstring
-	type SECTION = 'returns' | 'parameters' | 'description' | 'author';
-	const SECTION_RETURNS: SECTION = 'returns';
-	const SECTION_PARAMETERS: SECTION = 'parameters';
-	const SECTION_DESCRIPTION: SECTION = 'description';
-	const SECTION_AUTHOR: SECTION = 'author';
+	enum Section {
+		Returns,
+		Parameters,
+		Description,
+		Author,
+		Examples
+	}
 
 	/**
 	 * Prepares docstring to be easier to parse.
@@ -53,7 +61,10 @@ export namespace Docstring {
 	 * @returns preprocessed dostring
 	 */
 	function preprocess (comment: string) {
-		return comment.trim().replace(tabRegex, "\n");
+		return comment.trim()
+			.replace(/-{3,}/g, '')
+			.replace(/\n\t*/g, "\n")
+			.trim();
 	}
 
 	/**
@@ -75,11 +86,14 @@ export namespace Docstring {
 				description: null
 			},
 			parameters: [],
-			parameter: null
+			parameter: null,
+			examples: []
 		};
 
-		let section: SECTION = null;
+		let section: Section = null;
 		let match: RegExpMatchArray = null;
+
+		let inExample = false;
 
 		preprocess(comment)
 			.split("\n")
@@ -96,18 +110,21 @@ export namespace Docstring {
 					switch (ident) {
 						case 'returns':
 						case 'return':
-							section = SECTION_RETURNS;
+							section = Section.Returns;
 							break;
 						case 'description':
-							section = SECTION_DESCRIPTION;
+							section = Section.Description;
 							break;
 						case 'author':
-							section = SECTION_AUTHOR;
+							section = Section.Author;
 							break;
 						case 'parameter':
 						case 'parameters':
 						case 'parameter(s)':
-							section = SECTION_PARAMETERS;
+							section = Section.Parameters;
+							break;
+						case 'examples':
+							section = Section.Examples;
 							break;
 						default:
 							unknown = true;
@@ -125,7 +142,7 @@ export namespace Docstring {
 				}
 
 				switch (section) {
-					case SECTION_AUTHOR:
+					case Section.Author:
 						if (!result.author) {
 							result.author = "";
 						} else {
@@ -135,7 +152,7 @@ export namespace Docstring {
 						result.author += line;
 						break;
 
-					case SECTION_DESCRIPTION:
+					case Section.Description:
 						if (!result.description.full) {
 							result.description.full = "";
 							result.description.short = line.trim().replace(/(\r?\n)/g, '$1$1');
@@ -146,7 +163,7 @@ export namespace Docstring {
 						result.description.full += line;
 						break;
 
-					case SECTION_RETURNS:
+					case Section.Returns:
 						// Try to separate type and description
 						match = returnWithDesc.exec(line)
 						if (match) {
@@ -158,7 +175,7 @@ export namespace Docstring {
 						}
 						break;
 
-					case SECTION_PARAMETERS:
+					case Section.Parameters:
 						// Skip empty lines
 						if (!line) return;
 
@@ -190,9 +207,43 @@ export namespace Docstring {
 							result.parameter = param;
 						}
 
+						// Try CBA style param declaration
+						match = !match && cbaParam.exec(line);
+						if (match) {
+							param.name = match[1];
+							param.description = match[2];
+							param.type = match[3];
+							param.optional = !!match[4];
+							param.default = match[4] || null;
+
+							result.parameters.push(param);
+						}
+
+						break;
+
+					case Section.Examples:
+						if (exampleStart.test(line)) {
+							result.examples.push("");
+							inExample = true;
+							return;
+						}
+
+						if (exampleEnd.test(line)) {
+							inExample = false;
+						}
+
+						if (inExample) {
+							if (result.examples[result.examples.length - 1]) {
+								result.examples[result.examples.length - 1] += "\n";
+							}
+							result.examples[result.examples.length - 1] += line;
+						}
+
 						break;
 				}
 			})
+
+		console.log(result);
 
 		return result;
 	}
