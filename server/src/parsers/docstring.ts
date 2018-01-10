@@ -243,8 +243,6 @@ export namespace Docstring {
 				}
 			})
 
-		console.log(result);
-
 		return result;
 	}
 }
