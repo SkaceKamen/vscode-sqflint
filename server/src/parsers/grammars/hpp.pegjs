@@ -59,6 +59,7 @@ NormalDeclaration
 VariableValue
   = num:NumericalExpression { return num } 
   / str:StringLiteral { return str }
+  / trans:TranslationIdentifier { return trans }
   / macro:Identifier { return { macro: macro } }
 
 ArrayVariableValue
@@ -110,6 +111,9 @@ IdentifierPart
   = IdentifierStart
   / Digit
   
+TranslationIdentifier
+  = "$" ident:Identifier { return "$" + ident }
+
 Digit "digit"
   = [0-9]
 
