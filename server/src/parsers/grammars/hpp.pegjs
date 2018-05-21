@@ -61,6 +61,12 @@ VariableValue
   / str:StringLiteral { return str }
   / macro:Identifier { return { macro: macro } }
 
+ArrayVariableValue
+  = num:NumericalExpression { return num } 
+  / str:StringLiteral { return str }
+  / macro:Identifier { return { macro: macro } }
+  / arr:ArrayValues { return arr }
+
 NumericalExpression "numerical formula"
   = head:NumericalValue tail:(__ operator:[\*\/\|&+-] __ value:NumericalValue { return operator + value })* {
     if (tail)
@@ -88,7 +94,7 @@ ArrayValues
   / macro:Identifier { return { "macro": macro } }
 
 ArrayValue
-  = head:VariableValue tail:(__ "," __ val:VariableValue {return val})* ","? {
+  = head:ArrayVariableValue tail:(__ "," __ val:ArrayVariableValue {return val})* ","? {
     return [head].concat(tail)
   }
 
