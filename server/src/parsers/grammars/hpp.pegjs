@@ -63,9 +63,7 @@ VariableValue
   / macro:Identifier { return { macro: macro } }
 
 ArrayVariableValue
-  = num:NumericalExpression { return num } 
-  / str:StringLiteral { return str }
-  / macro:Identifier { return { macro: macro } }
+  = VariableValue 
   / arr:ArrayValues { return arr }
 
 NumericalExpression "numerical formula"
