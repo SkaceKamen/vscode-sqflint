@@ -59,7 +59,12 @@ NormalDeclaration
 VariableValue
   = num:NumericalExpression { return num } 
   / str:StringLiteral { return str }
+  / trans:TranslationIdentifier { return trans }
   / macro:Identifier { return { macro: macro } }
+
+ArrayVariableValue
+  = VariableValue 
+  / arr:ArrayValues { return arr }
 
 NumericalExpression "numerical formula"
   = head:NumericalValue tail:(__ operator:[\*\/\|&+-] __ value:NumericalValue { return operator + value })* {
@@ -88,7 +93,7 @@ ArrayValues
   / macro:Identifier { return { "macro": macro } }
 
 ArrayValue
-  = head:VariableValue tail:(__ "," __ val:VariableValue {return val})* ","? {
+  = head:ArrayVariableValue tail:(__ "," __ val:ArrayVariableValue {return val})* ","? {
     return [head].concat(tail)
   }
 
@@ -104,6 +109,9 @@ IdentifierPart
   = IdentifierStart
   / Digit
   
+TranslationIdentifier
+  = "$" ident:Identifier { return "$" + ident }
+
 Digit "digit"
   = [0-9]
 
