@@ -62,11 +62,19 @@ VariableValue
   / macro:Identifier { return { macro: macro } }
 
 NumericalExpression "numerical formula"
-  = head:NumericalValue tail:(__ operator:[\*\/\|&+-] __ value:NumericalValue { return operator + value })* {
+  = head:NumericalValue tail:(__ operator:ExpressionOperator __ value:NumericalValue { return operator + value })* {
     if (tail)
     	return head + tail.join("")
     return head;
    }
+
+ExpressionOperator
+  = [\*\/\|&+-]
+  / "min"
+  / "max"
+  / "abs"
+  / "interpolate"
+  / "factor"
 
 NumericalValue "number"
   = "(" __ exp:NumericalExpression __ ")" { return "(" + exp + ")" }
