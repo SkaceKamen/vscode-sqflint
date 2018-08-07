@@ -57,10 +57,22 @@ NormalDeclaration
   }
   
 VariableValue
-  = num:NumericalExpression { return num } 
+  = num:NumericalExpression { return num }
+  / macro:MacroValue { return macro }
   / str:StringLiteral { return str }
   / trans:TranslationIdentifier { return trans }
-  / macro:Identifier { return { macro: macro } }
+
+MacroValue
+  = macro:Identifier __ "(" __ params:MacroParams __ ")" { 
+    return "MACRO{" + macro + "("+ params + ")" + "}"
+  }
+  
+MacroParams
+  = head:VariableValue tail:(__ "," __ val:VariableValue {return val})* { 
+    if(tail.length)
+	    return head + "," + tail.join(",")
+    return head
+  }
 
 ArrayVariableValue
   = VariableValue 
@@ -85,6 +97,7 @@ NumericalValue "number"
   = "(" __ exp:NumericalExpression __ ")" { return "(" + exp + ")" }
   / prefix:"0x" value:[0-9A-Fa-f]+ { return prefix + value.join("") }
   / prefix:[+-]? vals:Digit+ tail:("." suffix:Digit*)? supertail:("e" NumericalValue)? { return vals.join("") }
+  / MacroValue
   / Identifier
   
 ArrayDeclaration
