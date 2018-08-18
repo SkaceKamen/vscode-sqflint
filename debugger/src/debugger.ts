@@ -19,7 +19,7 @@ export class RptMonitor extends EventEmitter {
 		}
 
 		this.watcher = fs.watch(this.rptPath, { persistent: true });
-		this.watcher.addListener('change', (eventType, filename) => this.onPathChange(this.rptPath, eventType, filename));
+		this.watcher.addListener('change', (eventType, filename) => this.onPathChange(this.rptPath, eventType as any, filename.toString()));
 	}
 
 	private onPathChange(root: string, eventType: 'rename' | 'change', filename: string) {

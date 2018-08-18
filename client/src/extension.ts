@@ -10,7 +10,6 @@ import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
 
 import * as openurl from 'openurl';
-import { CancellationToken } from 'vscode-languageclient/node_modules/vscode-jsonrpc/lib/main';
 import { ProviderResult, DebugConfiguration } from 'vscode';
 
 const links = {

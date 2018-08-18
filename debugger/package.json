@@ -8,11 +8,14 @@
     "node": "*"
   },
   "dependencies": {
-		"vscode-debugprotocol": "^1.15.0-pre.1",
-		"vscode-debugadapter": "^1.15.0-pre.1"
-	},
+    "vscode-debugadapter": "^1.29.0",
+    "vscode-debugprotocol": "^1.29.0"
+  },
   "devDependencies": {
-    "typescript": "^1.8.9"
+    "@types/node": "^10.1.4",
+    "@types/promise": "^7.1.30",
+    "typescript": "^2.8.4",
+    "vscode-debugadapter-testsupport": "^1.29.0"
   },
   "scripts": {
     "compile": "tsc -p .",

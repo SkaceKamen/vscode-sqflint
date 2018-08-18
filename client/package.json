@@ -16,7 +16,7 @@
     "url": "https://github.com/SkaceKamen/vscode-sqflint"
   },
   "categories": [
-    "Languages",
+    "Programming Languages",
     "Other"
   ],
   "activationEvents": [
@@ -28,6 +28,11 @@
   ],
   "main": "./out/src/extension",
   "contributes": {
+    "breakpoints": [
+      {
+        "language": "sqf"
+      }
+    ],
     "commands": [
       {
         "command": "extension.sqflint.unitEvents",
@@ -146,28 +151,34 @@
                 "type": "string",
                 "description": "Regular expression which will be used to filter error messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
                 "default": null
+              },
+              "missionRoot": {
+                "type": "string",
+                "description": "Mission root, used in debugger.",
+                "default": null
               }
             }
           }
         },
         "initialConfigurations": [
-					{
-						"type": "sqflint",
-						"request": "launch",
+          {
+            "type": "sqflint",
+            "request": "launch",
             "name": "Watch RPT File"
-					}
+          }
         ],
-				"configurationSnippets": [
-					{
-						"label": "SQFLint: Watch RPT file",
-						"description": "A new configuration for watching RPT file.",
-						"body": {
-							"type": "sqlint",
-							"request": "launch",
-							"name": "Watch RPT File"
-						}
-					}
-				]
+        "configurationSnippets": [
+          {
+            "label": "SQFLint: Watch RPT file",
+            "description": "A new configuration for watching RPT file.",
+            "body": {
+              "type": "sqlint",
+              "request": "launch",
+              "name": "Watch RPT File",
+              "missionRoot": "${workspaceFolder}"
+            }
+          }
+        ]
       }
     ]
   },
@@ -187,6 +198,7 @@
     "openurl": "^1.1.1",
     "pegjs": "^0.10.0",
     "vscode-debugadapter": "^1.25.0",
+    "vscode-debugadapter-testsupport": "^1.29.0",
     "vscode-debugprotocol": "^1.25.0",
     "vscode-languageclient": "^2.2.1",
     "vscode-languageserver": "^2.5.0"
