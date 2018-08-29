@@ -1,3 +1,8 @@
+# Version 0.8.8
+ * Fixed links in hover docs for functions (#34)
+ * Fixed hover docs for some functions and operators
+ * Switched order of hover docs to display syntax first (to be in line with other vscode extension)
+
 # Version 0.8.7
  * Fixed issue with empty classes in hpp files (#32)
  * Fixed macro support in hpp files (thanks veteran29)

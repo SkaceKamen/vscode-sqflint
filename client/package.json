@@ -5,7 +5,7 @@
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.18.0",
@@ -16,7 +16,7 @@
     "url": "https://github.com/SkaceKamen/vscode-sqflint"
   },
   "categories": [
-    "Languages",
+    "Programming Languages",
     "Other"
   ],
   "activationEvents": [

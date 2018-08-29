@@ -847,7 +847,9 @@ export class SQFLintServer {
 	 * Creates formatted decoumentation.
 	 */
 	private buildHoverDocs(docs: WikiDocumentation) {
-		let texts: MarkedString[] = [];
+		let texts: MarkedString[] = [
+			docs.description.formatted
+		];
 
 		for(let s in docs.signatures) {
 			let sig = docs.signatures[s];
@@ -862,8 +864,6 @@ export class SQFLintServer {
 				value: ss
 			});
 		}
-
-		texts.push(docs.description.formatted);
 
 		return texts;
 	}

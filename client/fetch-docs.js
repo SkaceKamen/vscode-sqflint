@@ -36,15 +36,40 @@ function parseValue(value, type) {
 	}
 }
 
+function loadBlock(text, opening, closing, debug) {
+	let bcount = -1;
+	let index = 0;
+	let result = '';
+	while (index < text.length) {
+		let chunk = 1;
+		if (text.substr(index, opening.length) === opening) {
+			bcount++;
+			chunk = 2;
+		}
+		if (text.substr(index, closing.length) === closing) {
+			bcount--;
+			chunk = 2;
+
+			if (bcount < 0) {
+				break;
+			}
+		}
+		result += text.substr(index, chunk);
+		index += chunk;
+	}
+	return result;
+}
+
 function removeMoreTags(value) {
 	if (!value)
 		return value;
 
 	return value
 		.replace(/<br>/ig, '')
-		.replace(/''since [^']*''/ig, '')
+		.replace(/''\(since \[.*?\]\)''/ig, '')
 		.replace(/''\(since \[.*?\]\)''/ig, '')
 		.replace(/\(''since .*?''\)/ig, '')
+		.replace(/''since [^']*''/ig, '')
 		.replace(/<nowiki>(.*?)<\/nowiki>/g, '$1')
 		.replace(/'''(.*?)'''/g, '$1')
 		.replace(/\[\[(.*?)\|(.*?)\]\]/g, '$2')
@@ -63,11 +88,111 @@ function polishSyntaxArgument(item) {
 	return item.type;
 }
 
+function findVariables(wiki, debug) {
+	let buffer = '';
+	let index = 0;
+	let part = 0;
+	let inside = -1;
+	let variables = {};
+
+	let previousIdent = null;
+	let variableName = '';
+	let variableValue = '';
+
+	let skip = false;
+
+	while (index < wiki.length) {
+		let chunk = 1;
+
+		if (skip && (wiki.substr(index, 7) === '</code>' || wiki.substr(index, 9) === '</nowiki>')) {
+			skip = false;
+		}
+
+		if (!skip) {
+			if (wiki.substr(index, 6) === '<code>' || wiki.substr(index, 8) === '<nowiki>') {
+				skip = true;
+			}
+
+			if (wiki.substr(index, 2) === '{{' || wiki.substr(index, 2) === '[[') {
+				inside++;
+				chunk = 2;
+			} else if (wiki.substr(index, 2) === '}}' || wiki.substr(index, 2) === ']]') {
+				inside--;
+				if (inside < 0) inside = 0;
+				chunk = 2;
+			}
+
+			if (wiki.substr(index, 1) === '|') {
+				if (inside === 0) {
+					if (part === 0) {
+						variableValue = buffer
+							.replace(/[rpx][0-9]+=/, '')
+							.trim();
+						part = 1;
+						buffer = '';
+					} else if (part === 1) {
+						variableName = buffer
+							.replace(/=/g, '')
+							.replace(/(\n|\r)/g, '')
+							.replace(/_{2,}/, '')
+							.toLowerCase()
+							.trim();
+
+						if (variableName === "") {
+							if (previousIdent === 'description') {
+								variableName = "syntax";
+							}
+							if (previousIdent === 'game version' || (!variables['description'] && Object.keys(variables).length > 2)) {
+								variableName = 'description';
+							}
+						}
+
+						if (variableName.indexOf("syntax") === 0) {
+							variableName = "syntax";
+						}
+
+						// Fix this
+						if (variableName == "returnvalue" || variableName.indexOf('return value') === 0) {
+							variableName = "return value";
+						}
+
+						if (variableName == "syntax" || variableName == "return value") {
+							if (!variables[variableName])
+								variables[variableName] = [];
+							variables[variableName].push(parseValue(variableValue, variableName));
+						} else {
+							variables[variableName] = variableValue;
+						}
+
+						previousIdent = variableName;
+
+						part = 0;
+						buffer = '';
+						variableName = null;
+						variableValue = null;
+					}
+				}
+			} else {
+				buffer += wiki.substr(index, chunk);
+			}
+		} else {
+			buffer += wiki.substr(index, chunk);
+		}
+
+		index += chunk;
+	}
+
+	return variables;
+}
+
 function parseDocument(doc, type, extended) {
 	var document = new xmldoc.XmlDocument(doc);
 	var pages = document.childrenNamed("page");
-	var findCommand = /{{(?:Command|Function)\|=((?:.|\n)*?\n)}}/i;
+	var findCommand = /{{(?:Command|Function)\|(?:Comments)?=((?:.|\n)*?\n?)}}/i;
+
 	var findVariable = /\|\s*((?:.|\n)*?)\s*\|\s*=[\r\t\f\v ]*(.*)/g;
+	var findVariable2 = /\|\s*((?:.|\n)*?)\s*\|\s*[\r\t\f\v ]*([^=]*)=/g;
+
 	var results = extended || {};
 	var placeHolder = /\/\*\s*Description:\s*([^]*)\s*(?:Parameters|Parameter\(s\)):\s*([^]*)\s*Returns:\s*([^]*)\s*\*\/\s*/i;
 	var placeHolderWithExamples = /\/\*\s*Description:\s*([^]*)\s*(?:Parameters|Parameter\(s\)):\s*([^]*)\s*Returns:\s*([^]*)\s*Examples:\s*([^]*)\s*\*\/\s*/i;
@@ -76,7 +201,9 @@ function parseDocument(doc, type, extended) {
 	var placeHolderReturn = /\s*([^-]*)(.*)/;
 	var sqfTypes = ["bool", "string", "object", "task", "array", "scalar", "number", "side", "group", "boolean", "code", "config", "control", "display", "namespace"];
 
-	for(var i in pages) {
+	var noInfo = [];
+
+	for (var i in pages) {
 		var page = pages[i];
 
 		if (parseInt(page.childNamed("ns").val) == 0) {
@@ -85,11 +212,20 @@ function parseDocument(doc, type, extended) {
 
 			title = title.replace(/ /g, '_');
 
+			var debug = false && title === 'random';
+
 			var match = findCommand.exec(text);
 			if (match) {
 				var info;
-				var wiki = match[1];
+				var start = text.indexOf('{{Command');
+				if (start < 0) start = text.indexOf('{{Function');
+				if (start < 0) throw new Error(title + ' has no start');
+				var wiki = loadBlock(text.substr(start), '{{', '}}', debug);
 				var variables = {};
+
+				if (title === 'random') {
+					wiki = wiki.replace("|p1= x: [[Number]]\n", "")
+				}
 
 				var signatures = [];
 				var description = {
@@ -101,36 +237,16 @@ function parseDocument(doc, type, extended) {
 
 				var previousIdent = null;
 
-				while (match = findVariable.exec(wiki)) {
-					var ident = match[2].toLowerCase().trim();
-					var value = match[1];
+				variables = findVariables(wiki, debug);
+				for (let ident in variables) {
+					let value = variables[ident];
+					let valueStr = JSON.stringify(value);
 
-					value = value.replace(/[srp][0-9]*=/ig, '');
-
-					// Empty nothing after description means syntax apparently
-					if (ident == "" && previousIdent == 'description') {
-						ident = "syntax";
-					}
-
-					if (ident.indexOf("syntax") == 0) {
-						ident = "syntax";
-					}
-
-					// Fix this
-					if (ident == "returnvalue") {
-						ident = "return value";
-					}
-
-					if (ident == "syntax" || ident == "return value") {
-						if (!variables[ident])
-							variables[ident] = [];
-						variables[ident].push(parseValue(value, ident));
-					} else {
-						variables[ident] = value;
-					}
-
-					previousIdent = ident;
+					debug && console.log('Variable:', '`' + ident + '`');
+					debug && console.log('Value:', '`' + valueStr.substr(0, valueStr.length > 10 ? 10 : valueStr.length).replace(/\n/g, '<NL>') + '`');
 				}
+
+				debug && console.log(variables);
 
 				if (variables["return value"])
 					returns = variables["return value"];
@@ -143,7 +259,7 @@ function parseDocument(doc, type, extended) {
 					if (commented) {
 						item = commented[1].trim();
 					}
-					return item;
+					return item.replace(/''/g, '');
 				});
 
 				// Parse description
@@ -203,9 +319,9 @@ function parseDocument(doc, type, extended) {
 						desc = desc.replace(/\[\[Image(.*?)\]\]/g, '');
 
 						// Only use first sentence
-						var dot = desc.indexOf(".");
+						var dot = desc.search(/[^\.]\.[^\.]/);
 						if (dot >= 0) {
-							desc = desc.substr(0, dot + 1);
+							desc = desc.substr(0, dot + 2);
 						}
 					}
 
@@ -217,12 +333,16 @@ function parseDocument(doc, type, extended) {
 						.trim();
 				}
 
+				if (description.plain.length === 0 || description.formatted.length === 0) {
+					noInfo.push(title);
+				}
+
 				// Add more info to description
 				if (variables["game version"] && variables["game name"]) {
 					description.formatted += " _(" + variables["game name"] + " " + variables["game version"] + ")_";
 				}
 
-				description.formatted += " _([more info](https://community.bistudio.com/wiki/" + title + "))_\r\n\r\n";
+				description.formatted += " *([more info](https://community.bistudio.com/wiki/" + title + "))*\r\n\r\n";
 
 				// Add signatures
 				if (syntax.length > 0) {
@@ -248,8 +368,14 @@ function parseDocument(doc, type, extended) {
 					description: description,
 					signatures: signatures
 				}
+			} else {
+				console.log("No match: " + title);
 			}
 		}
+	}
+
+	if (noInfo.length > 1) {
+		console.log('No informations for ' + noInfo.length + ' commands/functions. Example: ' + noInfo[0]);
 	}
 
 	return results;
