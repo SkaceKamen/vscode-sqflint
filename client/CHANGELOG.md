@@ -1,3 +1,8 @@
+# Version 0.8.7
+ * Fixed issue with empty classes in hpp files (#32)
+ * Fixed macro support in hpp files (thanks veteran29)
+ * Added support for `#` operator (#30)
+
 # Version 0.8.6
  * `description.ext` files in subfolders of workspace will now be properly loaded
  * Added `discoverDescriptionFiles` options, which allows user to enable/disable automatic searching for `description.ext` files
