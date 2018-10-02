@@ -1174,6 +1174,14 @@ export class SQFLintServer {
 					});
 				}
 			}
+
+			for (let ident in this.globalMacros) {
+				let macro = this.globalMacros[ident];
+				items.push({
+					label: macro.name,
+					kind: CompletionItemKind.Enum
+				});
+			}
 		}
 
 		for (let i in this.modules) {
