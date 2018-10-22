@@ -5,7 +5,7 @@
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.8.8",
+  "version": "0.9.0",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.18.0",
@@ -91,6 +91,11 @@
           "default": true,
           "description": "Scan workspace twice, solving problems with global variables defined in files parsed later than files that are using them."
         },
+        "sqflint.contextSeparation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable context separation. Variables wont propagate into code blocks, even when defined in same file. This is to prevent errors when the local function is called in different context."
+        },
         "sqflint.exclude": {
           "type": "array",
           "default": [],
@@ -104,7 +109,7 @@
         "sqflint.ignoredVariables": {
           "type": "array",
           "default": [],
-          "description": "Ignored variables are treaded as internal commands, without definition check."
+          "description": "Ignored variables are treated as internal commands, without definition check."
         },
         "sqflint.includePrefixes": {
           "type": "object",

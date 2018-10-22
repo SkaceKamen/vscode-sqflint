@@ -52,6 +52,7 @@ export interface SQFLintSettings {
 	includePrefixes: { [key: string]: string };
 	discoverDescriptionFiles: boolean;
 	descriptionFiles: string[];
+	contextSeparation: boolean;
 }
 
 /**
@@ -225,7 +226,8 @@ export class SQFLintServer {
 			ignoredVariables: [],
 			includePrefixes: {},
 			discoverDescriptionFiles: true,
-			descriptionFiles: []
+			descriptionFiles: [],
+			contextSeparation: true
 		};
 
 		this.ignoredVariablesSet = {};
@@ -247,6 +249,7 @@ export class SQFLintServer {
 		this.settings.checkPaths = settings.sqflint.checkPaths;
 		this.settings.discoverDescriptionFiles = settings.sqflint.discoverDescriptionFiles;
 		this.settings.descriptionFiles = settings.sqflint.descriptionFiles;
+		this.settings.contextSeparation = settings.sqflint.contextSeparation;
 
 		this.ignoredVariablesSet = {};
 		this.settings.ignoredVariables.forEach((v) => {
@@ -509,7 +512,8 @@ export class SQFLintServer {
 							pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
 							checkPaths: this.settings.checkPaths,
 							ignoredVariables: this.settings.ignoredVariables,
-							includePrefixes: this.settings.includePrefixes
+							includePrefixes: this.settings.includePrefixes,
+							contextSeparation: this.settings.contextSeparation
 						}
 
 						client.parse(uri.fsPath, contents, options)

@@ -37,7 +37,7 @@ export class SQFLint {
 	 */
 	private launchProcess() {
 		this.childProcess = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), ["-j", "-v", "-s"]);
-		
+
 		// Fix for nodejs issue (see https://gist.github.com/TooTallNate/1785026)
 		emitLines(this.childProcess.stdout);
 
@@ -81,7 +81,7 @@ export class SQFLint {
 	private processLine(line: string) {
 		// Prepare result info
 		let info = new SQFLint.ParseInfo();
-		
+
 		// Skip empty lines
 		if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0) {
 			return;
@@ -123,7 +123,7 @@ export class SQFLint {
 		let variables: SQFLint.VariableInfo[] = info.variables;
 		let macros: SQFLint.Macroinfo[] = info.macros;
 		let includes: SQFLint.IncludeInfo[] = info.includes;
-		
+
 		// Preload position if present
 		let position: SQFLint.Range = null;
 		if (message.line && message.column) {
@@ -145,7 +145,7 @@ export class SQFLint {
 		} else if (message.type == "variable") {
 			// Build variable info wrapper
 			let variable = new SQFLint.VariableInfo();
-			
+
 			variable.name = message.variable;
 			variable.comment = this.parseComment(message.comment);
 			variable.usage = [];
@@ -183,7 +183,7 @@ export class SQFLint {
 				definition.filename = defs[i].filename;
 				macro.definitions.push(definition);
 			}
-			
+
 			macros.push(macro);
 		} else if (message.type == "include") {
 			let include = new SQFLint.IncludeInfo();
@@ -306,7 +306,7 @@ export namespace SQFLint {
 			public filename?: string
 		) {}
 	}
-	
+
 	/**
 	 * Error in code.
 	 */
@@ -391,5 +391,6 @@ export namespace SQFLint {
 		pathsRoot?: string;
 		ignoredVariables?: string[];
 		includePrefixes?: { [key: string]: string };
+		contextSeparation?: boolean;
 	}
 }
