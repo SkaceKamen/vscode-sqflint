@@ -1,3 +1,8 @@
+# Version 0.9.0
+ * Added context separation, that can detect undefined variables in different contexts in same file (can have false positives, can be disabled)
+ * Ignored variables array now accepts wildcards (#31)
+ * More robust callable check (#25, #35)
+
 # Version 0.8.8
  * Fixed links in hover docs for functions (#34)
  * Fixed hover docs for some functions and operators
