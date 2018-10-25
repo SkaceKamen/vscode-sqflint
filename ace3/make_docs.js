@@ -93,73 +93,6 @@ function parseContents(fnc, contents) {
 	} else {
 		console.log('No comment in ' + fnc)
 	}
-
-	/*
-	while (match = fncRe.exec(contents)) {
-		let title = match[1];
-		let desc = match[2];
-		let details = match[3];
-
-		let examples = false;
-
-		details = details.split("\n").map((item) => {
-			if (item.length < 2) return item;
-
-			if (!examples) {
-				if (/\s/.test(item.substr(0))) {
-					item = " - " + item.trim();
-				} else {
-					item = "\n**" + item + "**\n";
-				}
-
-				if (/-{2,}/.test(item)) {
-					item = "";
-				}
-			} else {
-				item = item.trim();
-			}
-
-			if (item.toLowerCase().indexOf("(begin example)") >= 0) {
-				examples = true;
-				item = "```sqf";
-			}
-			if (item.toLowerCase().indexOf("(end)") >= 0) {
-				if (examples) item = "```";
-				examples = false;
-			}
-
-
-			return item;
-		}).join("\n");
-
-		details = ["## Parameters"];
-		params.split("\n").forEach((param) => {
-			details.push(" * " + param.trim());
-		});
-
-		details.push("## Returns");
-		details.push(returns);
-
-		details.push("## Example");
-		details.push("```sqf");
-		details.push(example);
-		details.push("```");
-		details = details.join("\r\n");
-
-		documentation[fnc.toLowerCase()] = {
-			type: "function",
-			title: fnc,
-			description: {
-				plain: desc,
-				//formatted: desc + "\r\n#Parameters:\r\n * Something - somethigh\r\n * Another something"
-				formatted: desc + "\r\n\r\n" + details
-			},
-			signatures: []
-		};
-	}
-	*/
-
-	// console.log("done matchi", contents.length);
 }
 
 /**
@@ -202,7 +135,9 @@ function walkPath(path, callback) {
 					}
 
 					files.forEach(func => {
-						callback(fs_path.join(addonDir, func), `ACE3_${addon}_${func.split('.').slice(0, -1).join('.')}`)
+						if (fs_path.extname(func).toLowerCase() === '.sqf') {
+							callback(fs_path.join(addonDir, func), `ACE_${addon}_${func.split('.').slice(0, -1).join('.')}`)
+						}
 					})
 				})
 			})
