@@ -130,7 +130,7 @@ Identifier "identifier"
   }
 
 IdentifierStart
-  = [A-Za-z_]
+  = [A-Za-z_0-9]
 
 IdentifierPart
   = IdentifierStart
