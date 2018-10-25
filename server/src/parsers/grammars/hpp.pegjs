@@ -52,7 +52,7 @@ NormalDeclaration
   = name:Identifier __ "=" __ value:VariableValue EOS {
   	return {
     	"variable": name,
-        "value": value
+      "value": value
      }
   }
 
@@ -63,8 +63,8 @@ VariableValue
   / trans:TranslationIdentifier { return trans }
 
 MacroValue
-  = macro:Identifier __ "(" __ params:MacroParams __ ")" {
-    return "MACRO{" + macro + "("+ params + ")" + "}"
+  = macro:Identifier params:(__ "(" __ p:MacroParams __ ")" { return p })? {
+    return "MACRO{" + macro + "("+ (params || '') + ")" + "}"
   }
 
 MacroParams
@@ -76,7 +76,8 @@ MacroParams
 
 ArrayVariableValue
   = VariableValue
-  / arr:ArrayValues { return arr }
+  / ArrayValues
+  / InnerArrayValues
 
 NumericalExpression "numerical formula"
   = head:NumericalValue tail:(__ operator:ExpressionOperator __ value:NumericalValue { return operator + value })* {
@@ -96,7 +97,8 @@ ExpressionOperator
 NumericalValue "number"
   = "(" __ exp:NumericalExpression __ ")" { return "(" + exp + ")" }
   / prefix:"0x" value:[0-9A-Fa-f]+ { return prefix + value.join("") }
-  / prefix:[+-]? vals:Digit+ tail:("." suffix:Digit*)? supertail:("e" NumericalValue)? { return vals.join("") }
+  / prefix:[+-]? vals:Digit+ tail:("." suffix:Digit*)? supertail:("e" NumericalValue)? { return vals.join("") + (tail ? ('.' + tail[1].join) : '') }
+  / prefix:[+-]? "." suffix:Digit* supertail:("e" NumericalValue)? { return '0.' + suffix.join("") }
   / MacroValue
   / Identifier
 
@@ -112,6 +114,10 @@ ArrayValues
   = "{" __ vals:ArrayValue __ "}" { return vals }
   / "{" __ "}" { return [] }
   / macro:Identifier { return { "macro": macro } }
+
+InnerArrayValues
+  = "[" __ vals:ArrayValue __ "]" { return vals }
+  / "[" __ "]" { return [] }
 
 ArrayValue
   = head:ArrayVariableValue tail:(__ "," __ val:ArrayVariableValue {return val})* ","? {
