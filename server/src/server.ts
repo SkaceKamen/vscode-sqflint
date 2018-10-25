@@ -25,6 +25,7 @@ import { Queue } from './queue';
 
 import * as glob from 'glob';
 import { Module } from "./module";
+import { MissionModule } from './modules/mission';
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -179,6 +180,7 @@ export class SQFLintServer {
 	private indexed: boolean = false;
 
 	public extModule: ExtModule;
+	public missionModule: MissionModule;
 
 	private modules: Module[];
 
@@ -190,8 +192,11 @@ export class SQFLintServer {
 		this.loadEvents();
 
 		this.extModule = new ExtModule(this);
+		this.missionModule = new MissionModule(this);
+
 		this.modules = [
-			this.extModule
+			this.extModule,
+			this.missionModule
 		];
 
 		this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
@@ -593,6 +598,11 @@ export class SQFLintServer {
 
 										// Skip user defined functions
 										if (this.extModule.getFunction(item.ident.toLowerCase())) {
+											return;
+										}
+
+										// Skip mission variables
+										if (this.missionModule.getVariable(item.ident.toLowerCase())) {
 											return;
 										}
 
