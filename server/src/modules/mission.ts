@@ -117,29 +117,8 @@ export class MissionModule extends Module {
 			fs.readFile(filename, (err, data) => {
 				try {
 					this.process(Hpp.parse(filename), filename);
-
-					// Clear diagnostics
-					this.sendDiagnostics({
-						uri: Uri.file(filename).toString(),
-						diagnostics: []
-					});
-
 				} catch(error) {
-					if (error instanceof Hpp.ParseError && error.filename) {
-						this.sendDiagnostics({
-							uri: Uri.file(error.filename).toString(),
-							diagnostics:  [
-								{
-									severity: DiagnosticSeverity.Error,
-									range: error.range,
-									message: error.message,
-									source: "sqflint"
-								}
-							]
-						});
-					} else {
-						console.error(error);
-					}
+					// Skip errors, probably binarized mission
 				}
 
 				resolve();
