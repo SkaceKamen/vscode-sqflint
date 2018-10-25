@@ -48,4 +48,8 @@ export abstract class Module
 	protected getSettings() {
 		return this.server.getSettings();
 	}
+
+	protected log (contents: string) {
+		return this.server.connection.console.log(contents)
+	}
 }

@@ -46,6 +46,8 @@ export class ExtModule extends Module {
 			}
 			return null;
 		}
+
+		Hpp.log = contents => this.log(contents)
 	}
 
 	private loadDocumentation() {

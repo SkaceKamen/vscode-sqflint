@@ -15,8 +15,10 @@ export namespace Hpp {
 	let preprocessorMap: sourceMap[] = [];
 	export let onFilename: (filename: string) => void;
 	export let tryToLoad: (filename: string) => string = (filename) => { return null };
+	export let log: (contents: string) => void = (contents) => { };
 
 	export function parse(filename: string) {
+
 		var processed: string = null;
 		preprocessorMap = [];
 		try {
@@ -26,17 +28,15 @@ export namespace Hpp {
 			if (e.location !== undefined) {
 				var location = (<pegjs.PegjsError>e).location;
 
-				/*
 				if (processed) {
 					var lines = processed.split("\n");
 					for (var i = -2; i <= 2; i++) {
 						var index = location.start.line - 1 + i;
 						if (index >= 0 && index < lines.length) {
-							console.log((index + 1) + "\t" + lines[index]);
+							log(lines[index]);
 						}
 					}
 				}
-				*/
 
 				throw createParseError(<pegjs.PegjsError>e, filename);
 			} else {
@@ -141,7 +141,7 @@ export namespace Hpp {
 		if (onFilename) {
 			onFilename(filename);
 		}
-		
+
 		try {
 			var contents = tryToLoad(filename) || fs.readFileSync(filename).toString();
 			var result = <PreprocessorOutput>hppPreprocessor.parse(contents);
@@ -169,7 +169,7 @@ export namespace Hpp {
 						contents = contents.substr(0, offsetStart) +
 							output +
 							contents.substr(offsetEnd);
-						
+
 						offset += output.length;
 					} else {
 						// @TODO: Maybe continue?
