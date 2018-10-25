@@ -397,7 +397,16 @@ fs.readFile(__dirname + '/server/operatorsExport.xml', (err, data) => {
 				docs[ident] = items[ident];
 			}
 
-			fs.writeFile(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
+			fs.readFile(__dirname + '/../ace3/ace3.json', (err, data) => {
+				if (err) throw err;
+
+				var items = JSON.parse(data);
+				for(var ident in items) {
+					docs[ident] = items[ident];
+				}
+
+				fs.writeFile(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
+			});
 		});
 	});
 });
