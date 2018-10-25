@@ -1,3 +1,8 @@
+# Version 0.9.1
+ * Added new sqf functions
+ * Fixed some issues with hpp parser (allowed classnames beginning with numbers, allowed inner array definiton with [], allowed decimal number definition without 0 (ex .5))
+ * Fixed local variables not showing in autocomplete
+
 # Version 0.9.0
  * Added context separation, that can detect undefined variables in different contexts in same file (can have false positives, can be disabled)
  * Ignored variables array now accepts wildcards (#31)
