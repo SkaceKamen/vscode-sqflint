@@ -28,6 +28,7 @@ export namespace Hpp {
 			if (e.location !== undefined) {
 				var location = (<pegjs.PegjsError>e).location;
 
+				/*
 				if (processed) {
 					var lines = processed.split("\n");
 					for (var i = -2; i <= 2; i++) {
@@ -37,6 +38,7 @@ export namespace Hpp {
 						}
 					}
 				}
+				*/
 
 				throw createParseError(<pegjs.PegjsError>e, filename);
 			} else {
