@@ -59,9 +59,10 @@ export interface SQFLintSettings {
  * List of variables local to document.
  */
 interface DocumentVariables {
-	[ uri: string ] : { [name: string]: DocumentVariable };
+	[ uri: string ] : DocumentVariablesList;
 }
 
+interface DocumentVariablesList { [name: string]: DocumentVariable }
 /**
  * Variable local to document. Contains locations local to document.
  */
@@ -1155,6 +1156,14 @@ export class SQFLintServer {
 				}
 			}
 
+			let local = this.findLocalVariables(params.textDocument, hover)
+			local.forEach(local => {
+				items.push({
+					label: local.name,
+					kind: CompletionItemKind.Variable
+				});
+			})
+
 			for (let ident in this.globalVariables) {
 				let variable = this.globalVariables[ident];
 
@@ -1285,6 +1294,18 @@ export class SQFLintServer {
 		let ns;
 		return typeof(ns = this.documentVariables[document.uri]) !== "undefined" &&
 			typeof(ns[name]) !== "undefined";
+	}
+
+	/**
+	 * Finds local variables matching part specified query.
+	 */
+	private findLocalVariables(document: TextDocumentIdentifier, query: string): DocumentVariable[] {
+		let ns: DocumentVariablesList;
+		if (typeof(ns = this.documentVariables[document.uri]) === "undefined")
+			return null;
+		return Object.keys(ns)
+			.filter(name => name.toLocaleLowerCase().indexOf(query.toLowerCase()) >= 0)
+			.map(name => ns[name])
 	}
 
 	/**
