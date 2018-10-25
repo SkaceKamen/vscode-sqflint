@@ -449,7 +449,7 @@ export class SQFLintServer {
 
 			this.documentation = JSON.parse(data.toString());
 
-			for(let ident in this.documentation) {
+			for (let ident in this.documentation) {
 				if (this.operators[ident]) {
 					for(let i in this.operators[ident]) {
 						this.operators[ident][i].name = this.documentation[ident].title;
@@ -984,7 +984,7 @@ export class SQFLintServer {
 
 			// Add workspace root if needed
 			if (!fs_path.isAbsolute(string)) {
-				string = this.workspaceRoot + "/" + string;
+				string = fs_path.join(fs_path.dirname(Uri.parse(params.textDocument.uri).fsPath), string);
 			}
 
 			if (fs.existsSync(string)) {
