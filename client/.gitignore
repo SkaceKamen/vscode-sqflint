@@ -1,7 +1,9 @@
 out
-server
+server/**/*.js
+server/**/*.js.map
+server/*.xml
+server/package.json
 debugger
 node_modules
-server/*.xml
 cache
 *.vsix

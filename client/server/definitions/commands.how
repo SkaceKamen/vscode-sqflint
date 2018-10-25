@@ -1,0 +1,7 @@
+Run:
+
+_line = "
+";
+_str = "";
+{ _str = _str + _line + _x } forEach supportInfo "";
+copyToClipboard _str;
