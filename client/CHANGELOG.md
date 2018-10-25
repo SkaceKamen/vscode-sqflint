@@ -1,3 +1,9 @@
+# Version 0.9.2
+ * Added ACE3 functions
+ * Fixed issues with multiline macros
+ * Fixed issues with macros that could lead to infinite loop
+ * Fixed GoTo not working on #include paths
+
 # Version 0.9.1
  * Added new sqf functions
  * Fixed some issues with hpp parser (allowed classnames beginning with numbers, allowed inner array definiton with [], allowed decimal number definition without 0 (ex .5))
