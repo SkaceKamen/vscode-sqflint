@@ -145,10 +145,11 @@ export class MissionModule extends Module {
 	}
 
 	private processEntity(entity: Hpp.Class) {
-		console.log('Processing ' + entity.body.variables.datatype)
+		let name: string
+
 		switch (entity.body.variables.datatype.toLowerCase()) {
 			case 'marker':
-				let name = entity.body.variables.name
+				name = entity.body.variables.name
 				if (name) {
 					this.markers[name.toLowerCase()] = name
 				}
@@ -164,6 +165,12 @@ export class MissionModule extends Module {
 					if (name) {
 						this.variables[name.toLowerCase()] = name
 					}
+				}
+				break;
+			case 'logic':
+				name = entity.body.variables.name
+				if (name) {
+					this.variables[name.toLowerCase()] = name
 				}
 				break;
 		}
