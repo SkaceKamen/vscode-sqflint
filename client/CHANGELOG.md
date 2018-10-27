@@ -1,3 +1,6 @@
+# Version 0.9.4
+ * Fixed `mission.sqm` scanner not loading logics
+
 # Version 0.9.3
  * Added `mission.sqm` scanner, which will discover objects and markers defined in editor. (only works on debinarized missions)
 
