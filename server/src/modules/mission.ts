@@ -38,7 +38,10 @@ export class MissionModule extends Module {
 			let settings = this.getSettings();
 
 			glob("**/mission.sqm", { ignore: settings.exclude, root }, (err, discovered) => {
-				if (err) throw err
+				if (err) {
+					this.log('Issue when scanning for mission.sqm')
+					this.log(err.message)
+				}
 
 				discovered.forEach(item => {
 					this.parse(item);

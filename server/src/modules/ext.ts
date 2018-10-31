@@ -75,7 +75,10 @@ export class ExtModule extends Module {
 			// Try to disco
 			if (settings.discoverDescriptionFiles) {
 				glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
-					if (err) throw err
+					if (err) {
+						this.log('Issue when scanning for description.ext')
+						this.log(err.message)
+					}
 
 					this.files = files.concat(discovered.map(item => path.join(root, item)));
 					this.files.forEach(item => {
