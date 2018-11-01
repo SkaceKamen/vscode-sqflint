@@ -1,3 +1,8 @@
+# Version 0.9.5
+ * Fixed multi-line macros breaking locations of messages
+ * Fixed defines with more than 1 whitespaces being ignored (#40)
+ * Fixed some issues with context separation (#37)
+
 # Version 0.9.4
  * Fixed `mission.sqm` scanner not loading logics
 
