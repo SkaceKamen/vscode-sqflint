@@ -1,3 +1,7 @@
+# Version 0.9.6
+ * Fixed macros in macros not being properly parsed (#41)
+ * Fixed `or` not accepting `not` as right argument (#24)
+
 # Version 0.9.5
  * Fixed multi-line macros breaking locations of messages
  * Fixed defines with more than 1 whitespaces being ignored (#40)
