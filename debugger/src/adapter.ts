@@ -2,12 +2,12 @@ import * as path from 'path';
 
 import {
 	DebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent, Event,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint, Variable
+	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, Event,
+	Thread, StackFrame, Scope, Source, Handles, Breakpoint, Variable, OutputEvent
 } from 'vscode-debugadapter';
 
-import {DebugProtocol} from 'vscode-debugprotocol';
-import { RptMonitor, RptError, RptMessage } from './debugger';
+import { DebugProtocol } from 'vscode-debugprotocol'
+import { RptMonitor, RptError, RptMessage } from './debugger'
 
 export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	rptPath?: string
@@ -67,6 +67,14 @@ class SQFDebug extends DebugSession {
 
 		this.sendEvent(new OutputEvent("Watching " + (args.rptPath || defaultPath) + "\n"));
 
+		if (messageFilter) {
+			this.sendEvent(new OutputEvent("Standard output filter: " + args.messageFilter + "\n"));
+		}
+
+		if (errorFilter) {
+			this.sendEvent(new OutputEvent("Standard error filter: " + args.errorFilter + "\n"));
+		}
+
 		this.monitor = new RptMonitor(args.rptPath || defaultPath);
 
 		this.monitor.addListener('message', (message: RptMessage) => {
@@ -77,7 +85,17 @@ class SQFDebug extends DebugSession {
 
 		this.monitor.addListener('error', (error: RptError) => {
 			if (!errorFilter || errorFilter.test(error.message)) {
-				this.sendEvent(new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr"));
+				const msg: DebugProtocol.OutputEvent = new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr")
+
+				if (error.filename) {
+					msg.body.source = {
+						name: path.basename(error.filename),
+						path: error.filename
+					}
+					msg.body.line = error.line
+				}
+
+				this.sendEvent(msg);
 			}
 		});
 

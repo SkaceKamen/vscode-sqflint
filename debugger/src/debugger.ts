@@ -19,7 +19,7 @@ export class RptMonitor extends EventEmitter {
 		}
 
 		this.watcher = fs.watch(this.rptPath, { persistent: true });
-		this.watcher.addListener('change', (eventType, filename) => this.onPathChange(this.rptPath, eventType, filename));
+		this.watcher.addListener('change', (eventType, filename) => this.onPathChange(this.rptPath, eventType as any, filename.toString()));
 	}
 
 	private onPathChange(root: string, eventType: 'rename' | 'change', filename: string) {
@@ -57,34 +57,21 @@ export class RptMonitor extends EventEmitter {
 }
 
 class RptFile {
-	private lastTime: number;
+	private lastLine = 0;
 
 	constructor(
 		private monitor: RptMonitor,
 		private absPath: string
-	) {
-		this.lastTime = new Date().getTime();
-	}
+	) {}
 
 	public notify() {
 		fs.readFile(this.absPath, (err, data) => {
-			let lines = data.toString().split("\n");
+			let lines = data.toString().replace(/\n$/, '').split("\n").slice(this.lastLine);
 			let error: RptError = null;
 			let errorCounter = 0;
-			let maxTime = this.lastTime
 
-			lines.forEach((line) => {
+			lines.forEach(line => {
 				let parse = this.parseLine(line);
-
-				if (parse.time) {
-					let time = parse.time.getTime();
-					if (time <= this.lastTime) {
-						return;
-					}
-					if (time > maxTime) {
-						maxTime = time;
-					}
-				}
 
 				if (error) {
 					if (parse.time == null) {
@@ -113,7 +100,7 @@ class RptFile {
 						error = new RptError();
 						error.time = parse.time;
 						errorCounter = 0;
-					} else if (parse.time) {
+					} else {
 						let message = new RptMessage();
 						message.message = parse.text;
 						message.time = parse.time;
@@ -123,7 +110,7 @@ class RptFile {
 				}
 			});
 
-			this.lastTime = maxTime;
+			this.lastLine += lines.length;
 		});
 	}
 
