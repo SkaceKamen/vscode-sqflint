@@ -1,4 +1,9 @@
 # Version 0.9.6
+ * Fixed macros with arguments (#43)
+ * Debugger now uses line numbers to determine new messages
+ * Debugger now informs about filers if there are any
+
+# Version 0.9.6
  * Fixed macros in macros not being properly parsed (#41)
  * Fixed `or` not accepting `not` as right argument (#24)
 
