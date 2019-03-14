@@ -404,8 +404,7 @@ fs.readFile(__dirname + '/server/operatorsExport.xml', (err, data) => {
 				for(var ident in items) {
 					docs[ident] = items[ident];
 				}
-				console.log('writing');
-				fs.writeFileSync(__dirname + '/server/definitions/documentation.json',JSON.stringify(docs));
+				fs.writeFileSync(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
 			});
 		});
 	});
