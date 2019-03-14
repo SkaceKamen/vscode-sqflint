@@ -3,7 +3,7 @@
  * to JSON format used in this extension.
  *
  * To get create xml files used by this file, you need to go to /Special:Export/,
- * select Functions or Commands category, then save them as functionsExport.xml and
+ * select 'Functions' or 'Scripting Commands' category, then save them as functionsExport.xml and
  * operatorsExport.xml.
  *
  */
@@ -404,8 +404,8 @@ fs.readFile(__dirname + '/server/operatorsExport.xml', (err, data) => {
 				for(var ident in items) {
 					docs[ident] = items[ident];
 				}
-
-				fs.writeFile(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
+				console.log('writing');
+				fs.writeFileSync(__dirname + '/server/definitions/documentation.json',JSON.stringify(docs));
 			});
 		});
 	});
