@@ -405,7 +405,7 @@ fs.readFile(__dirname + '/server/operatorsExport.xml', (err, data) => {
 					docs[ident] = items[ident];
 				}
 
-				fs.writeFile(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
+				fs.writeFileSync(__dirname + '/server/definitions/documentation.json', JSON.stringify(docs));
 			});
 		});
 	});
