@@ -75,7 +75,8 @@ function removeMoreTags(value) {
 		.replace(/\[\[(.*?)\|(.*?)\]\]/g, '$2')
 		.replace(/\[\[(.*?)\]\]/g, '$1')
 		.replace(/ {2,}/g, ' ')
-		.replace(/&nbsp;/g, '');
+		.replace(/&nbsp;/g, '')
+		.replace('{{WarningNothing', 'Nothing');
 }
 
 function polishSyntaxArgument(item) {
