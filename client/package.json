@@ -156,23 +156,23 @@
           }
         },
         "initialConfigurations": [
-					{
-						"type": "sqflint",
-						"request": "launch",
+          {
+            "type": "sqflint",
+            "request": "launch",
             "name": "Watch RPT File"
-					}
+          }
         ],
-				"configurationSnippets": [
-					{
-						"label": "SQFLint: Watch RPT file",
-						"description": "A new configuration for watching RPT file.",
-						"body": {
-							"type": "sqlint",
-							"request": "launch",
-							"name": "Watch RPT File"
-						}
-					}
-				]
+        "configurationSnippets": [
+          {
+            "label": "SQFLint: Watch RPT file",
+            "description": "A new configuration for watching RPT file.",
+            "body": {
+              "type": "sqlint",
+              "request": "launch",
+              "name": "Watch RPT File"
+            }
+          }
+        ]
       }
     ]
   },
@@ -184,8 +184,8 @@
   "devDependencies": {
     "@types/node": "^8.5.7",
     "jsdom": "^9.8.3",
-    "typescript": "^2.6.2",
-    "vscode": "^1.1.10",
+    "typescript": "^3.1.3",
+    "vscode": "^1.1.33",
     "xmldoc": "^0.5.1"
   },
   "dependencies": {
@@ -193,7 +193,7 @@
     "pegjs": "^0.10.0",
     "vscode-debugadapter": "^1.25.0",
     "vscode-debugprotocol": "^1.25.0",
-    "vscode-languageclient": "^2.2.1",
-    "vscode-languageserver": "^2.5.0"
+    "vscode-languageclient": "^5.2.1",
+    "vscode-languageserver": "^5.2.1"
   }
 }

@@ -68,7 +68,7 @@ export class MissionModule extends Module {
 					data: name,
 					filterText: name,
 					insertText: '"' + name + '"',
-					kind: CompletionItemKind.Enum
+					kind: CompletionItemKind.Enum as any
 				}
 			})
 		)

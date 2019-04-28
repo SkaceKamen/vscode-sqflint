@@ -7,11 +7,9 @@
 import * as path from 'path';
 
 import * as vscode from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
 
 import * as openurl from 'openurl';
-import { CancellationToken } from 'vscode-languageclient/node_modules/vscode-jsonrpc/lib/main';
-import { ProviderResult, DebugConfiguration } from 'vscode';
 
 const links = {
 	unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -53,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 	}));
 
 	// Create the language client and start the client.
-	let disposable = new LanguageClient('SQF Language Server', serverOptions, clientOptions).start();
+	let disposable = new LanguageClient('sqfLanguageServer', 'SQF Language Server', serverOptions, clientOptions).start();
 
 	// Push the disposable to the context's subscriptions so that the
 	// client can be deactivated on extension deactivation

@@ -8,10 +8,11 @@ import {
 	CompletionItem, CompletionItemKind, ReferenceParams, Location,
 	Hover, TextDocumentIdentifier, SignatureHelp, SignatureInformation,
 	DidChangeConfigurationParams,
-	MarkedString
+	MarkedString,
+	Proposed
 } from 'vscode-languageserver';
+import { StatusBarTextNotification } from './status.bar';
 
-import { spawn } from 'child_process';
 import { SQFLint } from './sqflint';
 import { Hpp } from './parsers/hpp';
 import { ExtModule } from './modules/ext';
@@ -326,6 +327,8 @@ export class SQFLintServer {
 	 * Tries to parse all sqf files in workspace.
 	 */
 	private indexWorkspace(done?: () => void) {
+		// this.connection.sendNotification(StatusBarTextNotification.type, { text: '${sync spin} Indexing workspace...' });
+
 		// Calls indexWorkspace for all modules in sequence
 		this.runModules("indexWorkspace", this.workspaceRoot)
 			.then(() => {
@@ -344,6 +347,7 @@ export class SQFLintServer {
 										queue_done();
 										if (workQueue.isEmpty()) {
 											linter.stop();
+											// this.connection.sendNotification(StatusBarTextNotification.type, { text: null });
 											if (done) done();
 										}
 									});
