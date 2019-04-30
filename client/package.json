@@ -5,7 +5,7 @@
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.18.0",
@@ -156,23 +156,23 @@
           }
         },
         "initialConfigurations": [
-					{
-						"type": "sqflint",
-						"request": "launch",
+          {
+            "type": "sqflint",
+            "request": "launch",
             "name": "Watch RPT File"
-					}
+          }
         ],
-				"configurationSnippets": [
-					{
-						"label": "SQFLint: Watch RPT file",
-						"description": "A new configuration for watching RPT file.",
-						"body": {
-							"type": "sqlint",
-							"request": "launch",
-							"name": "Watch RPT File"
-						}
-					}
-				]
+        "configurationSnippets": [
+          {
+            "label": "SQFLint: Watch RPT file",
+            "description": "A new configuration for watching RPT file.",
+            "body": {
+              "type": "sqlint",
+              "request": "launch",
+              "name": "Watch RPT File"
+            }
+          }
+        ]
       }
     ]
   },
