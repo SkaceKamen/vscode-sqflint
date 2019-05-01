@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
 
 import * as openurl from 'openurl';
+import { SqflintClient } from './client';
 
 const links = {
 	unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -21,7 +22,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
 	// The debug options for the server
-	let debugOptions = { execArgv: ["--nolazy", "--inspect-brk=5686"] };
+	let debugOptions = { execArgv: ["--nolazy", "--inspect=5686"] };
 
 	// If the extension is launched in debug mode then the debug server options are used
 	// Otherwise the run options are used
@@ -50,10 +51,8 @@ export function activate(context: vscode.ExtensionContext) {
 		openurl.open(links.commandsList);
 	}));
 
-	// Create the language client and start the client.
-	let disposable = new LanguageClient('sqfLanguageServer', 'SQF Language Server', serverOptions, clientOptions).start();
+	let client = new SqflintClient('sqfLanguageServer', 'SQF Language Server', serverOptions, clientOptions);
 
-	// Push the disposable to the context's subscriptions so that the
-	// client can be deactivated on extension deactivation
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(client.start());
+	context.subscriptions.push(client.bar.bar);
 }

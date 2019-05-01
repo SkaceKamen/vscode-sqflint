@@ -9,7 +9,6 @@ import {
 	Hover, TextDocumentIdentifier, SignatureHelp, SignatureInformation,
 	DidChangeConfigurationParams,
 	MarkedString,
-	Proposed
 } from 'vscode-languageserver';
 import { StatusBarTextNotification } from './status.bar';
 
@@ -274,11 +273,11 @@ export class SQFLintServer {
 		if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
 			this.connection.console.log("Indexing workspace...");
 
-			this.indexWorkspace(() => {
+			this.indexWorkspace(false, () => {
 				this.connection.console.log("Done indexing workspace.");
 				if (this.settings.indexWorkspaceTwice) {
 					this.connection.console.log("Indexing workspace again, to resolve global variables.");
-					this.indexWorkspace(() => {
+					this.indexWorkspace(true, () => {
 						this.connection.console.log("Done reindexing workspace.");
 					});
 				}
@@ -323,38 +322,71 @@ export class SQFLintServer {
 		return this.modules.reduce((promise, current) => promise.then(result => <Promise<any>>current[method].apply(current, args)), Promise.resolve())
 	}
 
+	private statusMessage(text: string) {
+		this.connection.sendNotification(StatusBarTextNotification.type, { text });
+	}
+
 	/**
 	 * Tries to parse all sqf files in workspace.
 	 */
-	private indexWorkspace(done?: () => void) {
-		// this.connection.sendNotification(StatusBarTextNotification.type, { text: '${sync spin} Indexing workspace...' });
-
+	private indexWorkspace(again = false, done?: () => void) {
 		// Calls indexWorkspace for all modules in sequence
 		this.runModules("indexWorkspace", this.workspaceRoot)
 			.then(() => {
 				// Queue that executes callback in sequence with predefined delay between each
 				// This limits calls to sqflint
-				let workQueue = new Queue(20);
-				let linter = new SQFLint();
+				const workQueue = new Queue(20);
+				const linter = new SQFLint();
 
+				const files = [] as string[];
+				let parsedFiles = 0;
+				let lastPercents = -1;
+
+				// Load list of files so we can track progress
 				this.walkPath("**/*.sqf", (file) => {
-					fs.readFile(file, (err, data) => {
-						if (data) {
-							let uri = Uri.file(file).toString();
-							workQueue.add((queue_done) => {
-								this.parseDocument(TextDocument.create(uri, "sqf", 0, data.toString()), linter)
-									.then(() => {
-										queue_done();
-										if (workQueue.isEmpty()) {
-											linter.stop();
-											// this.connection.sendNotification(StatusBarTextNotification.type, { text: null });
-											if (done) done();
-										}
-									});
-							});
-						}
+					files.push(file);
+				}, () => {
+					// Parse all files
+					files.forEach(file => {
+						fs.readFile(file, (err, data) => {
+							if (data) {
+								let uri = Uri.file(file).toString();
+								workQueue.add((queue_done) => {
+									this.parseDocument(TextDocument.create(uri, "sqf", 0, data.toString()), linter, !this.settings.indexWorkspaceTwice || again)
+										.then(() => {
+											queue_done();
+
+											// Only track progress sporadically to not affect performance
+											parsedFiles++;
+											if (parsedFiles % 10 === 0) {
+												let percents = Math.round((parsedFiles / files.length) * 100);
+												if (percents != lastPercents) {
+													lastPercents = percents;
+													if (this.settings.indexWorkspaceTwice) {
+														percents = again
+															? 50 + Math.round(percents/2)
+															: Math.round(percents/2);
+													}
+
+													this.statusMessage(`$(sync~spin) Indexing workspace... ${percents} %`);
+												}
+											}
+
+											if (workQueue.isEmpty()) {
+												linter.stop();
+
+												if (!this.settings.indexWorkspaceTwice || again) {
+													this.statusMessage(null);
+												}
+
+												if (done) done();
+											}
+										});
+								});
+							}
+						});
 					});
-				});
+				})
 			});
 	}
 
@@ -488,7 +520,7 @@ export class SQFLintServer {
 	/**
 	 * Parses document and dispatches diagnostics if required.
 	 */
-	private parseDocument(textDocument: TextDocument, linter: SQFLint = null): Promise<void> {
+	private parseDocument(textDocument: TextDocument, linter: SQFLint = null, sendDiagnostic = true): Promise<void> {
 		return new Promise<void>((accept, refuse) => {
 			// Calls all modules in sequence
 			this.modules.reduce((promise, current) => {
@@ -714,11 +746,13 @@ export class SQFLintServer {
 									}
 								}
 
-								for (let uri in diagnosticsByUri) {
-									this.connection.sendDiagnostics({
-										uri: uri,
-										diagnostics: diagnosticsByUri[uri]
-									});
+								if (sendDiagnostic) {
+									for (let uri in diagnosticsByUri) {
+										this.connection.sendDiagnostics({
+											uri: uri,
+											diagnostics: diagnosticsByUri[uri]
+										});
+									}
 								}
 
 								} catch(ex) {
@@ -1426,42 +1460,5 @@ export class SQFLintServer {
 		return this.settings;
 	}
 }
-
-/*
-// The content of a text document has changed. This event is emitted
-// when the text document first opened or when its content has changed.
-documents.onDidChangeContent((change) => {
-	validateTextDocument(change.document);
-});
-*/
-
-/*
-connection.onDidChangeWatchedFiles((change) => {
-	// Monitored files have change in VSCode
-	connection.console.log('We recevied an file change event');
-});
-*/
-
-/*
-connection.onDidOpenTextDocument((params) => {
-	// A text document got opened in VSCode.
-	// params.uri uniquely identifies the document. For documents store on disk this is a file URI.
-	// params.text the initial full content of the document.
-	connection.console.log(`${params.uri} opened.`);
-});
-
-connection.onDidChangeTextDocument((params) => {
-	// The content of a text document did change in VSCode.
-	// params.uri uniquely identifies the document.
-	// params.contentChanges describe the content changes to the document.
-	connection.console.log(`${params.uri} changed: ${JSON.stringify(params.contentChanges)}`);
-});
-
-connection.onDidCloseTextDocument((params) => {
-	// A text document got closed in VSCode.
-	// params.uri uniquely identifies the document.
-	connection.console.log(`${params.uri} closed.`);
-});
-*/
 
 let server = new SQFLintServer();
