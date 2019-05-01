@@ -8,7 +8,7 @@
   "version": "0.9.9",
   "publisher": "skacekachna",
   "engines": {
-    "vscode": "^1.18.0",
+    "vscode": "^1.33.1",
     "node": "^7.9.0"
   },
   "repository": {
