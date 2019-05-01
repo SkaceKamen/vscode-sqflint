@@ -1,3 +1,8 @@
+# Version 0.9.9
+ * Workspace indexing now displays status in statusbar
+ * Workspace indexing no longer displays undefined warnings on first pass
+ * Fixed autocompletion not working (#52)
+
 # Version 0.9.81
  * Fixed `description.ext` parser being older version
 
