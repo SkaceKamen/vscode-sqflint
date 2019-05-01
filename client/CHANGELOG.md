@@ -1,3 +1,13 @@
+# Version 0.9.81
+ * Fixed `description.ext` parser being older version
+
+# Version 0.9.8
+ * Added new functions and operators
+ * Fixed parser getting stuck in infinite loop under certain conditions (#49) (thanks billw2012)
+
+# Version 0.9.7
+ * Small fixes
+
 # Version 0.9.6
  * Fixed macros with arguments (#43)
  * Debugger now uses line numbers to determine new messages
