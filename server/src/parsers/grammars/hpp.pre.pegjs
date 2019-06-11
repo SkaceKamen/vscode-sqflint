@@ -14,6 +14,7 @@ Lines
 Line
   = Define
   / Include
+  / EvalExec
   / Code { return null; }
 
 Define
@@ -30,6 +31,15 @@ IncludeValue
   = Whitespace "\"" value:[^\n\r\"]* "\""  { return value }
   / Whitespace "<" value:[^\n\r>]* ">" { return value }
 
+EvalExec
+  = NoNewline* loc:EvalOrExec {
+    return loc;
+  }
+
+EvalOrExec
+  = "__EVAL" value:NoNewline* { return { eval: value.join(""), location: location() } }
+  / "__EXEC" value:NoNewline* { return { eval: value.join(""), location: location() } }
+
 Whitespace "whitespace"
   = [ \t]*
 
@@ -38,4 +48,8 @@ Code
   / NoNewline+ !.
   
 NoNewline
-  = [^\n\r]
+  = !NoCode v:("\\" "\r"? "\n" / [^\r\n]) { return typeof v === "string" ? v : v.join("") }
+  
+NoCode
+ = "__EVAL"
+ / "__EXEC"

@@ -18,7 +18,6 @@ export namespace Hpp {
 	export let log: (contents: string) => void = (contents) => { };
 
 	export function parse(filename: string) {
-
 		var processed: string = null;
 		preprocessorMap = [];
 		try {
@@ -26,7 +25,10 @@ export namespace Hpp {
 			return applyExtends(<ClassBody>hppParser.parse(processed));
 		} catch (e) {
 			if (e.location !== undefined) {
-				var location = (<pegjs.PegjsError>e).location;
+				let location = (<pegjs.PegjsError>e).location;
+
+				console.log('Error while parsing', filename);
+				console.error(e);
 
 				/*
 				if (processed) {
@@ -105,18 +107,16 @@ export namespace Hpp {
 				if (location.start.offset >= map.offset[0] &&
 				    location.start.offset < map.offset[1]
 				) {
-					// console.log("Map match", map, location);
-
 					return {
 						filename: map.filename,
 						range: <SQFLint.Range>{
 							start: {
 								line: location.start.line - map.offset[2],
-								character: location.start.column - map.offset[3]
+								character: location.start.column - map.offset[3] - 1
 							},
 							end: {
 								line: location.end.line - map.offset[2],
-								character: location.end.column - map.offset[3]
+								character: location.end.column - map.offset[3] - 1
 							}
 						}
 					};
@@ -128,12 +128,12 @@ export namespace Hpp {
 			filename: <string>null,
 			range: <SQFLint.Range>{
 				start: {
-					line: location.start.line,
-					character: location.start.column
+					line: location.start.line - 1,
+					character: location.start.column - 1
 				},
 				end: {
-					line: location.end.line,
-					character: location.end.column
+					line: location.end.line - 1,
+					character: location.end.column - 1
 				}
 			}
 		}
@@ -161,10 +161,10 @@ export namespace Hpp {
 						var offsetEnd = offset + item.location.end.offset;
 						var offsetLine = contents.substr(0, offsetStart).split("\n").length;
 						var offsetChar = contents.substring(contents.lastIndexOf("\n", offsetStart), offsetStart).length;
-						var output = preprocess(itempath, offsetStart);
+						var output = preprocess(itempath, mapOffset + offsetStart);
 
 						preprocessorMap.push({
-							offset: [ offsetStart, offsetStart + output.length, offsetLine, offsetChar ],
+							offset: [ mapOffset + offsetStart, mapOffset + offsetStart + output.length, offsetLine, offsetChar ],
 							filename: itempath
 						});
 
@@ -179,6 +179,10 @@ export namespace Hpp {
 							filename, pegjsLocationToSqflint(item.location).range, "Failed to find '" + itempath + "'"
 						);
 					}
+				} else if (item.eval) {
+					contents = contents.substr(0, offset + item.location.start.offset) + '"";' +
+						contents.substr(offset + item.location.end.offset);
+					offset += 3;
 				} else {
 					contents = contents.substr(0, offset + item.location.start.offset) +
 						contents.substr(offset + item.location.end.offset);
@@ -204,7 +208,8 @@ export namespace Hpp {
 	export interface IncludeOrDefine {
 		include: string;
 		define: string;
-		location: pegjs.LocationRange
+		eval: string;
+		location: pegjs.LocationRange;
 	}
 
 
