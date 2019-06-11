@@ -97,10 +97,14 @@ ExpressionOperator
 NumericalValue "number"
   = "(" __ exp:NumericalExpression __ ")" { return "(" + exp + ")" }
   / prefix:"0x" value:[0-9A-Fa-f]+ { return prefix + value.join("") }
-  / prefix:[+-]? vals:Digit+ tail:("." suffix:Digit*)? supertail:("e" NumericalValue)? { return vals.join("") + (tail ? ('.' + tail[1].join) : '') }
+  / prefix:[+-]? vals:Digit+ tail:("." suffix:Digit*)? supertail:("e" NumericalValue)? { return vals.join("") + (tail ? ('.' + tail[1].join("")) : '') }
   / prefix:[+-]? "." suffix:Digit* supertail:("e" NumericalValue)? { return '0.' + suffix.join("") }
+  / Sqf
   / MacroValue
   / Identifier
+  
+Sqf "sqf"
+  = head:Identifier tail:(__ Identifier __)* { return head + " " + tail.map((t) => t[1]).join(" ") }
 
 ArrayDeclaration
   = name:Identifier __ "[]" __ "=" __ value:ArrayValues EOS {
