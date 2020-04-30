@@ -2,6 +2,7 @@ import { NotificationType, NotificationHandler } from "vscode-jsonrpc";
 
 export interface StatusBarTextParams {
   text: string;
+  title?: string;
 }
 
 export namespace StatusBarTextNotification {

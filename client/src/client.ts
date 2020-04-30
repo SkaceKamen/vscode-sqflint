@@ -28,6 +28,7 @@ class StatusBarFeature implements StaticFeature {
     let client = this._client;
     client.onNotification(StatusBarTextNotification.type, (params: StatusBarTextParams) => {
       this.bar.text = params.text;
+      this.bar.tooltip = params.title || 'Sqflint Status';
       if (params.text) {
         this.bar.show();
       } else {
@@ -39,6 +40,7 @@ class StatusBarFeature implements StaticFeature {
 
 export interface StatusBarTextParams {
   text: string;
+  title?: string;
 }
 
 export namespace StatusBarTextNotification {

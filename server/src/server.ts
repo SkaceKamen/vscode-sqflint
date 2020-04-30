@@ -272,6 +272,7 @@ export class SQFLintServer {
 
 		if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
 			this.connection.console.log("Indexing workspace...");
+			this.statusMessage(`$(sync~spin) Indexing.. 0%`);
 
 			this.indexWorkspace(false, () => {
 				this.connection.console.log("Done indexing workspace.");
@@ -322,8 +323,8 @@ export class SQFLintServer {
 		return this.modules.reduce((promise, current) => promise.then(result => <Promise<any>>current[method].apply(current, args)), Promise.resolve())
 	}
 
-	private statusMessage(text: string) {
-		this.connection.sendNotification(StatusBarTextNotification.type, { text });
+	private statusMessage(text: string, title?: string) {
+		this.connection.sendNotification(StatusBarTextNotification.type, { text, title });
 	}
 
 	/**
@@ -368,7 +369,7 @@ export class SQFLintServer {
 															: Math.round(percents/2);
 													}
 
-													this.statusMessage(`$(sync~spin) Indexing workspace... ${percents} %`);
+													this.statusMessage(`$(sync~spin) Indexing.. ${percents}%`, `${parsedFiles % (files.length + 1)}/${files.length} Files`);
 												}
 											}
 
