@@ -82,6 +82,7 @@ export class ExtModule extends Module {
 
 					this.files = files.concat(discovered.map(item => path.join(root, item)));
 					this.files.forEach(item => {
+						this.log(`Parsing: ${item}`);
 						this.parse(item);
 					});
 
@@ -95,6 +96,7 @@ export class ExtModule extends Module {
 
 				this.files = files
 				this.files.forEach(item => {
+					this.log(`Parsing: ${item}`);
 					this.parse(item);
 				});
 
@@ -278,6 +280,7 @@ export class ExtModule extends Module {
 			fs.readFile(filename, (err, data) => {
 				try {
 					this.process(Hpp.parse(filename), filename);
+					this.log(`Proccessed ${filename}`);
 
 					// Clear diagnostics
 					this.sendDiagnostics({
@@ -320,6 +323,7 @@ export class ExtModule extends Module {
 	 * Loads list of functions and paths to their files.
 	 */
 	private processCfgFunctions(cfgFunctions: Hpp.Class, root_filename: string) {
+		let settings = this.getSettings();
 		let diagnostics: { [uri: string]: Diagnostic[] } = {};
 		let root = path.dirname(root_filename);
 
@@ -334,7 +338,7 @@ export class ExtModule extends Module {
 				category = categoryClass.name;
 
 				// Default path used for this category
-				let categoryPath = path.join(root, "functions", category);
+				let categoryPath = path.join("functions", category);
 
 				// Tagname for this category, can be overriden
 				let categoryTag = (categoryClass.body.variables["tag"]) || tag;
@@ -342,7 +346,7 @@ export class ExtModule extends Module {
 				// Category path can be overriden if requested
 				let categoryOverride = categoryClass.body.variables["file"];
 				if (categoryOverride) {
-					categoryPath = path.join(root, categoryOverride);
+					categoryPath = categoryOverride;
 				}
 
 				for (let functionName in categoryClass.body.classes) {
@@ -361,8 +365,25 @@ export class ExtModule extends Module {
 					// Filename can be overriden by attribute
 					let filenameOverride = functionClass.body.variables["file"];
 					if (filenameOverride) {
-						filename = path.join(root, filenameOverride);
-					}
+						filename = filenameOverride;
+                    }
+                    let foundPrefix = false;
+                    if (settings.includePrefixes) {
+                        for (let prefix in settings.includePrefixes) {
+                            if (filename.startsWith(prefix)) {
+                                foundPrefix = true;
+                                if (path.isAbsolute(settings.includePrefixes[prefix])) {
+                                    filename = settings.includePrefixes[prefix] + filename.slice(prefix.length);
+                                } else {
+                                    filename = path.join(root, settings.includePrefixes[prefix] + filename.slice(prefix.length));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    if (!foundPrefix) {
+                        filename = path.join(root, filename);
+                    }
 
 					// Save the function
 					functions[fullFunctionName.toLowerCase()] = {
