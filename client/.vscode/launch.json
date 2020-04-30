@@ -5,6 +5,16 @@
 		{
 			"type": "node",
 			"request": "launch",
+			"name": "Package Extension",
+			"runtimeExecutable": "npm",
+			"runtimeArgs": [
+				"run",
+				"package"
+			]
+		},
+		{
+			"type": "node",
+			"request": "launch",
 			"name": "Launch Program",
 			"program": "${workspaceFolder}/server/server.js",
 			"args": [
@@ -33,5 +43,6 @@
 			"outDir": "${workspaceRoot}/out/test",
 			"preLaunchTask": "npm"
 		}
+
 	]
 }

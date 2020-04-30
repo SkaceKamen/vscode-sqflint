@@ -5,7 +5,7 @@
   "author": "Jan Zípek",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.33.1",
@@ -179,6 +179,7 @@
   "scripts": {
     "watch": "tsc -w -p .",
     "vscode:prepublish": "tsc -p ./",
+    "package": "cd ../server && npm install && npm run grammar && npm run compile && cd ../client && npm install && tsc -p ./ && vsce package",
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "devDependencies": {
@@ -186,7 +187,8 @@
     "jsdom": "^9.8.3",
     "typescript": "^3.4.5",
     "vscode": "^1.1.33",
-    "xmldoc": "^0.5.1"
+    "xmldoc": "^0.5.1",
+    "vsce": "^1.75.0"
   },
   "dependencies": {
     "openurl": "^1.1.1",
