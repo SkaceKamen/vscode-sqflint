@@ -2,18 +2,18 @@
   "name": "sqflint",
   "displayName": "SQFLint",
   "description": "Parse errors, hover help for functions/commands and more.",
-  "author": "Jan Zípek",
+  "author": "Jan Zípek, Senfo",
   "icon": "images/sqflint.png",
   "license": "MIT",
   "version": "0.11.0",
-  "publisher": "skacekachna",
+  "publisher": "senfo",
   "engines": {
     "vscode": "^1.33.1",
     "node": "^7.9.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SkaceKamen/vscode-sqflint"
+    "url": "https://github.com/RZSenfo/vscode-sqflint"
   },
   "categories": [
     "Programming Languages",
