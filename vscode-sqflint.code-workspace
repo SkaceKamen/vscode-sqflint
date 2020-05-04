@@ -8,6 +8,9 @@
 		},
 		{
 			"path": "debugger"
+		},
+		{
+			"path": "sqflint"
 		}
 	],
 	"settings": {
