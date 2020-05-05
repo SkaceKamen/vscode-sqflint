@@ -84,6 +84,7 @@ export class ExtModule extends Module {
 					this.files.forEach(item => {
 						this.log(`Parsing: ${item}`);
 						this.parse(item);
+						this.log(`Parsed: ${item}`);
 					});
 
 					resolve();
@@ -98,6 +99,7 @@ export class ExtModule extends Module {
 				this.files.forEach(item => {
 					this.log(`Parsing: ${item}`);
 					this.parse(item);
+					this.log(`Parsed: ${item}`);
 				});
 
 				resolve();
@@ -315,6 +317,7 @@ export class ExtModule extends Module {
 	private process(context: Hpp.ClassBody, filename: string) {
 		let cfgFunctions = context.classes["cfgfunctions"];
 		if (cfgFunctions) {
+			this.log(`Scanning functions for: ${filename}`);
 			this.processCfgFunctions(cfgFunctions, filename);
 		}
 	}
