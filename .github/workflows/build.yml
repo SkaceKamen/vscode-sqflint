@@ -1,0 +1,25 @@
+name: SQFLint-VSCode CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build SQFLint with Docker image
+        uses: ./sqflint/.github/actions/sqflint-build-action
+      - name: Use Node.js 12.16
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12.16
+      - run: cd client && npm run package
+      # - name: Store vs
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: dist
+      #     path: dist/github

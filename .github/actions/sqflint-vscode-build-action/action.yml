@@ -1,0 +1,5 @@
+name: 'sqflint-vscode-build-action'
+description: 'builds sqflint extension'
+runs:
+  using: 'docker'
+  image: 'docker://node:12.16'
