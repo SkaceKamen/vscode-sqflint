@@ -5,7 +5,7 @@
   "author": "Jan Zípek, Senfo",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.11.0",
+  "version": "0.11.3",
   "publisher": "senfo",
   "engines": {
     "vscode": "^1.33.1",
@@ -178,8 +178,8 @@
   },
   "scripts": {
     "watch": "tsc -w -p .",
-    "vscode:prepublish": "tsc -p ./",
-    "package": "cd ../server && npm install && npm run grammar && npm run compile && cd ../client && npm install && tsc -p ./ && vsce package",
+    "vscode:prepublish": "cd ../server && npm install && npm run grammar && npm run compile && cd ../client && npm install && tsc -p ./",
+    "package": "cd ../server && npm install && npm run grammar && npm run compile && cd ../client && npm install && tsc -p ./ && cp ../sqflint/dist/SQFLint.jar bin/SQFLint.jar && vsce package",
     "postinstall": "node ./node_modules/vscode/bin/install"
   },
   "devDependencies": {
