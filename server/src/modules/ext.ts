@@ -281,8 +281,9 @@ export class ExtModule extends Module {
 		return new Promise<void>((resolve, reject) => {
 			fs.readFile(filename, (err, data) => {
 				try {
+					this.log(`Proccessing: ${filename}`);
 					this.process(Hpp.parse(filename), filename);
-					this.log(`Proccessed ${filename}`);
+					this.log(`Proccessed: ${filename}`);
 
 					// Clear diagnostics
 					this.sendDiagnostics({
@@ -331,14 +332,20 @@ export class ExtModule extends Module {
 		let root = path.dirname(root_filename);
 
 		let functions = this.functions[root_filename] = {};
+		let functionsCount = 0;
 
 		for (let tag in cfgFunctions.body.classes) {
+
 			let tagClass = cfgFunctions.body.classes[tag];
 			tag = tagClass.name;
+
+			this.log(`Detected tag: ${tag}`);
 
 			for (let category in tagClass.body.classes) {
 				let categoryClass = tagClass.body.classes[category];
 				category = categoryClass.name;
+
+				this.log(`Detected category: ${category}`);
 
 				// Default path used for this category
 				let categoryPath = path.join("functions", category);
@@ -386,7 +393,10 @@ export class ExtModule extends Module {
                     }
                     if (!foundPrefix) {
                         filename = path.join(root, filename);
-                    }
+					}
+					
+					// this.log(`Detected function: ${fullFunctionName} in ${filename}`);
+					functionsCount++;
 
 					// Save the function
 					functions[fullFunctionName.toLowerCase()] = {
@@ -415,6 +425,8 @@ export class ExtModule extends Module {
 				}
 			}
 		}
+
+		this.log(`Detected a total of ${functionsCount} in ${root_filename}`);
 
 		for (var uri in diagnostics) {
 			this.sendDiagnostics({
