@@ -26,13 +26,16 @@ export namespace Hpp {
 		} catch (e) {
 			if (e.location !== undefined) {
 				let location = (<pegjs.PegjsError>e).location;
-				console.log('Error while parsing' + filename, e);
 				let linewise = processed.split('\n').map((x) => x.replace('\r', ''));
                 linewise[location.start.line - 1] = linewise[location.start.line - 1] + ' <--- ERROR LINE'
-                console.log(linewise.slice(
-                    Math.max(0, location.start.line - 5),
-                    Math.max(0, location.start.line + 10)
-                ));
+				console.log(
+					'Error while parsing ' + filename,
+					e,
+					linewise.slice(
+						Math.max(0, location.start.line - 5),
+						Math.max(0, location.start.line + 10)
+					)
+				);
 				
 				/*
 				if (processed) {
