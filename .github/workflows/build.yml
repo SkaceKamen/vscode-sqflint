@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
       - name: Build SQFLint with Docker image
         uses: ./sqflint/.github/actions/sqflint-build-action
       - name: Use Node.js 12.16
