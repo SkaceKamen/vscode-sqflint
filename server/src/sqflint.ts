@@ -97,6 +97,9 @@ export class SQFLint {
 			return;
 		}
 
+		// log some bench
+		info.timeNeededSqfLint = serverMessage.timeneeded;
+
 		// Parse messages
 		for (let l in serverMessage.messages) {
 			this.processMessage(serverMessage.messages[l], info);
@@ -105,8 +108,8 @@ export class SQFLint {
 		// Pass result to waiter
 		let waiter = this.waiting[serverMessage.file];
 		if (waiter) {
-			delete this.waiting[serverMessage.file];
 			waiter(info);
+			delete this.waiting[serverMessage.file];
 		} else {
 			console.error("SQFLint: Received unrequested info.");
 		}
@@ -207,10 +210,15 @@ export class SQFLint {
 
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
 			if (!this.childProcess) {
+				console.log("Starting SQFLint Background-Server")
 				this.launchProcess();
 			}
 
-			this.waiting[filename] = success;
+			let startTime = new Date();
+			this.waiting[filename] = (info: SQFLint.ParseInfo) => {
+				info.timeNeededMessagePass = new Date().valueOf() - startTime.valueOf();
+				success(info);
+			};
 			this.childProcess.stdin.write(JSON.stringify({ "file": filename, "contents": contents, "options": options }) + "\n");
 		});
 	}
@@ -265,6 +273,7 @@ export class SQFLint {
  * Raw message received from server.
  */
 interface RawServerMessage {
+	timeneeded?: number;
 	file: string;
 	messages: RawMessage[]
 }
@@ -326,6 +335,8 @@ export namespace SQFLint {
 		variables: VariableInfo[] = [];
 		macros: Macroinfo[] = [];
 		includes: IncludeInfo[] = [];
+		timeNeededSqfLint?: number;
+		timeNeededMessagePass?: number;
 	}
 
 	export class IncludeInfo {

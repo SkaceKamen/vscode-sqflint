@@ -186,6 +186,8 @@ export class SQFLintServer {
 
 	private ignoredVariablesSet: { [ident: string]: boolean };
 
+	private currentRunParsedFiles = [];
+
 	constructor() {
 		this.loadOperators();
 		this.loadDocumentation();
@@ -272,7 +274,7 @@ export class SQFLintServer {
 
 		if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
 			this.connection.console.log("Indexing workspace...");
-			this.statusMessage(`$(sync~spin) Indexing.. 0%`);
+			this.statusMessage(`$(sync~spin) Indexing.. 0%`, "Parsing and Reading CfgFunctions");
 
 			this.indexWorkspace(false, () => {
 				this.connection.console.log("Done indexing workspace.");
@@ -331,64 +333,102 @@ export class SQFLintServer {
 	 * Tries to parse all sqf files in workspace.
 	 */
 	private indexWorkspace(again = false, done?: () => void) {
+		
+		this.currentRunParsedFiles = [];
+		
 		// Calls indexWorkspace for all modules in sequence
-		this.runModules("indexWorkspace", this.workspaceRoot)
-			.then(() => {
-				// Queue that executes callback in sequence with predefined delay between each
-				// This limits calls to sqflint
-				const workQueue = new Queue(20);
-				const linter = new SQFLint();
+		this.runModules("indexWorkspace", this.workspaceRoot).then(() => {
+			// Queue that executes callback in sequence with predefined delay between each
+			// This limits calls to sqflint
+			const workQueue = new Queue(20);
+			const linter = new SQFLint();
 
-				const files = [] as string[];
-				let parsedFiles = 0;
-				let lastPercents = -1;
+			const files: string[] = [];
+			let readFiles = 0;
+			let lastUpdate = new Date().valueOf();
 
-				// Load list of files so we can track progress
-				this.walkPath("**/*.sqf", (file) => {
-					files.push(file);
-				}, () => {
+			this.log("Done module index... Now indexing sqf");
+
+			// Load list of files so we can track progress
+			this.walkPath(
+				"**/*.sqf",
+				(file) => {	files.push(file); },
+				async () => {
+
+					this.log(`Parsing a total of sqf ${files.length} files`);
+					let queue = [];
+					for (let file of files) {
+						if (!queue.includes(file)) {
+							queue.push(file);
+						}
+					}
+					queue = queue.map((x) => [x]);
+
 					// Parse all files
-					files.forEach(file => {
+					files.forEach((file) => {
 						fs.readFile(file, (err, data) => {
-							if (data) {
-								let uri = Uri.file(file).toString();
-								workQueue.add((queue_done) => {
-									this.parseDocument(TextDocument.create(uri, "sqf", 0, data.toString()), linter, !this.settings.indexWorkspaceTwice || again)
-										.then(() => {
-											queue_done();
-
-											// Only track progress sporadically to not affect performance
-											parsedFiles++;
-											if (parsedFiles % 10 === 0) {
-												let percents = Math.round((parsedFiles / files.length) * 100);
-												if (percents != lastPercents) {
-													lastPercents = percents;
-													if (this.settings.indexWorkspaceTwice) {
-														percents = again
-															? 50 + Math.round(percents/2)
-															: Math.round(percents/2);
-													}
-
-													this.statusMessage(`$(sync~spin) Indexing.. ${percents}%`, `${parsedFiles % (files.length + 1)}/${files.length} Files`);
-												}
-											}
-
-											if (workQueue.isEmpty()) {
-												linter.stop();
-
-												if (!this.settings.indexWorkspaceTwice || again) {
-													this.statusMessage(null);
-												}
-
-												if (done) done();
-											}
-										});
-								});
+							readFiles++;
+							// this.log(`File read ${readFiles} / ${files.length}`);
+							for (let queuefile of queue) {
+								if (queuefile[0] === file) {
+									queuefile.push(data);
+								}
 							}
 						});
 					});
-				})
-			});
+
+					// work the queue
+					while (queue.length > 0) {
+						
+						let workItem;
+						for (let i = 0; i < queue.length; i++) {
+							let queuefile = queue[i];
+							if (queuefile.length === 2) {
+								queue.splice(i, 1);
+								if (queuefile[1]) {
+									workItem = queuefile;
+									break;
+								} else {
+									i--;
+								}
+							}
+						};
+						
+						if (workItem) {
+							let uri = Uri.file(workItem[0]).toString();
+							await this.parseDocument(
+								TextDocument.create(uri, "sqf", 0, workItem[1].toString()),
+								linter,
+								!this.settings.indexWorkspaceTwice || again
+							);
+							// Only track progress sporadically to not affect performance
+							if (
+								this.currentRunParsedFiles.length % 10 === 0
+								|| this.currentRunParsedFiles.length === 1
+								|| ((new Date().valueOf()) - lastUpdate) >= 5000
+							) {
+								lastUpdate = new Date().valueOf();
+								let percents = Math.round((this.currentRunParsedFiles.length / files.length) * 100);
+								if (this.settings.indexWorkspaceTwice) {
+									percents = again
+										? 50 + Math.round(percents/2)
+										: Math.round(percents/2);
+								}
+
+								this.statusMessage(`$(sync~spin) Indexing.. ${percents}%`, `${this.currentRunParsedFiles.length % (files.length + 1)}/${files.length} Files`);
+							}
+						} else {
+							await new Promise((res) => setTimeout(res, 250));
+						}
+					}
+					if (!this.settings.indexWorkspaceTwice || again) {
+						this.statusMessage(null);
+					}
+					linter.stop();
+					if (done) done();
+				}
+			)
+		});
 	}
 
 	/**
@@ -523,247 +563,272 @@ export class SQFLintServer {
 	 */
 	private parseDocument(textDocument: TextDocument, linter: SQFLint = null, sendDiagnostic = true): Promise<void> {
 		return new Promise<void>((accept, refuse) => {
+			
+			let startTime = new Date();
+			
 			// Calls all modules in sequence
 			this.modules.reduce((promise, current) => {
 				return promise.then((result) => current.parseDocument(textDocument, linter))
-			}, Promise.resolve())
-				.then(() => {
-					// Parse SQF file
-					let uri = Uri.parse(textDocument.uri);
-					if (fs_path.extname(uri.fsPath).toLowerCase() == ".sqf") {
-						let client = linter || this.sqflint;
+			}, Promise.resolve()).then(() => {
+				
+				let timeTook = (new Date().valueOf()) - startTime.valueOf();
+				if (timeTook > 1000) {
+					this.log(`Modules took long for: ${textDocument.uri} (${timeTook} ms)`)
+				}
 
-						// Reset variables local to document
-						this.documentVariables[textDocument.uri] = {};
+				startTime = new Date();
+				
+				// Parse SQF file
+				let uri = Uri.parse(textDocument.uri);
+				if (
+					fs_path.extname(uri.fsPath).toLowerCase() === ".sqf"
+					&&
+					!this.currentRunParsedFiles.includes(textDocument.uri)
+				) {
 
-						// Remove info about global variables created from this document
-						for (let global in this.globalVariables) {
-							let variable = this.globalVariables[global];
+					// this.log(`${new Date().toUTCString()} SQF DOC PARSE: ${textDocument.uri}`);
+					this.currentRunParsedFiles.push(textDocument.uri);
 
-							delete (variable.usage[textDocument.uri]);
-							delete (variable.definitions[textDocument.uri]);
+					let client = linter || this.sqflint;
+
+					// Reset variables local to document
+					this.documentVariables[textDocument.uri] = {};
+
+					// Remove info about global variables created from this document
+					for (let global in this.globalVariables) {
+						let variable = this.globalVariables[global];
+
+						delete (variable.usage[textDocument.uri]);
+						delete (variable.definitions[textDocument.uri]);
+					}
+
+					// Remove global defined macros originating from this document
+					for (let macro in this.globalMacros) {
+						delete (this.globalMacros[macro][textDocument.uri]);
+					}
+
+					// Parse document
+					let contents = textDocument.getText();
+					let options = <SQFLint.Options>{
+						pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
+						checkPaths: this.settings.checkPaths,
+						ignoredVariables: this.settings.ignoredVariables,
+						includePrefixes: this.settings.includePrefixes,
+						contextSeparation: this.settings.contextSeparation
+					}
+
+					client.parse(uri.fsPath, contents, options).then((result: SQFLint.ParseInfo) => {			
+						
+						let timeTookParse = (new Date().valueOf()) - startTime.valueOf();
+						if (timeTookParse > 1000) {
+							this.log(`SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`)
+						}
+						
+						if (!result) {
+							accept();
+							return;
 						}
 
-						// Remove global defined macros originating from this document
-						for (let macro in this.globalMacros) {
-							delete (this.globalMacros[macro][textDocument.uri]);
-						}
+						let diagnosticsByUri: { [uri: string]: Diagnostic[] } = {};
+						let diagnostics = diagnosticsByUri[textDocument.uri] = [];
 
-						// Parse document
-						let contents = textDocument.getText();
-						let options = <SQFLint.Options>{
-							pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
-							checkPaths: this.settings.checkPaths,
-							ignoredVariables: this.settings.ignoredVariables,
-							includePrefixes: this.settings.includePrefixes,
-							contextSeparation: this.settings.contextSeparation
-						}
+						try {
 
-						client.parse(uri.fsPath, contents, options)
-							.then((result: SQFLint.ParseInfo) => {
-								accept();
+							this.includes[textDocument.uri] = result.includes;
 
-								if (!result) return;
+							// Reset errors for any included file
+							result.includes.forEach((item) => {
+								diagnostics[Uri.file(item.expanded).toString()] = [];
+							});
 
-								let diagnosticsByUri: { [uri: string]: Diagnostic[] } = {};
-								let diagnostics = diagnosticsByUri[textDocument.uri] = [];
-
-								try {
-
-								this.includes[textDocument.uri] = result.includes;
-
-								// Reset errors for any included file
-								result.includes.forEach((item) => {
-									diagnostics[Uri.file(item.expanded).toString()] = [];
+							// Add found errors
+							result.errors.forEach((item: SQFLint.Error) => {
+								diagnostics.push({
+									severity: DiagnosticSeverity.Error,
+									range: item.range,
+									message: item.message,
+									source: "sqflint"
 								});
+							});
 
-								// Add found errors
-								result.errors.forEach((item: SQFLint.Error) => {
-									diagnostics.push({
-										severity: DiagnosticSeverity.Error,
-										range: item.range,
-										message: item.message,
-										source: "sqflint"
-									});
+							if (this.settings.warnings) {
+								// Add local warnings
+								result.warnings.forEach((item: SQFLint.Warning) => {
+									if (item.filename) {
+										let uri = Uri.file(item.filename).toString();
+										if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
+										diagnosticsByUri[uri].push({
+											severity: DiagnosticSeverity.Warning,
+											range: item.range,
+											message: item.message,
+											source: "sqflint"
+										});
+									} else {
+										diagnostics.push({
+											severity: DiagnosticSeverity.Warning,
+											range: item.range,
+											message: item.message,
+											source: "sqflint"
+										});
+									}
 								});
+							}
 
-								if (this.settings.warnings) {
-									// Add local warnings
-									result.warnings.forEach((item: SQFLint.Warning) => {
-										if (item.filename) {
-											let uri = Uri.file(item.filename).toString();
-											if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
-											diagnosticsByUri[uri].push({
-												severity: DiagnosticSeverity.Warning,
-												range: item.range,
-												message: item.message,
-												source: "sqflint"
-											});
-										} else {
-											diagnostics.push({
-												severity: DiagnosticSeverity.Warning,
-												range: item.range,
-												message: item.message,
-												source: "sqflint"
-											});
-										}
-									});
+							// Load variables info
+							result.variables.forEach((item: SQFLint.VariableInfo) => {
+								// Skip those
+								if (item.name == "this" || item.name == "_this" || item.name == "server" || item.name == "paramsArray") {
+									return;
 								}
 
-								// Load variables info
-								result.variables.forEach((item: SQFLint.VariableInfo) => {
-									// Skip those
-									if (item.name == "this" || item.name == "_this" || item.name == "server" || item.name == "paramsArray") {
+								item.ident = item.name.toLowerCase();
+
+								if (item.isLocal()) {
+									// Add variable to list. Variable messages are unique, so no need to check.
+									this.setLocalVariable(textDocument, item.ident, {
+										name: item.name,
+										comment: item.comment,
+										definitions: item.definitions,
+										usage: item.usage
+									});
+								} else {
+									// Skip predefined functions and operators.
+									if (this.documentation[item.ident]) {
 										return;
 									}
 
-									item.ident = item.name.toLowerCase();
+									// Skip user defined functions
+									if (this.extModule.getFunction(item.ident.toLowerCase())) {
+										return;
+									}
 
-									if (item.isLocal()) {
-										// Add variable to list. Variable messages are unique, so no need to check.
-										this.setLocalVariable(textDocument, item.ident, {
+									// Skip mission variables
+									if (this.missionModule.getVariable(item.ident.toLowerCase())) {
+										return;
+									}
+
+									// Try to load existing global variable.
+									let variable = this.getGlobalVariable(item.ident);
+
+									// Create variable if not defined.
+									if (!variable) {
+										variable = this.setGlobalVariable(item.ident, {
 											name: item.name,
 											comment: item.comment,
-											definitions: item.definitions,
-											usage: item.usage
+											usage: {},
+											definitions: {}
 										});
 									} else {
-										// Skip predefined functions and operators.
-										if (this.documentation[item.ident]) {
-											return;
-										}
-
-										// Skip user defined functions
-										if (this.extModule.getFunction(item.ident.toLowerCase())) {
-											return;
-										}
-
-										// Skip mission variables
-										if (this.missionModule.getVariable(item.ident.toLowerCase())) {
-											return;
-										}
-
-										// Try to load existing global variable.
-										let variable = this.getGlobalVariable(item.ident);
-
-										// Create variable if not defined.
-										if (!variable) {
-											variable = this.setGlobalVariable(item.ident, {
-												name: item.name,
-												comment: item.comment,
-												usage: {},
-												definitions: {}
-											});
-										} else {
-											if (!variable.comment) {
-												variable.comment = item.comment;
-											}
-										}
-
-										// Set positions local to this document for this global variable.
-										variable.usage[textDocument.uri] = item.usage;
-										variable.definitions[textDocument.uri] = item.definitions;
-
-										// Check if global variable was defined anywhere.
-										let defined = false;
-										for (let doc in variable.definitions) {
-											if (variable.definitions[doc].length > 0) {
-												defined = true;
-												break;
-											}
-										}
-
-										if (!defined) {
-											if (this.getGlobalMacro(item.ident)) {
-												defined = true;
-											}
-										}
-
-										// Add warning if global variable wasn't defined.
-										if (!defined && this.settings.warnings && !this.ignoredVariablesSet[item.ident]) {
-											for (let u in item.usage) {
-												diagnostics.push({
-													severity: DiagnosticSeverity.Warning,
-													range: item.usage[u],
-													message: "Possibly undefined variable " + item.name,
-													source: "sqflint"
-												});
-											}
+										if (!variable.comment) {
+											variable.comment = item.comment;
 										}
 									}
-								});
 
-								// Save macros define in this file
-								result.macros.forEach((item: SQFLint.Macroinfo) => {
-									let macro = this.globalMacros[item.name.toLowerCase()];
+									// Set positions local to this document for this global variable.
+									variable.usage[textDocument.uri] = item.usage;
+									variable.definitions[textDocument.uri] = item.definitions;
 
-									if (!macro) {
-										macro = this.globalMacros[item.name.toLowerCase()] = {
-											name: item.name,
-											arguments: item.arguments,
-											definitions: {}
-										};
-									}
-
-									macro.definitions[textDocument.uri] = item.definitions;
-								});
-
-								// Remove unused macros
-								for (let mac in this.globalMacros) {
-									let used = false;
-									for (let uri in this.globalMacros[mac]) {
-										used = true;
-										break;
-									}
-
-									if (!used) {
-										delete (this.globalMacros[mac]);
-									}
-								}
-
-								// Remove unused global variables
-								for (let global in this.globalVariables) {
-									let variable = this.globalVariables[global];
-									let used = false;
-
-									for (let uri in variable.definitions) {
-										if (variable.definitions[uri].length > 0) {
-											used = true;
+									// Check if global variable was defined anywhere.
+									let defined = false;
+									for (let doc in variable.definitions) {
+										if (variable.definitions[doc].length > 0) {
+											defined = true;
 											break;
 										}
 									}
 
-									if (!used) {
-										for (let uri in variable.usage) {
-											if (variable.usage[uri].length > 0) {
-												used = true;
-												break;
-											}
+									if (!defined) {
+										if (this.getGlobalMacro(item.ident)) {
+											defined = true;
 										}
 									}
 
-									if (!used) {
-										delete (this.globalVariables[global]);
+									// Add warning if global variable wasn't defined.
+									if (!defined && this.settings.warnings && !this.ignoredVariablesSet[item.ident]) {
+										for (let u in item.usage) {
+											diagnostics.push({
+												severity: DiagnosticSeverity.Warning,
+												range: item.usage[u],
+												message: "Possibly undefined variable " + item.name,
+												source: "sqflint"
+											});
+										}
 									}
-								}
-
-								if (sendDiagnostic) {
-									for (let uri in diagnosticsByUri) {
-										this.connection.sendDiagnostics({
-											uri: uri,
-											diagnostics: diagnosticsByUri[uri]
-										});
-									}
-								}
-
-								} catch(ex) {
-									console.error(ex);
 								}
 							});
-					} else {
+
+							// Save macros define in this file
+							result.macros.forEach((item: SQFLint.Macroinfo) => {
+								let macro = this.globalMacros[item.name.toLowerCase()];
+
+								if (!macro) {
+									macro = this.globalMacros[item.name.toLowerCase()] = {
+										name: item.name,
+										arguments: item.arguments,
+										definitions: {}
+									};
+								}
+
+								macro.definitions[textDocument.uri] = item.definitions;
+							});
+
+							// Remove unused macros
+							for (let mac in this.globalMacros) {
+								let used = false;
+								for (let uri in this.globalMacros[mac]) {
+									used = true;
+									break;
+								}
+
+								if (!used) {
+									delete (this.globalMacros[mac]);
+								}
+							}
+
+							// Remove unused global variables
+							for (let global in this.globalVariables) {
+								let variable = this.globalVariables[global];
+								let used = false;
+
+								for (let uri in variable.definitions) {
+									if (variable.definitions[uri].length > 0) {
+										used = true;
+										break;
+									}
+								}
+
+								if (!used) {
+									for (let uri in variable.usage) {
+										if (variable.usage[uri].length > 0) {
+											used = true;
+											break;
+										}
+									}
+								}
+
+								if (!used) {
+									delete (this.globalVariables[global]);
+								}
+							}
+
+							if (sendDiagnostic) {
+								for (let uri in diagnosticsByUri) {
+									this.connection.sendDiagnostics({
+										uri: uri,
+										diagnostics: diagnosticsByUri[uri]
+									});
+								}
+							}
+
+						} catch(ex) {
+							console.error(ex);
+						}
 						accept();
-					}
-				});
+					});
+				} else {
+					accept();
+				}
+			});
 		});
 	}
 
@@ -1459,6 +1524,10 @@ export class SQFLintServer {
 
 	public getSettings() {
 		return this.settings;
+	}
+
+	protected log (contents: string) {
+		return this.connection.console.log(contents);
 	}
 }
 
