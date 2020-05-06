@@ -15,6 +15,8 @@ jobs:
           submodules: 'recursive'
       - name: Build SQFLint with Docker image
         uses: ./sqflint/.github/actions/sqflint-build-action
+        env:
+          ANT_BUILD_DIR: sqflint
       - name: Use Node.js 12.16
         uses: actions/setup-node@v1
         with:
