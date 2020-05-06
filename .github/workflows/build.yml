@@ -22,8 +22,8 @@ jobs:
         with:
           node-version: 12.16
       - run: cd client && npm run package
-      # - name: Store vs
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: dist
-      #     path: dist/github
+      - name: Store vsix
+        uses: actions/upload-artifact@v2
+        with:
+          name: sqflint
+          path: client/sqflint-*.vsix
