@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 		openurl.open(links.commandsList);
 	}));
 
-	let client = new SqflintClient('sqfLanguageServer', 'SQF Language Server', serverOptions, clientOptions);
+	let client = new SqflintClient('sqflint', 'SQFLint', serverOptions, clientOptions);
 
 	context.subscriptions.push(client.start());
 	context.subscriptions.push(client.bar.bar);
