@@ -29,6 +29,7 @@ ClassStatements
 ClassStatement
   = dec:VariableDeclaration { return dec }
   / dec:ClassDeclaration { return dec }
+  / macro:MacroUsage { return macro }
 
 ClassDeclaration
   = "class" __ name:Identifier
@@ -67,11 +68,19 @@ MacroValue
     return "MACRO{" + macro + "("+ (params || '') + ")" + "}"
   }
 
+MacroParamValue
+  = [^\,\)]+
+
 MacroParams
-  = head:VariableValue tail:(__ "," __ val:VariableValue {return val})* {
+  = head:MacroParamValue tail:(__ "," __ val:MacroParamValue {return val})* {
     if(tail.length)
 	    return head + "," + tail.join(",")
     return head
+  }
+
+MacroUsage
+  = macro:Identifier params:(__ "(" __ p:MacroParams __ ")" )? ";" {
+    return "MACRO{" + macro + "("+ (params || '') + ")" + "}"
   }
 
 ArrayVariableValue
@@ -133,7 +142,7 @@ Identifier "identifier"
   }
 
 IdentifierStart
-  = [A-Za-z_0-9]
+  = [A-Za-z0-9_]
 
 IdentifierPart
   = IdentifierStart
@@ -196,7 +205,7 @@ SingleLineComment
   = "//" (!LineTerminator SourceCharacter)*
 
 StringLiteral "string"
-  = '"' chars:DoubleStringCharacter* '"' { return chars.join("") }
+  = "\"" chars:("\"\"" / [^"\""])* "\"" { return chars.join("") }
 
 DoubleStringCharacter
   = "\"" "\""

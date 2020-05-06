@@ -13,6 +13,13 @@ Lines
   
 Line
   = Define
+  / Undef
+  / IfDef
+  / IfNDef
+  / ElseIf
+  / Else
+  / ElIf
+  / EndIf
   / Include
   / EvalExec
   / Code { return null; }
@@ -21,7 +28,45 @@ Define
   = Whitespace "#define" value:NoNewline* {
     return { "define": value.join(""), "location": location() };
   }
-  
+
+IfNDef
+  = Whitespace "#ifndef" value:NoNewline* {
+    return { "ifndef": value.join(""), "location": location() };
+  }
+
+IfDef
+  = Whitespace "#ifdef" value:NoNewline* {
+    return { "ifdef": value.join(""), "location": location() };
+  }
+
+Else
+  = Whitespace "#else" value:NoNewline* {
+    return { "else": value.join(""), "location": location() };
+  }
+
+ElseIf
+  = Whitespace "#elseif" value:NoNewline* {
+    return { "elseif": value.join(""), "location": location() };
+  }
+
+ElIf
+  = Whitespace "#elif" value:NoNewline* {
+    return { "elseif": value.join(""), "location": location() };
+  }
+
+EndIf
+  = Whitespace "#endif" value:NoNewline* {
+    return { "endif": value.join(""), "location": location() };
+  }
+
+Undef
+  = Whitespace "#undef" value:NoNewline* {
+    return { "undef": value.join(""), "location": location() };
+  }
+
+IfDefValue
+  = Whitespace value:(.*) "#endif"
+
 Include
   = Whitespace "#include" Whitespace value:IncludeValue {
     return { "include": value.join(""), "location": location() };
