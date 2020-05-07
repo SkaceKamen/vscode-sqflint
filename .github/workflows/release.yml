@@ -1,0 +1,57 @@
+name: SQFLint-VSCode CI Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: Build SQFLint with Docker image
+        uses: ./sqflint/.github/actions/sqflint-build-action
+        env:
+          ANT_BUILD_DIR: sqflint
+      - name: Use Node.js 12.16
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12.16
+      - run: cd client && npm run package
+      - name: Store vsix
+        uses: actions/upload-artifact@v2
+        with:
+          name: sqflint
+          path: client/sqflint-*.vsix
+      - name: pack release
+        uses: montudor/action-zip@v0.1.0
+        with:
+          args: zip -qq -r ./client/release.zip client/sqflint-*.vsix
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: client/release.zip
+          asset_name: release.zip
+          asset_content_type: application/zip
+      - uses: lannonbr/vsce-action@master
+        with:
+          args: "publish -p $VSCE_TOKEN"
+        env:
+          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
