@@ -66,6 +66,9 @@ export namespace Hpp {
 	}
 
 	function applyExtendsClass(context: Class) {
+		
+		// console.log(`Class: ` + context.name, context.body ? context.body.variables : null);
+		
 		if (context.extends) {
 			let parent = context.body.parent;
 			while (parent != null) {

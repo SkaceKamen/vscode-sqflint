@@ -68,8 +68,13 @@ MacroValue
     return "MACRO{" + macro + "("+ (params || '') + ")" + "}"
   }
 
+SomethingInBrackets
+  = "(" (SomethingInBrackets / [^\(\)]+ )  ")"
+
 MacroParamValue
-  = [^\,\)]+
+  = macro:MacroUsage { return macro }
+  / SomethingInBrackets
+  / [^\,\)]+
 
 MacroParams
   = head:MacroParamValue tail:(__ "," __ val:MacroParamValue {return val})* {
