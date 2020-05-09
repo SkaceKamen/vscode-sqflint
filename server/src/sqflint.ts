@@ -36,7 +36,15 @@ export class SQFLint {
 	 * Launches sqflint process and assigns basic handlers.
 	 */
 	private launchProcess() {
-		this.childProcess = Java.spawn(path.join(__dirname, "..", "bin", "SQFLint.jar"), ["-j", "-v", "-s"]);
+		this.childProcess = Java.spawn(
+			path.join(__dirname, "..", "bin", "SQFLint.jar"),
+			[
+				"-j"
+				,"-v"
+				,"-s"
+				// ,"-bl"
+			]
+		);
 
 		// Fix for nodejs issue (see https://gist.github.com/TooTallNate/1785026)
 		emitLines(this.childProcess.stdout);
@@ -46,7 +54,13 @@ export class SQFLint {
 		this.childProcess.stdout.on('line', line => this.processLine(line.toString()));
 
 		this.childProcess.stderr.on('data', data => {
-			console.error("SQFLint: Error message", data.toString());
+			let dataStr: string = data.toString().trim();
+			if (dataStr.startsWith('\n')) {
+				dataStr = dataStr.substring(1).trim();
+			}
+			// benchLog begin with timestamp
+			// TODO find better filter
+			console.error(dataStr.startsWith("158") ? "" : "SQFLint: Error message", dataStr);
 		});
 
 		this.childProcess.on('error', msg => {
@@ -210,8 +224,9 @@ export class SQFLint {
 
 		return new Promise<SQFLint.ParseInfo>((success, reject) => {
 			if (!this.childProcess) {
-				console.log("Starting SQFLint Background-Server")
+				console.log("Starting SQFLint Background-Server");
 				this.launchProcess();
+				console.log("Started SQFLint Background-Server");
 			}
 
 			let startTime = new Date();
