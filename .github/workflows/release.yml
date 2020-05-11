@@ -37,7 +37,8 @@ jobs:
           draft: false
           prerelease: false
       - uses: lannonbr/vsce-action@master
+        working-directory: client
         with:
-          args: "publish -p $VSCE_TOKEN --packagePath ./client"
+          args: "publish -p $VSCE_TOKEN"
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
