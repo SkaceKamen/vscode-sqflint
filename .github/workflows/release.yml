@@ -47,5 +47,5 @@ jobs:
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
         run: |
-          vsce publish -p $VSCE_TOKEN ${{ steps.get_version.outputs.VERSION }}"
+          vsce publish -p $VSCE_TOKEN ${{ steps.get_version.outputs.VERSION }}
         
