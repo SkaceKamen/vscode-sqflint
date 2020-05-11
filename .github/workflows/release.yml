@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
     steps:
       - uses: actions/checkout@v2
         with:
@@ -20,12 +23,12 @@ jobs:
         uses: actions/setup-node@v1
         with:
           node-version: 12.16
-      - run: cd client && npm run package
+      - run: npm run package
       - name: Store vsix
         uses: actions/upload-artifact@v2
         with:
           name: sqflint
-          path: client/sqflint-*.vsix
+          path: sqflint-*.vsix
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -37,7 +40,6 @@ jobs:
           draft: false
           prerelease: false
       - uses: lannonbr/vsce-action@master
-        working-directory: client
         with:
           args: "publish -p $VSCE_TOKEN"
         env:
