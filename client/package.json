@@ -6,14 +6,14 @@
   "icon": "images/sqflint.png",
   "license": "MIT",
   "version": "0.12.0",
-  "publisher": "senfo",
+  "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.33.1",
     "node": "^7.9.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/RZSenfo/vscode-sqflint"
+    "url": "https://github.com/SkaceKamen/vscode-sqflint"
   },
   "categories": [
     "Programming Languages",
