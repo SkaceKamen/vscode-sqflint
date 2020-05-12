@@ -16,7 +16,7 @@ export class SqflintClient extends LanguageClient {
 class StatusBarFeature implements StaticFeature {
   constructor(private _client: SqflintClient) {
     this.bar = window.createStatusBarItem(StatusBarAlignment.Left, 10);
-    this.bar.tooltip = 'Sqflint status';
+    this.bar.tooltip = 'SQFLint status';
   }
 
   public bar: StatusBarItem;
@@ -28,7 +28,7 @@ class StatusBarFeature implements StaticFeature {
     let client = this._client;
     client.onNotification(StatusBarTextNotification.type, (params: StatusBarTextParams) => {
       this.bar.text = params.text;
-      this.bar.tooltip = params.title || 'Sqflint Status';
+      this.bar.tooltip = params.title || 'SQFLint Status';
       if (params.text) {
         this.bar.show();
       } else {
