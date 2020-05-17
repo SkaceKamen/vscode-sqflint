@@ -181,15 +181,19 @@
     "vscode:prepublish": "cd ../server && npm install && npm run grammar && npm run compile && cd ../client && npm install && tsc -p ./",
     "package": "bash build.sh",
     "packageAndInstall": "npm run package && code sqflint-*.vsix",
-    "postinstall": "node ./node_modules/vscode/bin/install"
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "lint": "eslint . --ext .ts"
   },
   "devDependencies": {
     "@types/node": "^8.5.7",
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
+    "eslint": "^7.0.0",
     "jsdom": "^9.8.3",
     "typescript": "^3.4.5",
+    "vsce": "^1.75.0",
     "vscode": "^1.1.33",
-    "xmldoc": "^0.5.1",
-    "vsce": "^1.75.0"
+    "xmldoc": "^0.5.1"
   },
   "dependencies": {
     "openurl": "^1.1.1",

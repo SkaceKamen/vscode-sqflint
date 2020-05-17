@@ -3,11 +3,11 @@ import * as path from 'path';
 import { ChildProcess } from "child_process";
 
 
-function emitLines(stream) {
-    var backlog = ''
+function emitLines(stream): void {
+    let backlog = ''
     stream.on('data', function (data) {
         backlog += data
-        var n = backlog.indexOf('\n')
+        let n = backlog.indexOf('\n')
         // got a \n? emit one or more 'line' events
         while (~n) {
             stream.emit('line', backlog.substring(0, n))
@@ -27,7 +27,10 @@ function emitLines(stream) {
  */
 export class SQFLint {
     // This is list of waiting results
-    private waiting: { [filename: string]: ((info: SQFLint.ParseInfo) => any) } = {};
+    private waiting: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        [filename: string]: ((info: SQFLint.ParseInfo) => any);
+    } = {};
 
     // Currently running sqflint process
     private childProcess: ChildProcess;
@@ -35,7 +38,7 @@ export class SQFLint {
     /**
      * Launches sqflint process and assigns basic handlers.
      */
-    private launchProcess() {
+    private launchProcess(): void {
         this.childProcess = Java.spawn(
             path.join(__dirname, "..", "bin", "SQFLint.jar"),
             [
@@ -81,8 +84,8 @@ export class SQFLint {
     /**
      * Calls all waiters with empty result and clears the waiters list.
      */
-    private flushWaiters() {
-        for (var i in this.waiting) {
+    private flushWaiters(): void {
+        for (const i in this.waiting) {
             this.waiting[i](new SQFLint.ParseInfo());
         }
         this.waiting = {};
@@ -92,9 +95,9 @@ export class SQFLint {
      * Processes sqflint server line
      * @param line sqflint output line in server mode
      */
-    private processLine(line: string) {
+    private processLine(line: string): void {
         // Prepare result info
-        let info = new SQFLint.ParseInfo();
+        const info = new SQFLint.ParseInfo();
 
         // Skip empty lines
         if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0) {
@@ -104,7 +107,7 @@ export class SQFLint {
         // Parse message
         let serverMessage: RawServerMessage;
         try {
-            serverMessage = <RawServerMessage>JSON.parse(line);
+            serverMessage = JSON.parse(line) as RawServerMessage;
         } catch (ex) {
             console.error("SQFLint: Failed to parse server output.");
             console.error(line);
@@ -115,12 +118,12 @@ export class SQFLint {
         info.timeNeededSqfLint = serverMessage.timeneeded;
 
         // Parse messages
-        for (let l in serverMessage.messages) {
+        for (const l in serverMessage.messages) {
             this.processMessage(serverMessage.messages[l], info);
         }
 
         // Pass result to waiter
-        let waiter = this.waiting[serverMessage.file];
+        const waiter = this.waiting[serverMessage.file];
         if (waiter) {
             waiter(info);
             delete this.waiting[serverMessage.file];
@@ -134,12 +137,12 @@ export class SQFLint {
      * @param message sqflint info message
      * @param info used to store parsed messages
      */
-    private processMessage(message: RawMessage, info: SQFLint.ParseInfo) {
-        let errors: SQFLint.Error[] = info.errors;
-        let warnings: SQFLint.Warning[] = info.warnings;
-        let variables: SQFLint.VariableInfo[] = info.variables;
-        let macros: SQFLint.Macroinfo[] = info.macros;
-        let includes: SQFLint.IncludeInfo[] = info.includes;
+    private processMessage(message: RawMessage, info: SQFLint.ParseInfo): void {
+        const errors: SQFLint.Error[] = info.errors;
+        const warnings: SQFLint.Warning[] = info.warnings;
+        const variables: SQFLint.VariableInfo[] = info.variables;
+        const macros: SQFLint.Macroinfo[] = info.macros;
+        const includes: SQFLint.IncludeInfo[] = info.includes;
 
         // Preload position if present
         let position: SQFLint.Range = null;
@@ -161,7 +164,7 @@ export class SQFLint {
             ));
         } else if (message.type == "variable") {
             // Build variable info wrapper
-            let variable = new SQFLint.VariableInfo();
+            const variable = new SQFLint.VariableInfo();
 
             variable.name = message.variable;
             variable.comment = this.parseComment(message.comment);
@@ -169,17 +172,17 @@ export class SQFLint {
             variable.definitions = [];
 
             // We need to convert raw positions to our format (compatible with vscode format)
-            for(let i in message.definitions) {
+            for(const i in message.definitions) {
                 variable.definitions.push(this.parsePosition(message.definitions[i]));
             }
 
-            for(let i in message.usage) {
+            for(const i in message.usage) {
                 variable.usage.push(this.parsePosition(message.usage[i]));
             }
 
             variables.push(variable);
         } else if (message.type == "macro") {
-            let macro = new SQFLint.Macroinfo();
+            const macro = new SQFLint.Macroinfo();
 
             macro.name = message.macro;
             macro.definitions = [];
@@ -192,9 +195,9 @@ export class SQFLint {
                 macro.name = macro.name.substr(0, macro.name.indexOf('('));
             }
 
-            let defs = <{ range: RawMessagePosition, value: string, filename: string }[]>(<any[]>message.definitions);
-            for(let i in defs) {
-                var definition = new SQFLint.MacroDefinition();
+            const defs = message.definitions as unknown as { range: RawMessagePosition; value: string; filename: string }[];
+            for(const i in defs) {
+                const definition = new SQFLint.MacroDefinition();
                 definition.position = this.parsePosition(defs[i].range);
                 definition.value = defs[i].value;
                 definition.filename = defs[i].filename;
@@ -203,7 +206,7 @@ export class SQFLint {
 
             macros.push(macro);
         } else if (message.type == "include") {
-            let include = new SQFLint.IncludeInfo();
+            const include = new SQFLint.IncludeInfo();
             include.filename = message.include;
             include.expanded = message.expandedInclude;
 
@@ -222,15 +225,15 @@ export class SQFLint {
             delete(this.waiting[filename]);
         }
 
-        return new Promise<SQFLint.ParseInfo>((success, reject) => {
+        return new Promise<SQFLint.ParseInfo>((success /*, reject */): void => {
             if (!this.childProcess) {
                 console.log("Starting SQFLint Background-Server");
                 this.launchProcess();
                 console.log("Started SQFLint Background-Server");
             }
 
-            let startTime = new Date();
-            this.waiting[filename] = (info: SQFLint.ParseInfo) => {
+            const startTime = new Date();
+            this.waiting[filename] = (info: SQFLint.ParseInfo): void => {
                 info.timeNeededMessagePass = new Date().valueOf() - startTime.valueOf();
                 success(info);
             };
@@ -241,7 +244,7 @@ export class SQFLint {
     /**
      * Stops subprocess if running.
      */
-    public stop() {
+    public stop(): void {
         if (this.childProcess != null) {
             this.childProcess.stdin.write(JSON.stringify({ "type": "exit" }) + "\n");
         }
@@ -250,7 +253,7 @@ export class SQFLint {
     /**
      * Converts raw position to result position.
      */
-    private parsePosition(position: RawMessagePosition) {
+    private parsePosition(position: RawMessagePosition): SQFLint.Range {
         return new SQFLint.Range(
             new SQFLint.Position(position.line[0] - 1, position.column[0] - 1),
             new SQFLint.Position(position.line[1] - 1, position.column[1])
@@ -260,7 +263,7 @@ export class SQFLint {
     /**
      * Removes comment specific characters and trims the comment.
      */
-    private parseComment(comment: string) {
+    private parseComment(comment: string): string {
         if (comment) {
             comment = comment.trim();
             if (comment.indexOf("//") == 0) {
@@ -268,8 +271,8 @@ export class SQFLint {
             }
 
             if (comment.indexOf("/*") == 0) {
-                let clines = comment.substr(2, comment.length - 4).trim().split("\n");
-                for(let c in clines) {
+                const clines = comment.substr(2, comment.length - 4).trim().split("\n");
+                for(const c in clines) {
                     let cline = clines[c].trim();
                     if (cline.indexOf("*") == 0) {
                         cline = cline.substr(1).trim();
@@ -290,7 +293,7 @@ export class SQFLint {
 interface RawServerMessage {
     timeneeded?: number;
     file: string;
-    messages: RawMessage[]
+    messages: RawMessage[];
 }
 
 /**
@@ -319,6 +322,7 @@ interface RawMessage extends RawMessagePosition {
     definitions: RawMessagePosition[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace SQFLint {
     /**
      * Base message.
@@ -369,7 +373,7 @@ export namespace SQFLint {
         definitions: Range[];
         usage: Range[];
 
-        public isLocal() {
+        public isLocal(): boolean {
             return this.name.charAt(0) == '_';
         }
     }

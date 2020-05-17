@@ -31,11 +31,11 @@ for(let type in sources) {
 function parseEvents(file_path, type) {
 	fs.readFile(file_path, (err, data) => {
 		if (err) throw err;
-		
+
 		let doc = jsdom(data, {
 			features: { FetchExternalResources: false }
 		});
-		
+
 		let tables = doc.getElementsByClassName("wikitable");
 		if (tables.length == 0) tables = doc.getElementsByClassName("bikitable");
 
@@ -51,25 +51,25 @@ function parseEvents(file_path, type) {
 				}
 			}
 		}
-		
+
 		fs.writeFile("server/definitions/events.json", JSON.stringify(events));
 	});
 }
 
 function parseRow(row, type) {
 	let tds = row.getElementsByTagName('td');
-	
+
 	if (type == "units") {
 		if (tds.length >= 3) {
 			let id = null;
 			let title = tds[0];
 			let desc = convertHTML(tds[1]);
 			let args = convertHTML(tds[2]);
-			
+
 			title = title.getElementsByTagName('span')[0];
 			id = title.id;
 			title = title.innerHTML;
-			
+
 			events[title.toLowerCase()] = {
 				id: id,
 				title: title,
@@ -101,28 +101,28 @@ function parseRow(row, type) {
 
 function convertHTML(el) {
 	let result = "";
-	
+
 	for(let c in el.childNodes) {
 		let child = el.childNodes[c];
-		
+
 		if (child.nodeType == 3) {
 			result += child.textContent;
 		} else if (child.nodeType == 1) {
 			let tag = child.tagName.toLowerCase();
-			
+
 			if (tag == "a") {
 				result += "[" + child.innerHTML + "](" + child.href + ")";
 			}
-			
+
 			if (tag == "li") {
 				result += "* " + convertHTML(child);
 			}
-			
+
 			if (tag == "ul" || tag == "p") {
 				result += "\n" + convertHTML(child) + "\n";
 			}
 		}
 	}
-	
+
 	return result.trim();
 }

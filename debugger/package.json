@@ -8,15 +8,19 @@
     "node": "*"
   },
   "dependencies": {
-    "typescript": "^3.1.6",
+    "typescript": "^3.2.1",
     "vscode-debugadapter": "^1.32.1",
     "vscode-debugprotocol": "^1.32.0"
   },
   "devDependencies": {
-    "@types/node": "^10.12.5"
+    "@types/node": "^10.12.5",
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
+    "eslint": "^7.0.0"
   },
   "scripts": {
     "compile": "tsc -p .",
-    "watch": "tsc --watch -p ../debugger"
+    "watch": "tsc --watch -p ../debugger",
+    "lint": "eslint . --ext .ts"
   }
 }

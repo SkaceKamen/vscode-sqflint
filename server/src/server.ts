@@ -1,31 +1,43 @@
 'use strict';
 
 import {
-    IPCMessageReader, IPCMessageWriter,
-    createConnection, IConnection, TextDocumentSyncKind,
-    TextDocuments, TextDocument, Diagnostic, DiagnosticSeverity,
-    InitializeParams, InitializeResult, TextDocumentPositionParams,
-    CompletionItem, CompletionItemKind, ReferenceParams, Location,
-    Hover, TextDocumentIdentifier, SignatureHelp, SignatureInformation,
+    IPCMessageReader,
+    IPCMessageWriter,
+    createConnection,
+    IConnection,
+    TextDocuments,
+    TextDocument,
+    Diagnostic,
+    DiagnosticSeverity,
+    InitializeParams,
+    InitializeResult,
+    TextDocumentPositionParams,
+    CompletionItem,
+    CompletionItemKind,
+    ReferenceParams,
+    Location,
+    Hover,
+    TextDocumentIdentifier,
+    SignatureHelp,
+    SignatureInformation,
     DidChangeConfigurationParams,
     MarkedString,
+    Position
 } from 'vscode-languageserver';
 import { StatusBarTextNotification } from './status.bar';
 
 import { SQFLint } from './sqflint';
-import { Hpp } from './parsers/hpp';
 import { ExtModule } from './modules/ext';
 
 import * as fs from 'fs';
-import * as fs_path from 'path';
+import * as fsPath from 'path';
 
 import Uri from './uri';
-
-import { Queue } from './queue';
-
 import * as glob from 'glob';
 import { Module } from "./module";
 import { MissionModule } from './modules/mission';
+
+import { Function as SqfFunction } from './modules/ext';
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -54,13 +66,14 @@ export interface SQFLintSettings {
     discoverDescriptionFiles: boolean;
     descriptionFiles: string[];
     contextSeparation: boolean;
+    debugLogs: boolean;
 }
 
 /**
  * List of variables local to document.
  */
 interface DocumentVariables {
-    [ uri: string ] : DocumentVariablesList;
+    [ uri: string ]: DocumentVariablesList;
 }
 
 interface DocumentVariablesList { [name: string]: DocumentVariable }
@@ -78,11 +91,11 @@ interface DocumentVariable {
  * Global variables.
  */
 interface GlobalVariables {
-    [ key: string ] : GlobalVariable;
+    [ key: string ]: GlobalVariable;
 }
 
 interface GlobalMacros {
-    [ key: string ] : GlobalMacro;
+    [ key: string ]: GlobalMacro;
 }
 
 interface GlobalMacro {
@@ -101,7 +114,7 @@ interface GlobalVariable {
     usage: { [ uri: string ]: SQFLint.Range[] };
 }
 
-enum OperatorType { Binary, Unary, Noargs };
+enum OperatorType { Binary, Unary, Noargs }
 
 interface Operator {
     name: string;
@@ -128,12 +141,12 @@ interface WikiDocumentationSignature {
 }
 
 interface EventDocumentation {
-    id: string,
-    title: string,
-    description: string,
-    args: string,
-    type: string,
-    scope?: string
+    id: string;
+    title: string;
+    description: string;
+    args: string;
+    type: string;
+    scope?: string;
 }
 
 /**
@@ -177,7 +190,7 @@ export class SQFLintServer {
     private settings: SQFLintSettings;
 
     /** Is workspace indexed already */
-    private indexed: boolean = false;
+    private indexed = false;
 
     public extModule: ExtModule;
     public missionModule: MissionModule;
@@ -235,18 +248,19 @@ export class SQFLintServer {
             includePrefixes: {},
             discoverDescriptionFiles: true,
             descriptionFiles: [],
-            contextSeparation: true
+            contextSeparation: true,
+            debugLogs: false
         };
 
         this.ignoredVariablesSet = {};
     }
 
-    private onShutdown() {
+    private onShutdown(): void {
         this.sqflint.stop();
     }
 
-    private onConfiguration(params: DidChangeConfigurationParams) {
-        let settings = <Settings>params.settings;
+    private onConfiguration(params: DidChangeConfigurationParams): void {
+        const settings = params.settings as Settings;
 
         this.settings.indexWorkspace = settings.sqflint.indexWorkspace;
         this.settings.indexWorkspaceTwice = settings.sqflint.indexWorkspaceTwice;
@@ -268,7 +282,7 @@ export class SQFLintServer {
             return Glob.toRegexp(<any>item);
         });*/
 
-        for (let i in this.modules) {
+        for (const i in this.modules) {
             this.modules[i].onConfiguration(settings.sqflint);
         }
 
@@ -295,7 +309,7 @@ export class SQFLintServer {
     private onInitialize(params: InitializeParams): InitializeResult {
         this.workspaceRoot = params.rootPath;
 
-        for (let i in this.modules) {
+        for (const i in this.modules) {
             this.modules[i].onInitialize(params);
         }
 
@@ -321,26 +335,29 @@ export class SQFLintServer {
         };
     }
 
-    private runModules(method: string, ...args: any[]) {
-        return this.modules.reduce((promise, current) => promise.then(result => <Promise<any>>current[method].apply(current, args)), Promise.resolve())
+    private runModules(method: string, ...args: unknown[]): Promise<unknown> {
+        return this.modules.reduce(
+            (promise, current) => promise.then(
+                // eslint-disable-next-line prefer-spread
+                () => current[method].apply(current, args)
+            ),
+            Promise.resolve()
+        );
     }
 
-    private statusMessage(text: string, title?: string) {
+    private statusMessage(text: string, title?: string): void {
         this.connection.sendNotification(StatusBarTextNotification.type, { text, title });
     }
 
     /**
      * Tries to parse all sqf files in workspace.
      */
-    private indexWorkspace(again = false, done?: () => void) {
-        
+    private indexWorkspace(again = false, done?: () => void): void {
+
         this.currentRunParsedFiles = [];
-        
+
         // Calls indexWorkspace for all modules in sequence
         this.runModules("indexWorkspace", this.workspaceRoot).then(() => {
-            // Queue that executes callback in sequence with predefined delay between each
-            // This limits calls to sqflint
-            const workQueue = new Queue(20);
             const linter = new SQFLint();
 
             const files: string[] = [];
@@ -352,12 +369,12 @@ export class SQFLintServer {
             // Load list of files so we can track progress
             this.walkPath(
                 "**/*.sqf",
-                (file) => {	files.push(file); },
+                (file) => { files.push(file); },
                 async () => {
 
                     this.log(`Parsing a total of sqf ${files.length} files`);
                     let queue = [];
-                    for (let file of files) {
+                    for (const file of files) {
                         if (!queue.includes(file)) {
                             queue.push(file);
                         }
@@ -368,8 +385,10 @@ export class SQFLintServer {
                     files.forEach((file) => {
                         fs.readFile(file, (err, data) => {
                             readFiles++;
-                            // this.log(`File read ${readFiles} / ${files.length}`);
-                            for (let queuefile of queue) {
+                            if (this.getSettings().debugLogs) {
+                                this.log(`File read ${readFiles} / ${files.length}`);
+                            }
+                            for (const queuefile of queue) {
                                 if (queuefile[0] === file) {
                                     queuefile.push(data);
                                 }
@@ -379,10 +398,10 @@ export class SQFLintServer {
 
                     // work the queue
                     while (queue.length > 0) {
-                        
+
                         let workItem;
                         for (let i = 0; i < queue.length; i++) {
-                            let queuefile = queue[i];
+                            const queuefile = queue[i];
                             if (queuefile.length === 2) {
                                 queue.splice(i, 1);
                                 if (queuefile[1]) {
@@ -392,10 +411,10 @@ export class SQFLintServer {
                                     i--;
                                 }
                             }
-                        };
-                        
+                        }
+
                         if (workItem) {
-                            let uri = Uri.file(workItem[0]).toString();
+                            const uri = Uri.file(workItem[0]).toString();
                             await this.parseDocument(
                                 TextDocument.create(uri, "sqf", 0, workItem[1].toString()),
                                 linter,
@@ -434,16 +453,16 @@ export class SQFLintServer {
     /**
      * Walks specified path while calling callback for each sqf file found.
      */
-    private walkPath(path: string, callback: (file: string) => void, done?: () => void) {
+    private walkPath(path: string, callback: (file: string) => void, done?: () => void): void {
         glob(path, { ignore: this.settings.exclude, root: this.workspaceRoot }, (err, files) => {
             files.forEach(file => {
-                callback(fs_path.join(this.workspaceRoot, file));
+                callback(fsPath.join(this.workspaceRoot, file));
             });
             if (done) done();
         });
     }
 
-    private loadEvents() {
+    private loadEvents(): void {
         fs.readFile(__dirname + "/definitions/events.json", (err, data) => {
             if (err) throw err;
 
@@ -451,7 +470,7 @@ export class SQFLintServer {
         })
     }
 
-    private loadOperators() {
+    private loadOperators(): void {
         fs.readFile(__dirname + "/definitions/commands.txt", (err, data) => {
             // Pass file errors
             if (err) {
@@ -459,11 +478,11 @@ export class SQFLintServer {
             }
 
             // Binary commands
-            let bre = /b:([a-z,]*) ([a-z0-9_]*) ([a-z0-9,]*)/i;
+            const bre = /b:([a-z,]*) ([a-z0-9_]*) ([a-z0-9,]*)/i;
             // Unary commands
-            let ure = /u:([a-z0-9_]*) ([a-z0-9,]*)/i;
+            const ure = /u:([a-z0-9_]*) ([a-z0-9,]*)/i;
             // Noargs commands
-            let nre = /n:([a-z0-9_]*)/i;
+            const nre = /n:([a-z0-9_]*)/i;
 
             data.toString().split("\n").forEach((line) => {
                 let ident: string = null;
@@ -473,15 +492,20 @@ export class SQFLintServer {
 
                 let groups: RegExpExecArray;
 
+                // eslint-disable-next-line no-cond-assign
                 if (groups = bre.exec(line)) {
                     left = groups[1];
                     ident = groups[2];
                     right = groups[3];
                     type = OperatorType.Binary;
+
+                // eslint-disable-next-line no-cond-assign
                 } else if (groups = ure.exec(line)) {
                     ident = groups[1];
                     right = groups[2];
                     type = OperatorType.Unary;
+
+                // eslint-disable-next-line no-cond-assign
                 } else if (groups = nre.exec(line)) {
                     ident = groups[1];
                     type = OperatorType.Noargs;
@@ -496,7 +520,7 @@ export class SQFLintServer {
                         buildPrefix = true;
                     }
 
-                    let opData = {
+                    const opData = {
                         name: ident,
                         left: left,
                         right: right,
@@ -510,7 +534,7 @@ export class SQFLintServer {
                     if (buildPrefix) {
                         // Build prefix storage for faster completion
                         for(let l = 1; l <= 3; l++) {
-                            let prefix = ident.toLowerCase().substr(0, l);
+                            const prefix = ident.toLowerCase().substr(0, l);
                             let subop = this.operatorsByPrefix[prefix];
                             if (!subop)
                                 subop = this.operatorsByPrefix[prefix] = [];
@@ -522,8 +546,8 @@ export class SQFLintServer {
         });
     }
 
-    private loadDocumentation() {
-        fs.readFile(__dirname + "/definitions/documentation.json", (err, data) => {
+    private loadDocumentation(): void {
+        fs.readFile(__dirname + "/definitions/documentation.json", (err, data): void => {
             // Pass file errors
             if (err) {
                 throw err;
@@ -531,15 +555,15 @@ export class SQFLintServer {
 
             this.documentation = JSON.parse(data.toString());
 
-            for (let ident in this.documentation) {
+            for (const ident in this.documentation) {
                 if (this.operators[ident]) {
-                    for(let i in this.operators[ident]) {
+                    for(const i in this.operators[ident]) {
                         this.operators[ident][i].name = this.documentation[ident].title;
                         this.operators[ident][i].wiki = this.documentation[ident];
                     }
                 } else {
                     for(let l = 1; l <= 3; l++) {
-                        let prefix = ident.toLowerCase().substr(0, l);
+                        const prefix = ident.toLowerCase().substr(0, l);
                         let subop = this.operatorsByPrefix[prefix];
                         if (!subop)
                             subop = this.operatorsByPrefix[prefix] = [];
@@ -562,26 +586,26 @@ export class SQFLintServer {
      * Parses document and dispatches diagnostics if required.
      */
     private parseDocument(textDocument: TextDocument, linter: SQFLint = null, sendDiagnostic = true): Promise<void> {
-        return new Promise<void>((accept, refuse) => {
-            
+        return new Promise<void>((accept) => {
+
             let startTime = new Date();
-            
+
             // Calls all modules in sequence
             this.modules.reduce((promise, current) => {
-                return promise.then((result) => current.parseDocument(textDocument, linter))
+                return promise.then(() => current.parseDocument(textDocument, linter))
             }, Promise.resolve()).then(() => {
-                
-                let timeTook = (new Date().valueOf()) - startTime.valueOf();
+
+                const timeTook = (new Date().valueOf()) - startTime.valueOf();
                 if (timeTook > 1000) {
                     this.log(`Modules took long for: ${textDocument.uri} (${timeTook} ms)`)
                 }
 
                 startTime = new Date();
-                
+
                 // Parse SQF file
-                let uri = Uri.parse(textDocument.uri);
+                const uri = Uri.parse(textDocument.uri);
                 if (
-                    fs_path.extname(uri.fsPath).toLowerCase() === ".sqf"
+                    fsPath.extname(uri.fsPath).toLowerCase() === ".sqf"
                     &&
                     !this.currentRunParsedFiles.includes(textDocument.uri)
                 ) {
@@ -589,48 +613,48 @@ export class SQFLintServer {
                     // this.log(`${new Date().toUTCString()} SQF DOC PARSE: ${textDocument.uri}`);
                     this.currentRunParsedFiles.push(textDocument.uri);
 
-                    let client = linter || this.sqflint;
+                    const client = linter || this.sqflint;
 
                     // Reset variables local to document
                     this.documentVariables[textDocument.uri] = {};
 
                     // Remove info about global variables created from this document
-                    for (let global in this.globalVariables) {
-                        let variable = this.globalVariables[global];
+                    for (const global in this.globalVariables) {
+                        const variable = this.globalVariables[global];
 
                         delete (variable.usage[textDocument.uri]);
                         delete (variable.definitions[textDocument.uri]);
                     }
 
                     // Remove global defined macros originating from this document
-                    for (let macro in this.globalMacros) {
+                    for (const macro in this.globalMacros) {
                         delete (this.globalMacros[macro][textDocument.uri]);
                     }
 
                     // Parse document
-                    let contents = textDocument.getText();
-                    let options = <SQFLint.Options>{
-                        pathsRoot: this.workspaceRoot || fs_path.dirname(Uri.parse(textDocument.uri).fsPath),
+                    const contents = textDocument.getText();
+                    const options = {
+                        pathsRoot: this.workspaceRoot || fsPath.dirname(Uri.parse(textDocument.uri).fsPath),
                         checkPaths: this.settings.checkPaths,
                         ignoredVariables: this.settings.ignoredVariables,
                         includePrefixes: this.settings.includePrefixes,
                         contextSeparation: this.settings.contextSeparation
-                    }
+                    } as SQFLint.Options;
 
-                    client.parse(uri.fsPath, contents, options).then((result: SQFLint.ParseInfo) => {			
-                        
-                        let timeTookParse = (new Date().valueOf()) - startTime.valueOf();
+                    client.parse(uri.fsPath, contents, options).then((result: SQFLint.ParseInfo) => {
+
+                        const timeTookParse = (new Date().valueOf()) - startTime.valueOf();
                         if (timeTookParse > 1000) {
                             this.log(`SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`)
                         }
-                        
+
                         if (!result) {
                             accept();
                             return;
                         }
 
-                        let diagnosticsByUri: { [uri: string]: Diagnostic[] } = {};
-                        let diagnostics = diagnosticsByUri[textDocument.uri] = [];
+                        const diagnosticsByUri: { [uri: string]: Diagnostic[] } = {};
+                        const diagnostics = diagnosticsByUri[textDocument.uri] = [];
 
                         try {
 
@@ -655,7 +679,7 @@ export class SQFLintServer {
                                 // Add local warnings
                                 result.warnings.forEach((item: SQFLint.Warning) => {
                                     if (item.filename) {
-                                        let uri = Uri.file(item.filename).toString();
+                                        const uri = Uri.file(item.filename).toString();
                                         if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
                                         diagnosticsByUri[uri].push({
                                             severity: DiagnosticSeverity.Warning,
@@ -730,7 +754,7 @@ export class SQFLintServer {
 
                                     // Check if global variable was defined anywhere.
                                     let defined = false;
-                                    for (let doc in variable.definitions) {
+                                    for (const doc in variable.definitions) {
                                         if (variable.definitions[doc].length > 0) {
                                             defined = true;
                                             break;
@@ -745,7 +769,7 @@ export class SQFLintServer {
 
                                     // Add warning if global variable wasn't defined.
                                     if (!defined && this.settings.warnings && !this.ignoredVariablesSet[item.ident]) {
-                                        for (let u in item.usage) {
+                                        for (const u in item.usage) {
                                             diagnostics.push({
                                                 severity: DiagnosticSeverity.Warning,
                                                 range: item.usage[u],
@@ -773,9 +797,12 @@ export class SQFLintServer {
                             });
 
                             // Remove unused macros
-                            for (let mac in this.globalMacros) {
+                            for (const mac in this.globalMacros) {
                                 let used = false;
-                                for (let uri in this.globalMacros[mac]) {
+
+                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                for (const uri in this.globalMacros[mac]) {
+                                    // TODO
                                     used = true;
                                     break;
                                 }
@@ -786,11 +813,11 @@ export class SQFLintServer {
                             }
 
                             // Remove unused global variables
-                            for (let global in this.globalVariables) {
-                                let variable = this.globalVariables[global];
+                            for (const global in this.globalVariables) {
+                                const variable = this.globalVariables[global];
                                 let used = false;
 
-                                for (let uri in variable.definitions) {
+                                for (const uri in variable.definitions) {
                                     if (variable.definitions[uri].length > 0) {
                                         used = true;
                                         break;
@@ -798,7 +825,7 @@ export class SQFLintServer {
                                 }
 
                                 if (!used) {
-                                    for (let uri in variable.usage) {
+                                    for (const uri in variable.usage) {
                                         if (variable.usage[uri].length > 0) {
                                             used = true;
                                             break;
@@ -812,7 +839,7 @@ export class SQFLintServer {
                             }
 
                             if (sendDiagnostic) {
-                                for (let uri in diagnosticsByUri) {
+                                for (const uri in diagnosticsByUri) {
                                     this.connection.sendDiagnostics({
                                         uri: uri,
                                         diagnostics: diagnosticsByUri[uri]
@@ -832,16 +859,16 @@ export class SQFLintServer {
         });
     }
 
-    private getDefinitionLine(document: TextDocument, definition: SQFLint.Range) {
-        let start = document.offsetAt(definition.start);
+    private getDefinitionLine(document: TextDocument, definition: SQFLint.Range): string {
+        const start = document.offsetAt(definition.start);
         let end = document.offsetAt(definition.end);
-        let contents = document.getText();
+        const contents = document.getText();
 
         while (end < contents.length && contents.charAt(end) != '\n' && contents.charAt(end) != ';') {
             end++;
         }
 
-        let line = document.getText().substring(
+        const line = document.getText().substring(
             start,
             end
         );
@@ -855,20 +882,20 @@ export class SQFLintServer {
     private onHover(params: TextDocumentPositionParams): Hover {
         // params.context.includeDeclaration.valueOf()
         if (this.ext(params) == ".sqf") {
-            let ref = this.findReferences(params);
+            const ref = this.findReferences(params);
 
             if (ref && (ref.global || ref.local || ref.macro)) {
-                let contents: MarkedString[] = [];
+                const contents: MarkedString[] = [];
 
                 if (ref.global) {
-                    for (var uri in ref.global.definitions) {
+                    for (const uri in ref.global.definitions) {
                         try {
-                            let document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
+                            const document = TextDocument.create(uri, "sqf", 0, fs.readFileSync(Uri.parse(uri).fsPath).toString());
                             if (document) {
-                                let definitions = ref.global.definitions[uri];
-                                for (var i = 0; i < definitions.length; i++) {
-                                    let definition = definitions[i];
-                                    let line = this.getDefinitionLine(document, definition);
+                                const definitions = ref.global.definitions[uri];
+                                for (let i = 0; i < definitions.length; i++) {
+                                    const definition = definitions[i];
+                                    const line = this.getDefinitionLine(document, definition);
 
                                     contents.push({
                                         language: "sqf",
@@ -888,10 +915,10 @@ export class SQFLintServer {
                         contents.push(ref.global.comment);
                     }
                 } else if (ref.local) {
-                    let document = this.documents.get(params.textDocument.uri);
-                    for (var i = 0; i < ref.local.definitions.length; i++) {
-                        let definition = ref.local.definitions[i];
-                        let line = this.getDefinitionLine(document, definition);
+                    const document = this.documents.get(params.textDocument.uri);
+                    for (let i = 0; i < ref.local.definitions.length; i++) {
+                        const definition = ref.local.definitions[i];
+                        const line = this.getDefinitionLine(document, definition);
 
                         contents.push({
                             language: "sqf",
@@ -903,8 +930,8 @@ export class SQFLintServer {
                         contents.push(ref.local.comment);
                     }
                 } else if (ref.macro) {
-                    for (let uri in ref.macro.definitions) {
-                        var def = ref.macro.definitions[uri];
+                    for (const uri in ref.macro.definitions) {
+                        const def = ref.macro.definitions[uri];
                         for (let v = 0; v < def.length; v++) {
                             contents.push({
                                 language: "ext",
@@ -916,10 +943,10 @@ export class SQFLintServer {
 
                 return { contents };
             } else {
-                let name = this.getNameFromParams(params).toLowerCase();
-                let docs = this.documentation[name];
-                let op = this.findOperator(params);
-                let ev = this.findEvent(params);
+                const name = this.getNameFromParams(params).toLowerCase();
+                const docs = this.documentation[name];
+                const op = this.findOperator(params);
+                const ev = this.findEvent(params);
 
                 if (docs) {
                     return {
@@ -951,9 +978,9 @@ export class SQFLintServer {
             }
         }
 
-        let name = this.getNameFromParams(params).toLowerCase();
+        const name = this.getNameFromParams(params).toLowerCase();
         let hover;
-        for (let i in this.modules) {
+        for (const i in this.modules) {
             if ((hover = this.modules[i].onHover(params, name))) {
                 return hover;
             }
@@ -965,13 +992,13 @@ export class SQFLintServer {
     /**
      * Creates formatted decoumentation.
      */
-    private buildHoverDocs(docs: WikiDocumentation) {
-        let texts: MarkedString[] = [
+    private buildHoverDocs(docs: WikiDocumentation): MarkedString[] {
+        const texts: MarkedString[] = [
             docs.description.formatted
         ];
 
-        for(let s in docs.signatures) {
-            let sig = docs.signatures[s];
+        for(const s in docs.signatures) {
+            const sig = docs.signatures[s];
             let ss = "(" + docs.type + ") ";
             if (sig.returns) {
                 ss += sig.returns + " = ";
@@ -992,24 +1019,24 @@ export class SQFLintServer {
      */
     private onReferences(params: ReferenceParams): Location[] {
         // params.context.includeDeclaration.valueOf()
-        let locations: Location[] = [];
-        let ref = this.findReferences(params);
+        const locations: Location[] = [];
+        const ref = this.findReferences(params);
 
         if (ref) {
             if (ref.global) {
-                let global = ref.global;
+                const global = ref.global;
 
-                for(let doc in global.usage) {
-                    let items = global.usage[doc];
-                    for(let d in items) {
+                for(const doc in global.usage) {
+                    const items = global.usage[doc];
+                    for(const d in items) {
                         locations.push({ uri: doc, range: items[d] });
                     }
                 }
             } else if (ref.local) {
-                let local = ref.local;
+                const local = ref.local;
 
-                for(let d in local.usage) {
-                    let pos = local.usage[d];
+                for(const d in local.usage) {
+                    const pos = local.usage[d];
                     locations.push({
                         uri: params.textDocument.uri,
                         range: pos
@@ -1026,31 +1053,31 @@ export class SQFLintServer {
      */
     private onDefinition(params: TextDocumentPositionParams): Location[] {
         let locations: Location[] = [];
-        let ref = this.findReferences(params);
+        const ref = this.findReferences(params);
 
         if (ref) {
             if (ref.global) {
-                let global = ref.global;
+                const global = ref.global;
 
-                for(let doc in global.definitions) {
+                for(const doc in global.definitions) {
                     global.definitions[doc].forEach((pos) => {
                         locations.push({ uri: doc, range: pos });
                     });
                 }
             } else if (ref.local) {
-                let local = ref.local;
+                const local = ref.local;
 
-                for(let d in local.definitions) {
-                    let pos = local.definitions[d];
+                for(const d in local.definitions) {
+                    const pos = local.definitions[d];
                     locations.push({
                         uri: params.textDocument.uri,
                         range: pos
                     });
                 }
             } else if (ref.macro) {
-                let macro = ref.macro;
+                const macro = ref.macro;
 
-                for (let document in macro.definitions) {
+                for (const document in macro.definitions) {
                     macro.definitions[document].forEach((definition) => {
                         let uri = params.textDocument.uri;
                         if (definition.filename) {
@@ -1067,10 +1094,10 @@ export class SQFLintServer {
             }
         }
 
-        let name = this.getNameFromParams(params);
+        const name = this.getNameFromParams(params);
 
-        for (let i in this.modules) {
-            let result = this.modules[i].onDefinition(params, name);
+        for (const i in this.modules) {
+            const result = this.modules[i].onDefinition(params, name);
             if (result) {
                 locations = locations.concat(result);
             }
@@ -1078,10 +1105,10 @@ export class SQFLintServer {
 
         let string = this.getIncludeString(params);
         if (string) {
-            let includes = this.includes[params.textDocument.uri];
+            const includes = this.includes[params.textDocument.uri];
             if (includes) {
                 for (let i = 0; i < includes.length; i++) {
-                    let include = includes[i];
+                    const include = includes[i];
                     if (include.filename.toLowerCase() == string.toLowerCase()) {
                         string = include.expanded;
                     }
@@ -1097,8 +1124,8 @@ export class SQFLintServer {
             }
 
             // Add workspace root if needed
-            if (!fs_path.isAbsolute(string)) {
-                string = fs_path.join(fs_path.dirname(Uri.parse(params.textDocument.uri).fsPath), string);
+            if (!fsPath.isAbsolute(string)) {
+                string = fsPath.join(fsPath.dirname(Uri.parse(params.textDocument.uri).fsPath), string);
             }
 
             if (fs.existsSync(string)) {
@@ -1115,15 +1142,15 @@ export class SQFLintServer {
         return locations;
     }
 
-    private getIncludeString(params: TextDocumentPositionParams) {
-        let document = this.documents.get(params.textDocument.uri);
-        let newPosition = {
+    private getIncludeString(params: TextDocumentPositionParams): string {
+        const document = this.documents.get(params.textDocument.uri);
+        const newPosition = {
             line: params.position.line,
             character: 0
         };
-        let offset = document.offsetAt(newPosition);
-        let contents = document.getText().substr(offset);
-        let matchInclude = /^\s*#include\s+(?:"([^"]*)"|<([^>]*)>)/;
+        const offset = document.offsetAt(newPosition);
+        const contents = document.getText().substr(offset);
+        const matchInclude = /^\s*#include\s+(?:"([^"]*)"|<([^>]*)>)/;
         let match: RegExpMatchArray;
 
         if ((match = matchInclude.exec(contents))) {
@@ -1135,14 +1162,20 @@ export class SQFLintServer {
 
     private onSignatureHelp(params: TextDocumentPositionParams): SignatureHelp {
         if (this.ext(params) == ".sqf") {
-            let backup = this.walkBackToOperator(params);
+            const backup = this.walkBackToOperator(params);
 
             if (backup) {
-                let op = this.findOperator({ textDocument: params.textDocument, position: backup.position});
-                let docs = this.documentation[this.getNameFromParams({textDocument: params.textDocument, position: backup.position}).toLowerCase()];
+                const op = this.findOperator({
+                    textDocument: params.textDocument,
+                    position: backup.position
+                });
+                const docs = this.documentation[this.getNameFromParams({
+                    textDocument: params.textDocument,
+                    position: backup.position
+                }).toLowerCase()];
 
-                let signatures: SignatureInformation[] = [];
-                let signature: SignatureHelp = {
+                const signatures: SignatureInformation[] = [];
+                const signature: SignatureHelp = {
                     signatures: signatures,
                     activeSignature: 0,
                     activeParameter: 0
@@ -1152,14 +1185,14 @@ export class SQFLintServer {
                     //signature.activeSignature = 0;
                     signature.activeParameter = backup.commas;
 
-                    for(let i in docs.signatures) {
+                    for(const i in docs.signatures) {
                         let params = [];
-                        let parameters = [];
-                        let sig = docs.signatures[i].signature;
-                        let match = /\[(.*?)\]/.exec(sig);
+                        const parameters = [];
+                        const sig = docs.signatures[i].signature;
+                        const match = /\[(.*?)\]/.exec(sig);
                         if (match) {
                             params = match[1].replace(/ /g, "").split(",");
-                            for(let p in params) {
+                            for(const p in params) {
                                 parameters.push({ label: params[p] });
                             }
                         }
@@ -1173,9 +1206,9 @@ export class SQFLintServer {
 
                     return signature;
                 } else if (op) {
-                    for(let i in op) {
-                        let item = op[i];
-                        let parameters = [];
+                    for(const i in op) {
+                        const item = op[i];
+                        const parameters = [];
 
                         if (item.left) parameters.push(item.left);
                         if (item.right) parameters.push(item.right);
@@ -1194,9 +1227,12 @@ export class SQFLintServer {
         return null;
     }
 
-    private walkBackToOperator(params: TextDocumentPositionParams) {
-        let document = this.documents.get(params.textDocument.uri);
-        let contents = document.getText();
+    private walkBackToOperator(params: TextDocumentPositionParams): {
+        position: Position;
+        commas: number;
+    } {
+        const document = this.documents.get(params.textDocument.uri);
+        const contents = document.getText();
         let position = document.offsetAt(params.position);
 
         let brackets = 0;
@@ -1207,35 +1243,36 @@ export class SQFLintServer {
 
         for(;position > 0; position--) {
             switch(contents[position]) {
-                case ']':
-                    brackets++;
-                    break;
-                case '[':
-                    brackets--;
-                    if (brackets < 0) {
-                        // Walk to first character
-                        for(;position > 0; position--) {
-                            if (/[a-z0-9_]/i.test(contents[position]))
-                                break;
-                        }
-                        // Returt found position
-                        return {
-                            position: document.positionAt(position),
-                            commas: commas
-                        };
+            case ']':
+                brackets++;
+                break;
+            case '[':
+                brackets--;
+                if (brackets < 0) {
+                    // Walk to first character
+                    for(;position > 0; position--) {
+                        if (/[a-z0-9_]/i.test(contents[position]))
+                            break;
                     }
-                case ',':
-                    if (brackets == 0)
-                        commas++;
-                    break;
+                    // Returt found position
+                    return {
+                        position: document.positionAt(position),
+                        commas: commas
+                    };
+                }
+                break; // TODO check
+            case ',':
+                if (brackets == 0)
+                    commas++;
+                break;
             }
         }
 
         return null;
     }
 
-    private ext(params: TextDocumentPositionParams) {
-        return fs_path.extname(params.textDocument.uri).toLowerCase();
+    private ext(params: TextDocumentPositionParams): string {
+        return fsPath.extname(params.textDocument.uri).toLowerCase();
     }
 
     /**
@@ -1244,22 +1281,22 @@ export class SQFLintServer {
     private onCompletion(params: TextDocumentPositionParams): CompletionItem[] {
 
         let items: CompletionItem[] = [];
-        let hover = this.getNameFromParams(params).toLowerCase();
+        const hover = this.getNameFromParams(params).toLowerCase();
 
         if (this.ext(params) == ".sqf") {
             // Use prefix lookup for smaller items
             if (hover.length <= 3) {
-                let operators = this.operatorsByPrefix[hover];
-                for (let index in operators) {
-                    let operator = operators[index];
+                const operators = this.operatorsByPrefix[hover];
+                for (const index in operators) {
+                    const operator = operators[index];
                     items.push({
                         label: operator.name,
                         kind: CompletionItemKind.Function
                     });
                 }
             } else {
-                for (let ident in this.operators) {
-                    let operator = this.operators[ident];
+                for (const ident in this.operators) {
+                    const operator = this.operators[ident];
 
                     if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
                         items.push({
@@ -1270,7 +1307,7 @@ export class SQFLintServer {
                 }
             }
 
-            let local = this.findLocalVariables(params.textDocument, hover)
+            const local = this.findLocalVariables(params.textDocument, hover)
             local.forEach(local => {
                 items.push({
                     label: local.name,
@@ -1278,8 +1315,8 @@ export class SQFLintServer {
                 });
             })
 
-            for (let ident in this.globalVariables) {
-                let variable = this.globalVariables[ident];
+            for (const ident in this.globalVariables) {
+                const variable = this.globalVariables[ident];
 
                 if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
                     items.push({
@@ -1289,8 +1326,8 @@ export class SQFLintServer {
                 }
             }
 
-            for (let ident in this.events) {
-                let event = this.events[ident];
+            for (const ident in this.events) {
+                const event = this.events[ident];
                 if (ident.length >= hover.length && ident.substr(0, hover.length) == hover) {
                     items.push({
                         label: '"' + event.title + '"',
@@ -1302,8 +1339,8 @@ export class SQFLintServer {
                 }
             }
 
-            for (let ident in this.globalMacros) {
-                let macro = this.globalMacros[ident];
+            for (const ident in this.globalMacros) {
+                const macro = this.globalMacros[ident];
                 items.push({
                     label: macro.name,
                     kind: CompletionItemKind.Enum
@@ -1311,7 +1348,7 @@ export class SQFLintServer {
             }
         }
 
-        for (let i in this.modules) {
+        for (const i in this.modules) {
             items = items.concat(this.modules[i].onCompletion(params, hover));
         }
 
@@ -1319,8 +1356,8 @@ export class SQFLintServer {
     }
 
     private onCompletionResolve(item: CompletionItem): CompletionItem {
-        let documentation = this.documentation[item.label.toLowerCase()];
-        let operator = this.operators[item.label.toLowerCase()];
+        const documentation = this.documentation[item.label.toLowerCase()];
+        const operator = this.operators[item.label.toLowerCase()];
         let event: EventDocumentation = null;
         let text = "";
 
@@ -1331,8 +1368,8 @@ export class SQFLintServer {
         if (event) {
             text = event.description;
         } else if (!documentation && operator) {
-            let ops = [];
-            for(let f in operator) {
+            const ops = [];
+            for(const f in operator) {
                 ops.push(operator[f].documentation);
             }
             text = ops.join("\r\n");
@@ -1342,7 +1379,7 @@ export class SQFLintServer {
 
         item.documentation = text;
 
-        for (let i in this.modules) {
+        for (const i in this.modules) {
             this.modules[i].onCompletionResolve(item);
         }
 
@@ -1352,16 +1389,16 @@ export class SQFLintServer {
     /**
      * Tries to fetch operator info at specified position.
      */
-    private findOperator(params: TextDocumentPositionParams, prefix: boolean = false) {
+    private findOperator(params: TextDocumentPositionParams): Operator[] {
         return this.operators[this.getNameFromParams(params).toLowerCase()];
     }
 
     /**
      * Tries to fetch event info at specified position.
      */
-    private findEvent(params: TextDocumentPositionParams, prefix: boolean = false) {
+    private findEvent(params: TextDocumentPositionParams): EventDocumentation {
         // Only search for events, when we find plain ident enclosed in quotes
-        let found = this.getNameFromParams(params, "[a-z0-9_\"']").toLowerCase();
+        const found = this.getNameFromParams(params, "[a-z0-9_\"']").toLowerCase();
         if (/["']/.test(found.charAt(0)) && /["']/.test(found.charAt(found.length - 1))) {
             return this.events[found.substring(1, found.length - 1)];
         }
@@ -1369,9 +1406,9 @@ export class SQFLintServer {
 
     private findOperators(params: TextDocumentPositionParams): Operator[] {
         let found: Operator[] = [];
-        let hover = this.getNameFromParams(params).toLowerCase();
+        const hover = this.getNameFromParams(params).toLowerCase();
 
-        for(let name in this.operators) {
+        for(const name in this.operators) {
             if (name.length >= hover.length && name.substr(0, hover.length) == hover) {
                 found = found.concat(this.operators[name]);
             }
@@ -1383,28 +1420,28 @@ export class SQFLintServer {
     /**
      * Returns if global variable with specified name exists.
      */
-    private hasGlobalVariable(name: string) {
+    private hasGlobalVariable(name: string): boolean {
         return typeof(this.globalVariables[name.toLowerCase()]) !== "undefined";
     }
 
     /**
      * Saves global variable.
      */
-    private setGlobalVariable(name: string, global: GlobalVariable) {
+    private setGlobalVariable(name: string, global: GlobalVariable): GlobalVariable {
         return this.globalVariables[name.toLowerCase()] = global;
     }
 
     /**
      * Returns global variable info or undefined.
      */
-    private getGlobalVariable(name: string) {
+    private getGlobalVariable(name: string): GlobalVariable {
         return this.globalVariables[name.toLowerCase()];
     }
 
     /**
      * Returns if local variable exists.
      */
-    private hasLocalVariable(document: TextDocumentIdentifier, name: string) {
+    private hasLocalVariable(document: TextDocumentIdentifier, name: string): boolean {
         let ns;
         return typeof(ns = this.documentVariables[document.uri]) !== "undefined" &&
             typeof(ns[name]) !== "undefined";
@@ -1435,7 +1472,7 @@ export class SQFLintServer {
     /**
      * Saves local variable info.
      */
-    private setLocalVariable(document: TextDocumentIdentifier, name: string, local: DocumentVariable) {
+    private setLocalVariable(document: TextDocumentIdentifier, name: string, local: DocumentVariable): DocumentVariable {
         let ns;
         if (typeof(ns = this.documentVariables[document.uri]) == "undefined") {
             ns = this.documentVariables[document.uri] = {};
@@ -1447,11 +1484,16 @@ export class SQFLintServer {
     /**
      * Finds variable info for word at specified position.
      */
-    private findReferences(params: TextDocumentPositionParams) {
-        let name = this.getNameFromParams(params).toLowerCase();
+    private findReferences(params: TextDocumentPositionParams): {
+        local: DocumentVariable;
+        global: GlobalVariable;
+        macro: GlobalMacro;
+        func: SqfFunction;
+    } {
+        const name = this.getNameFromParams(params).toLowerCase();
 
         if (name) {
-            let ref = this.findReferencesByName(
+            const ref = this.findReferencesByName(
                 params.textDocument,
                 this.getNameFromParams(params).toLowerCase()
             );
@@ -1465,7 +1507,12 @@ export class SQFLintServer {
     /**
      * Finds variable info for specified name.
      */
-    private findReferencesByName(source: TextDocumentIdentifier, name: string) {
+    private findReferencesByName(source: TextDocumentIdentifier, name: string): {
+        local: DocumentVariable;
+        global: GlobalVariable;
+        macro: GlobalMacro;
+        func: SqfFunction;
+    } {
         return {
             local: this.getLocalVariable(source, name),
             global: this.getGlobalVariable(name),
@@ -1477,32 +1524,32 @@ export class SQFLintServer {
     /**
      * Tries to load macro info by name.
      */
-    private getGlobalMacro(name: string) {
+    private getGlobalMacro(name: string): GlobalMacro {
         return this.globalMacros[name.toLowerCase()] || null;
     }
 
     /**
      * Tries to load name from position params.
      */
-    private getNameFromParams(params: TextDocumentPositionParams, allowed?: string) {
+    private getNameFromParams(params: TextDocumentPositionParams, allowed?: string): string {
         return this.getName(params.textDocument.uri, params.position.line, params.position.character, allowed);
     }
 
     /**
      * Tries to load name from specified position and contents.
      */
-    private getName(uri: string, line: number, character: number, allowed?: string) {
-        let content = this.documents.get(uri).getText();
-        let lines = content.split("\n");
-        let str = lines[line];
+    private getName(uri: string, line: number, character: number, allowed?: string): string {
+        const content = this.documents.get(uri).getText();
+        const lines = content.split("\n");
+        const str = lines[line];
         let position = character;
 
         if (!allowed) {
             allowed = "[a-z0-9_]";
         }
 
-        let matchChar = new RegExp(allowed, "i");
-        let matchAll = new RegExp("(" + allowed + "*)", "i");
+        const matchChar = new RegExp(allowed, "i");
+        const matchAll = new RegExp("(" + allowed + "*)", "i");
 
         while(position > 0) {
             position--;
@@ -1512,8 +1559,8 @@ export class SQFLintServer {
             }
         }
 
-        let def = str.substr(position);
-        let match:RegExpExecArray = null;
+        const def = str.substr(position);
+        let match: RegExpExecArray = null;
 
         if ((match = matchAll.exec(def))) {
             return match[1];
@@ -1522,13 +1569,14 @@ export class SQFLintServer {
         return null;
     }
 
-    public getSettings() {
+    public getSettings(): SQFLintSettings {
         return this.settings;
     }
 
-    protected log (contents: string) {
-        return this.connection.console.log(contents);
+    protected log(contents: string): void {
+        this.connection.console.log(contents);
     }
 }
 
-let server = new SQFLintServer();
+// create instance
+new SQFLintServer();
