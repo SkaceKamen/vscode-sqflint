@@ -14,12 +14,16 @@
   },
   "devDependencies": {
     "@types/node": "^11.13.8",
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
+    "eslint": "^7.0.0",
     "ts-pegjs": "^0.2.2",
     "typescript": "^3.4.5"
   },
   "scripts": {
     "compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
     "watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p .",
-    "grammar": "pegjs --plugin ts-pegjs -o src/parsers/grammars/pegjs-hpp.ts src/parsers/grammars/hpp.pegjs && pegjs --plugin ts-pegjs -o src/parsers/grammars/pegjs-hpp-pre.ts src/parsers/grammars/hpp.pre.pegjs"
+    "grammar": "pegjs --plugin ts-pegjs -o src/parsers/grammars/pegjs-hpp.ts src/parsers/grammars/hpp.pegjs && pegjs --plugin ts-pegjs -o src/parsers/grammars/pegjs-hpp-pre.ts src/parsers/grammars/hpp.pre.pegjs",
+    "lint": "eslint . --ext .ts"
   }
 }

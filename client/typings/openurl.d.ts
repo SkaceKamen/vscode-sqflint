@@ -1,3 +1,3 @@
 declare module "openurl" {
-	export function open(url: string);
+    export function open(url: string);
 }

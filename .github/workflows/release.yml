@@ -1,0 +1,51 @@
+name: SQFLint-VSCode CI Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - name: Build SQFLint with Docker image
+        uses: ./sqflint/.github/actions/sqflint-build-action
+        env:
+          ANT_BUILD_DIR: sqflint
+      - name: Use Node.js 12.16
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12.16
+      - run: npm run package
+      - name: Store vsix
+        uses: actions/upload-artifact@v2
+        with:
+          name: sqflint
+          path: client/sqflint-*.vsix
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      - name: publish
+        env:
+          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+        run: |
+          npx vsce publish -p $VSCE_TOKEN ${{ steps.get_version.outputs.VERSION }}
+        

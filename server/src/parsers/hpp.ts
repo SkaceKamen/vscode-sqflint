@@ -1,241 +1,264 @@
 import * as pegjs from 'pegjs';
 import * as fs from 'fs';
-import * as fs_path from 'path';
+import * as fsPath from 'path';
 import { SQFLint } from '../sqflint'
 
-var hppParser = <pegjs.Parser>require('./grammars/pegjs-hpp');
-var hppPreprocessor = <pegjs.Parser>require('./grammars/pegjs-hpp-pre');
+const hppParser = require('./grammars/pegjs-hpp') as pegjs.Parser;
+const hppPreprocessor = require('./grammars/pegjs-hpp-pre') as pegjs.Parser;
 
-interface sourceMap {
-	offset: { 0: number, 1: number, 2: number, 3: number };
-	filename: string;
+interface SourceMap {
+    offset: { 0: number; 1: number; 2: number; 3: number };
+    filename: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Hpp {
-	let preprocessorMap: sourceMap[] = [];
-	export let onFilename: (filename: string) => void;
-	export let tryToLoad: (filename: string) => string = (filename) => { return null };
-	export let log: (contents: string) => void = (contents) => { };
 
-	export function parse(filename: string) {
-		var processed: string = null;
-		preprocessorMap = [];
-		try {
-			processed = preprocess(filename);
-			return applyExtends(<ClassBody>hppParser.parse(processed));
-		} catch (e) {
-			if (e.location !== undefined) {
-				let location = (<pegjs.PegjsError>e).location;
+    export class ParseError {
+        constructor(
+            public filename: string,
+            public range: SQFLint.Range,
+            public message: string
+        ) {}
+    }
 
-				console.log('Error while parsing', filename);
-				console.error(e);
+    let preprocessorMap: SourceMap[] = [];
+    export let onFilename: (filename: string) => void;
 
-				/*
-				if (processed) {
-					var lines = processed.split("\n");
-					for (var i = -2; i <= 2; i++) {
-						var index = location.start.line - 1 + i;
-						if (index >= 0 && index < lines.length) {
-							log(lines[index]);
-						}
-					}
-				}
-				*/
+    // assigned by other class
+    // eslint-disable-next-line prefer-const
+    export let tryToLoad: (filename: string) => string = () => { return null; };
 
-				throw createParseError(<pegjs.PegjsError>e, filename);
-			} else {
-				throw e;
-			}
-		}
-	}
+    // assigned by other class
+    // eslint-disable-next-line prefer-const
+    export let log: (contents: string) => void = () => { return; };
 
-	function applyExtends(context: ClassBody): ClassBody {
-		for (var i in context.classes) {
-			context.classes[i].body.parent = context;
-			applyExtendsClass(context.classes[i]);
-		}
+    export function pegjsLocationToSqflint(location: pegjs.LocationRange, useMap = false): {
+        filename: string;
+        range: SQFLint.Range;
+    } {
+        if (useMap) {
+            for (const i in preprocessorMap) {
+                const map = preprocessorMap[i];
+                if (location.start.offset >= map.offset[0] &&
+                    location.start.offset < map.offset[1]
+                ) {
+                    return {
+                        filename: map.filename,
+                        range: {
+                            start: {
+                                line: location.start.line - map.offset[2],
+                                character: location.start.column - map.offset[3] - 1
+                            },
+                            end: {
+                                line: location.end.line - map.offset[2],
+                                character: location.end.column - map.offset[3] - 1
+                            }
+                        } as SQFLint.Range
+                    };
+                }
+            }
+        }
 
-		return context;
-	}
+        return {
+            filename: null as string,
+            range: {
+                start: {
+                    line: location.start.line - 1,
+                    character: location.start.column - 1
+                },
+                end: {
+                    line: location.end.line - 1,
+                    character: location.end.column - 1
+                }
+            } as SQFLint.Range
+        }
+    }
 
-	function applyExtendsClass(context: Class) {
-		if (context.extends) {
-			let parent = context.body.parent;
-			while (parent != null) {
-				let ext = parent.classes[context.extends.toLowerCase()];
-				if (ext) {
-					for (var i in ext.body.variables) {
-						context.body.variables[i] = ext.body.variables[i];
-					}
-					for (var i in ext.body.classes) {
-						context.body.classes[i] = ext.body.classes[i];
-					}
-				}
+    const applyExtends = (context: ClassBody): ClassBody => {
+        for (const i in context.classes) {
+            context.classes[i].body.parent = context;
 
-				if (parent.parent != null) {
-					parent = parent.parent;
-				} else {
-					parent = null;
-				}
-			}
-		}
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            applyExtendsClass(context.classes[i]);
+        }
 
-		if (context.location) {
-			let loc = context.location;
-			let info = pegjsLocationToSqflint(loc, true);
+        return context;
+    }
 
-			context.fileLocation = {
-				filename: info.filename,
-				range: info.range
-			};
-		}
+    const applyExtendsClass = (context: Class): void => {
 
-		applyExtends(context.body);
-	}
+        // console.log(`Class: ` + context.name, context.body ? context.body.variables : null);
 
-	function createParseError(error: pegjs.PegjsError, filename: string) {
-		let info = pegjsLocationToSqflint(error.location, true);
-		return new ParseError(
-			info.filename || filename, info.range, error.message
-		);
-	}
+        if (context.extends) {
+            let parent = context.body.parent;
+            while (parent != null) {
+                const ext = parent.classes[context.extends.toLowerCase()];
+                if (ext) {
+                    for (const i in ext.body.variables) {
+                        context.body.variables[i] = ext.body.variables[i];
+                    }
+                    for (const i in ext.body.classes) {
+                        context.body.classes[i] = ext.body.classes[i];
+                    }
+                }
 
-	export function pegjsLocationToSqflint(location: pegjs.LocationRange, useMap: boolean = false) {
-		if (useMap) {
-			for (let i in preprocessorMap) {
-				let map = preprocessorMap[i];
-				if (location.start.offset >= map.offset[0] &&
-				    location.start.offset < map.offset[1]
-				) {
-					return {
-						filename: map.filename,
-						range: <SQFLint.Range>{
-							start: {
-								line: location.start.line - map.offset[2],
-								character: location.start.column - map.offset[3] - 1
-							},
-							end: {
-								line: location.end.line - map.offset[2],
-								character: location.end.column - map.offset[3] - 1
-							}
-						}
-					};
-				}
-			}
-		}
+                if (parent.parent != null) {
+                    parent = parent.parent;
+                } else {
+                    parent = null;
+                }
+            }
+        }
 
-		return {
-			filename: <string>null,
-			range: <SQFLint.Range>{
-				start: {
-					line: location.start.line - 1,
-					character: location.start.column - 1
-				},
-				end: {
-					line: location.end.line - 1,
-					character: location.end.column - 1
-				}
-			}
-		}
-	}
+        if (context.location) {
+            const loc = context.location;
+            const info = pegjsLocationToSqflint(loc, true);
 
-	function preprocess(filename: string, mapOffset: number = 0): string {
-		if (onFilename) {
-			onFilename(filename);
-		}
+            context.fileLocation = {
+                filename: info.filename,
+                range: info.range
+            };
+        }
 
-		try {
-			var contents = tryToLoad(filename) || fs.readFileSync(filename).toString();
-			var result = <PreprocessorOutput>hppPreprocessor.parse(contents);
-			var offset = 0;
+        applyExtends(context.body);
+    }
 
-			var basepath = fs_path.dirname(filename);
+    const createParseError = (error: pegjs.PegjsError, filename: string): ParseError => {
+        const info = pegjsLocationToSqflint(error.location, true);
+        return new ParseError(
+            info.filename || filename, info.range, error.message
+        );
+    }
 
-			for (var i in result) {
-				var item = result[i];
-				if (item.include) {
-					var itempath = fs_path.join(basepath, item.include);
+    const preprocess = (filename: string, mapOffset = 0): string => {
+        if (onFilename) {
+            onFilename(filename);
+        }
 
-					if (fs.existsSync(itempath)) {
-						var offsetStart = offset + item.location.start.offset;
-						var offsetEnd = offset + item.location.end.offset;
-						var offsetLine = contents.substr(0, offsetStart).split("\n").length;
-						var offsetChar = contents.substring(contents.lastIndexOf("\n", offsetStart), offsetStart).length;
-						var output = preprocess(itempath, mapOffset + offsetStart);
+        try {
+            let contents = tryToLoad(filename) || fs.readFileSync(filename).toString();
+            const result = hppPreprocessor.parse(contents) as PreprocessorOutput;
+            let offset = 0;
 
-						preprocessorMap.push({
-							offset: [ mapOffset + offsetStart, mapOffset + offsetStart + output.length, offsetLine, offsetChar ],
-							filename: itempath
-						});
+            const basepath = fsPath.dirname(filename);
 
-						contents = contents.substr(0, offsetStart) +
-							output +
-							contents.substr(offsetEnd);
+            for (const i in result) {
+                const item = result[i];
+                if (item.include) {
+                    const itempath = fsPath.join(basepath, item.include);
 
-						offset += output.length;
-					} else {
-						// @TODO: Maybe continue?
-						throw new ParseError(
-							filename, pegjsLocationToSqflint(item.location).range, "Failed to find '" + itempath + "'"
-						);
-					}
-				} else if (item.eval) {
-					contents = contents.substr(0, offset + item.location.start.offset) + '"";' +
-						contents.substr(offset + item.location.end.offset);
-					offset += 3;
-				} else {
-					contents = contents.substr(0, offset + item.location.start.offset) +
-						contents.substr(offset + item.location.end.offset);
-				}
+                    if (fs.existsSync(itempath)) {
+                        const offsetStart = offset + item.location.start.offset;
+                        const offsetEnd = offset + item.location.end.offset;
+                        const offsetLine = contents.substr(0, offsetStart).split("\n").length;
+                        const offsetChar = contents.substring(contents.lastIndexOf("\n", offsetStart), offsetStart).length;
+                        const output = preprocess(itempath, mapOffset + offsetStart);
 
-				offset -= (item.location.end.offset - item.location.start.offset);
-			}
+                        preprocessorMap.push({
+                            offset: [ mapOffset + offsetStart, mapOffset + offsetStart + output.length, offsetLine, offsetChar ],
+                            filename: itempath
+                        });
 
-			return contents;
-		} catch (e) {
-			if (e.location !== undefined) {
-				throw new ParseError(
-					filename, pegjsLocationToSqflint((<pegjs.PegjsError>e).location).range, e.message
-				)
-			} else {
-				throw e;
-			}
-		}
-	}
+                        contents = contents.substr(0, offsetStart) +
+                            output +
+                            contents.substr(offsetEnd);
 
-	export type PreprocessorOutput = IncludeOrDefine[];
+                        offset += output.length;
+                    } else {
+                        // @TODO: Maybe continue?
+                        throw new ParseError(
+                            filename, pegjsLocationToSqflint(item.location).range, "Failed to find '" + itempath + "'"
+                        );
+                    }
+                } else if (item.eval) {
+                    contents = contents.substr(0, offset + item.location.start.offset) + '"";' +
+                        contents.substr(offset + item.location.end.offset);
+                    offset += 3;
+                } else {
+                    contents = contents.substr(0, offset + item.location.start.offset) +
+                        contents.substr(offset + item.location.end.offset);
+                }
 
-	export interface IncludeOrDefine {
-		include: string;
-		define: string;
-		eval: string;
-		location: pegjs.LocationRange;
-	}
+                offset -= (item.location.end.offset - item.location.start.offset);
+            }
+
+            return contents;
+        } catch (e) {
+            if (e.location !== undefined) {
+                throw new ParseError(
+                    filename, pegjsLocationToSqflint((e as pegjs.PegjsError).location).range, e.message
+                )
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    export function parse(filename: string): ClassBody {
+        let processed: string = null;
+        preprocessorMap = [];
+        try {
+            processed = preprocess(filename);
+            return applyExtends(hppParser.parse(processed) as ClassBody);
+        } catch (e) {
+            if (e.location !== undefined) {
+                const location = (e as pegjs.PegjsError).location;
+                const linewise = processed.split('\n').map((x) => x.replace('\r', ''));
+                linewise[location.start.line - 1] = linewise[location.start.line - 1] + ' <--- ERROR LINE'
+                console.log(
+                    'Error while parsing ' + filename,
+                    e,
+                    linewise.slice(
+                        Math.max(0, location.start.line - 5),
+                        Math.max(0, location.start.line + 10)
+                    )
+                );
+
+                /*
+                if (processed) {
+                    var lines = processed.split("\n");
+                    for (var i = -2; i <= 2; i++) {
+                        var index = location.start.line - 1 + i;
+                        if (index >= 0 && index < lines.length) {
+                            log(lines[index]);
+                        }
+                    }
+                }
+                */
+
+                throw createParseError(e as pegjs.PegjsError, filename);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    export type PreprocessorOutput = IncludeOrDefine[];
+
+    export interface IncludeOrDefine {
+        include: string;
+        define: string;
+        eval: string;
+        location: pegjs.LocationRange;
+    }
 
 
-	export interface ClassBody {
-		parent: ClassBody;
-		classes: { [name: string]: Class };
-		variables: { [name: string]: string };
-	}
+    export interface ClassBody {
+        parent: ClassBody;
+        classes: { [name: string]: Class };
+        variables: { [name: string]: string };
+    }
 
-	export interface Class {
-		name: string;
-		extends?: string;
-		body?: ClassBody;
-		location: pegjs.LocationRange;
-		fileLocation: {
-			filename: string,
-			range: SQFLint.Range
-		};
-		filename: string;
-	}
-
-	export class ParseError {
-		constructor(
-			public filename: string,
-			public range: SQFLint.Range,
-			public message: string
-		) {}
-	}
+    export interface Class {
+        name: string;
+        extends?: string;
+        body?: ClassBody;
+        location: pegjs.LocationRange;
+        fileLocation: {
+            filename: string;
+            range: SQFLint.Range;
+        };
+        filename: string;
+    }
 }

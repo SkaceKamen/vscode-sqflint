@@ -1,0 +1,3 @@
+[submodule "sqflint"]
+	path = sqflint
+	url = https://github.com/RZSenfo/sqflint

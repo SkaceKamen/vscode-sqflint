@@ -2,10 +2,10 @@
   "name": "sqflint",
   "displayName": "SQFLint",
   "description": "Parse errors, hover help for functions/commands and more.",
-  "author": "Jan Zípek",
+  "author": "Jan Zípek, Senfo",
   "icon": "images/sqflint.png",
   "license": "MIT",
-  "version": "0.10.1",
+  "version": "0.12.0",
   "publisher": "skacekachna",
   "engines": {
     "vscode": "^1.33.1",
@@ -178,13 +178,20 @@
   },
   "scripts": {
     "watch": "tsc -w -p .",
-    "vscode:prepublish": "tsc -p ./",
-    "postinstall": "node ./node_modules/vscode/bin/install"
+    "vscode:prepublish": "cd ../server && npm install && npm run grammar && npm run compile && cd ../client && npm install && tsc -p ./",
+    "package": "bash build.sh",
+    "packageAndInstall": "npm run package && code sqflint-*.vsix",
+    "postinstall": "node ./node_modules/vscode/bin/install",
+    "lint": "eslint . --ext .ts"
   },
   "devDependencies": {
     "@types/node": "^8.5.7",
+    "@typescript-eslint/eslint-plugin": "^2.33.0",
+    "@typescript-eslint/parser": "^2.33.0",
+    "eslint": "^7.0.0",
     "jsdom": "^9.8.3",
     "typescript": "^3.4.5",
+    "vsce": "^1.75.0",
     "vscode": "^1.1.33",
     "xmldoc": "^0.5.1"
   },

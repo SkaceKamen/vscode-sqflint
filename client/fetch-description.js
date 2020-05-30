@@ -14,7 +14,7 @@ if (!fs.existsSync(cache)) {
 		res.on('end', () => parseDescription(cache));
 	});
 } else {
-	parseDescription(cache);	
+	parseDescription(cache);
 };
 
 function clearElement(el) {
@@ -47,7 +47,7 @@ function clearText(text) {
 function parseDescription(filepath) {
 	let data = { properties: [] };
 	let values = data.properties;
-	
+
 	let contents = fs.readFileSync(filepath).toString();
 	let doc = jsdom(contents, {
 		features: { FetchExternalResources: false }
