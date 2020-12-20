@@ -120,6 +120,7 @@ export class MissionModule extends Module {
         return new Promise<void>((resolve) => {
             fs.readFile(filename, () => {
                 try {
+                    Hpp.setPaths(this.getSettings().includePrefixes)
                     this.process(Hpp.parse(filename), filename);
                 } catch(error) {
                     // Skip errors, probably binarized mission
