@@ -283,6 +283,7 @@ export class ExtModule extends Module {
             fs.readFile(filename, () => {
                 try {
                     this.log(`Proccessing: ${filename}`);
+                    Hpp.setPaths(this.getSettings().includePrefixes)
                     this.process(Hpp.parse(filename), filename);
                     this.log(`Proccessed: ${filename}`);
 

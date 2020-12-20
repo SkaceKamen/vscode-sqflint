@@ -22,6 +22,11 @@ export namespace Hpp {
         ) {}
     }
 
+    let paths = {} as Record<string, string>;
+    export const setPaths = (newPaths: Record<string, string>): void => {
+        paths = newPaths
+    }
+
     let preprocessorMap: SourceMap[] = [];
     export let onFilename: (filename: string) => void;
 
@@ -131,6 +136,22 @@ export namespace Hpp {
         );
     }
 
+    const resolveFilename = (filename: string, root: string): string => {
+        for (const [prefix, newTarget] of Object.entries(paths)) {
+            if (filename.startsWith(prefix)) {
+                filename = filename.replace(prefix, newTarget)
+                
+                if (fsPath.isAbsolute(newTarget)) {
+                    return filename
+                }
+
+                return fsPath.join(root, filename)
+            }
+        }
+
+        return fsPath.join(root, filename)
+    }
+
     const preprocess = (filename: string, mapOffset = 0): string => {
         if (onFilename) {
             onFilename(filename);
@@ -146,7 +167,7 @@ export namespace Hpp {
             for (const i in result) {
                 const item = result[i];
                 if (item.include) {
-                    const itempath = fsPath.join(basepath, item.include);
+                    const itempath = resolveFilename(item.include, basepath)
 
                     if (fs.existsSync(itempath)) {
                         const offsetStart = offset + item.location.start.offset;
