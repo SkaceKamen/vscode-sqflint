@@ -609,7 +609,6 @@ export class SQFLintServer {
                     &&
                     !this.currentRunParsedFiles.includes(textDocument.uri)
                 ) {
-
                     // this.log(`${new Date().toUTCString()} SQF DOC PARSE: ${textDocument.uri}`);
                     this.currentRunParsedFiles.push(textDocument.uri);
 
@@ -642,6 +641,11 @@ export class SQFLintServer {
                     } as SQFLint.Options;
 
                     client.parse(uri.fsPath, contents, options).then((result: SQFLint.ParseInfo) => {
+                        const index = this.currentRunParsedFiles.indexOf(textDocument.uri)
+
+                        if (index >= 0) {
+                            this.currentRunParsedFiles.splice(index, 1)
+                        }
 
                         const timeTookParse = (new Date().valueOf()) - startTime.valueOf();
                         if (timeTookParse > 1000) {
