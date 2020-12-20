@@ -38,6 +38,8 @@ import { Module } from "./module";
 import { MissionModule } from './modules/mission';
 
 import { Function as SqfFunction } from './modules/ext';
+import { Logger } from './lib/logger';
+import { LoggerContext } from './lib/logger-context';
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -201,7 +203,13 @@ export class SQFLintServer {
 
     private currentRunParsedFiles = [];
 
+    public loggerContext: LoggerContext
+    private logger: Logger
+
     constructor() {
+        this.loggerContext = new LoggerContext()
+        this.logger = this.loggerContext.createLogger('server')
+
         this.loadOperators();
         this.loadDocumentation();
         this.loadEvents();
@@ -215,6 +223,8 @@ export class SQFLintServer {
         ];
 
         this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+
+        this.loggerContext.target = this.connection.console
 
         this.documents = new TextDocuments();
         this.documents.listen(this.connection);
@@ -236,7 +246,7 @@ export class SQFLintServer {
 
         this.connection.listen();
 
-        this.sqflint = new SQFLint();
+        this.sqflint = new SQFLint(this.loggerContext);
 
         this.settings = {
             warnings: true,
@@ -287,15 +297,15 @@ export class SQFLintServer {
         }
 
         if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
-            this.connection.console.log("Indexing workspace...");
+            this.logger.info("Indexing workspace...");
             this.statusMessage(`$(sync~spin) Indexing.. 0%`, "Parsing and Reading CfgFunctions");
 
             this.indexWorkspace(false, () => {
-                this.connection.console.log("Done indexing workspace.");
+                this.logger.info("Done indexing workspace.");
                 if (this.settings.indexWorkspaceTwice) {
-                    this.connection.console.log("Indexing workspace again, to resolve global variables.");
+                    this.logger.info("Indexing workspace again, to resolve global variables.");
                     this.indexWorkspace(true, () => {
-                        this.connection.console.log("Done reindexing workspace.");
+                        this.logger.info("Done reindexing workspace.");
                     });
                 }
             });
@@ -358,13 +368,13 @@ export class SQFLintServer {
 
         // Calls indexWorkspace for all modules in sequence
         this.runModules("indexWorkspace", this.workspaceRoot).then(() => {
-            const linter = new SQFLint();
+            const linter = new SQFLint(this.loggerContext);
 
             const files: string[] = [];
             let readFiles = 0;
             let lastUpdate = new Date().valueOf();
 
-            this.log("Done module index... Now indexing sqf");
+            this.logger.info("Done module index... Now indexing sqf");
 
             // Load list of files so we can track progress
             this.walkPath(
@@ -372,7 +382,7 @@ export class SQFLintServer {
                 (file) => { files.push(file); },
                 async () => {
 
-                    this.log(`Parsing a total of sqf ${files.length} files`);
+                    this.logger.info(`Parsing a total of sqf ${files.length} files`);
                     let queue = [];
                     for (const file of files) {
                         if (!queue.includes(file)) {
@@ -386,7 +396,7 @@ export class SQFLintServer {
                         fs.readFile(file, (err, data) => {
                             readFiles++;
                             if (this.getSettings().debugLogs) {
-                                this.log(`File read ${readFiles} / ${files.length}`);
+                                this.logger.info(`File read ${readFiles} / ${files.length}`);
                             }
                             for (const queuefile of queue) {
                                 if (queuefile[0] === file) {
@@ -597,7 +607,7 @@ export class SQFLintServer {
 
                 const timeTook = (new Date().valueOf()) - startTime.valueOf();
                 if (timeTook > 1000) {
-                    this.log(`Modules took long for: ${textDocument.uri} (${timeTook} ms)`)
+                    this.logger.info(`Modules took long for: ${textDocument.uri} (${timeTook} ms)`)
                 }
 
                 startTime = new Date();
@@ -649,7 +659,7 @@ export class SQFLintServer {
 
                         const timeTookParse = (new Date().valueOf()) - startTime.valueOf();
                         if (timeTookParse > 1000) {
-                            this.log(`SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`)
+                            this.logger.info(`SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`)
                         }
 
                         if (!result) {
@@ -907,11 +917,11 @@ export class SQFLintServer {
                                     });
                                 }
                             } else {
-                                console.log("Failed to get document", uri);
+                                this.logger.error("Failed to get document", uri);
                             }
                         } catch (e) {
-                            console.log("Failed to load " + uri);
-                            console.log(e);
+                            this.logger.error("Failed to load " + uri);
+                            this.logger.error(e);
                         }
                     }
 
@@ -1575,10 +1585,6 @@ export class SQFLintServer {
 
     public getSettings(): SQFLintSettings {
         return this.settings;
-    }
-
-    protected log(contents: string): void {
-        this.connection.console.log(contents);
     }
 }
 
