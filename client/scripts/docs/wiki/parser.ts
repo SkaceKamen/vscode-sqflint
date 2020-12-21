@@ -154,6 +154,11 @@ export const skipBlock = (start: string, end: string, contents: string, ref: { i
 export const parseLink = (contents: string, ref: { index: number }) => {
     const data = skipBlock(LINK_START, LINK_END, contents, ref, true)
 
+    // Skip images
+    if (data.startsWith('File:')) {
+        return ''
+    }
+
     const index = data.lastIndexOf(P_SEPARATOR)
     if (index < 0) {
         return data
