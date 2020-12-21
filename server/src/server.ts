@@ -125,7 +125,7 @@ interface Operator {
     wiki: WikiDocumentation;
 }
 
-interface WikiDocumentation {
+export interface WikiDocumentation {
     title: string;
     type: string;
     description: {

@@ -15,6 +15,8 @@ let sources = {
 let jsdom = require("jsdom").jsdom;
 let events = {};
 
+fs.mkdirSync('cache', { recursive: true })
+
 for(let type in sources) {
 	let source = sources[type];
 	if (!fs.existsSync(source.cache)) {
