@@ -1,6 +1,8 @@
 import { Java } from './java';
 import * as path from 'path';
 import { ChildProcess } from "child_process";
+import { LoggerContext } from './lib/logger-context';
+import { Logger } from './lib/logger';
 
 
 function emitLines(stream): void {
@@ -35,6 +37,12 @@ export class SQFLint {
     // Currently running sqflint process
     private childProcess: ChildProcess;
 
+    private logger: Logger;
+
+    constructor(context: LoggerContext) {
+        this.logger = context.createLogger('sqflint');
+    }
+
     /**
      * Launches sqflint process and assigns basic handlers.
      */
@@ -63,18 +71,18 @@ export class SQFLint {
             }
             // benchLog begin with timestamp
             // TODO find better filter
-            console.error(dataStr.startsWith("158") ? "" : "SQFLint: Error message", dataStr);
+            this.logger.error(dataStr.startsWith("158") ? "" : "SQFLint: Error message", dataStr);
         });
 
         this.childProcess.on('error', msg => {
-            console.error("SQFLint: Process crashed", msg);
+            this.logger.error("SQFLint: Process crashed", msg);
             this.childProcess = null;
             this.flushWaiters();
         });
 
         this.childProcess.on('close', code => {
             if (code != 0) {
-                console.error("SQFLint: Process crashed with code", code);
+                this.logger.error("SQFLint: Process crashed with code", code);
             }
             this.childProcess = null;
             this.flushWaiters();
@@ -227,9 +235,9 @@ export class SQFLint {
 
         return new Promise<SQFLint.ParseInfo>((success /*, reject */): void => {
             if (!this.childProcess) {
-                console.log("Starting SQFLint Background-Server");
+                this.logger.info("Starting background server...");
                 this.launchProcess();
-                console.log("Started SQFLint Background-Server");
+                this.logger.info("Background server started");
             }
 
             const startTime = new Date();

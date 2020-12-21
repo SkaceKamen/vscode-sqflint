@@ -10,6 +10,8 @@ import Uri from "../uri";
 import { SingleRunner } from '../single.runner';
 
 import { Docstring } from '../parsers/docstring';
+import { SQFLintServer } from '../server';
+import { Logger } from '../lib/logger';
 
 interface Documentation {
     name: string;
@@ -25,6 +27,14 @@ export class ExtModule extends Module {
     private documentation: { [variable: string]: Documentation } = {};
 
     private files: string[] = [];
+
+    private logger: Logger
+
+    constructor(server: SQFLintServer) {
+        super(server)
+
+        this.logger = server.loggerContext.createLogger('ext-module')
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onInitialize(params: InitializeParams): void {
@@ -47,7 +57,7 @@ export class ExtModule extends Module {
             return null;
         }
 
-        Hpp.log = (contents): void => this.log(contents)
+        Hpp.log = (contents): void => this.logger.info(contents)
     }
 
     private loadDocumentation(): void {
@@ -76,15 +86,15 @@ export class ExtModule extends Module {
             if (settings.discoverDescriptionFiles) {
                 glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
                     if (err) {
-                        this.log('Issue when scanning for description.ext')
-                        this.log(err.message)
+                        this.logger.error('Issue when scanning for description.ext')
+                        this.logger.error(err.message)
                     }
 
                     this.files = files.concat(discovered.map(item => path.join(root, item)));
                     this.files.forEach(item => {
-                        this.log(`Parsing: ${item}`);
+                        this.logger.debug(`Parsing: ${item}`);
                         this.parse(item);
-                        this.log(`Parsed: ${item}`);
+                        this.logger.debug(`Parsed: ${item}`);
                     });
 
                     resolve();
@@ -97,9 +107,9 @@ export class ExtModule extends Module {
 
                 this.files = files
                 this.files.forEach(item => {
-                    this.log(`Parsing: ${item}`);
+                    this.logger.debug(`Parsing: ${item}`);
                     this.parse(item);
-                    this.log(`Parsed: ${item}`);
+                    this.logger.debug(`Parsed: ${item}`);
                 });
 
                 resolve();
@@ -282,10 +292,10 @@ export class ExtModule extends Module {
         return new Promise<void>((resolve) => {
             fs.readFile(filename, () => {
                 try {
-                    this.log(`Proccessing: ${filename}`);
+                    this.logger.debug(`Proccessing: ${filename}`);
                     Hpp.setPaths(this.getSettings().includePrefixes)
                     this.process(Hpp.parse(filename), filename);
-                    this.log(`Proccessed: ${filename}`);
+                    this.logger.debug(`Proccessed: ${filename}`);
 
                     // Clear diagnostics
                     this.sendDiagnostics({
@@ -320,7 +330,7 @@ export class ExtModule extends Module {
     private process(context: Hpp.ClassBody, filename: string): void {
         const cfgFunctions = context.classes["cfgfunctions"];
         if (cfgFunctions) {
-            this.log(`Scanning functions for: ${filename}`);
+            this.logger.debug(`Scanning functions for: ${filename}`);
             this.processCfgFunctions(cfgFunctions, filename);
         }
     }
@@ -341,13 +351,13 @@ export class ExtModule extends Module {
             const tagClass = cfgFunctions.body.classes[tag];
             tag = tagClass.name;
 
-            this.log(`Detected tag: ${tag}`);
+            this.logger.debug(`Detected tag: ${tag}`);
 
             for (let category in tagClass.body.classes) {
                 const categoryClass = tagClass.body.classes[category];
                 category = categoryClass.name;
 
-                this.log(`Detected category: ${category}`);
+                this.logger.debug(`Detected category: ${category}`);
 
                 // Default path used for this category
                 let categoryPath = path.join("functions", category);
@@ -428,7 +438,7 @@ export class ExtModule extends Module {
             }
         }
 
-        this.log(`Detected a total of ${functionsCount} in ${rootFilename}`);
+        this.logger.debug(`Detected a total of ${functionsCount} in ${rootFilename}`);
 
         for (const uri in diagnostics) {
             this.sendDiagnostics({
