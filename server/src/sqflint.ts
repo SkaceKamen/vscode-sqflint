@@ -83,7 +83,10 @@ export class SQFLint {
         this.childProcess.on('close', code => {
             if (code != 0) {
                 this.logger.error("SQFLint: Process crashed with code", code);
+            } else {
+                this.logger.info('Background server stopped')
             }
+
             this.childProcess = null;
             this.flushWaiters();
         });
@@ -254,6 +257,7 @@ export class SQFLint {
      */
     public stop(): void {
         if (this.childProcess != null) {
+            this.logger.info('Stopping background server')
             this.childProcess.stdin.write(JSON.stringify({ "type": "exit" }) + "\n");
         }
     }
