@@ -17,7 +17,9 @@ const returnsRe = /Return Value:\s*\n(.*?)\n\s*\n/is
 const publicRe = /Public:\s*(.*)/i
 
 function parseContents(fnc, contents) {
-	let match = commentRe.exec(contents.replace(/\r/g, ''))
+	contents = contents.replace(/\r/g, '')
+
+	let match = commentRe.exec(contents)
 
 	if (match) {
 		let contents = match[1]
@@ -55,7 +57,7 @@ function parseContents(fnc, contents) {
 
 		if (params.length > 0) {
 			desc +=
-				"\r\n" +
+				"\r\n\r\n" +
 				params
 					.map((param, index) => {
 						let def = param.optional ? ` (default: ${param.default})` : ''
