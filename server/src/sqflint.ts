@@ -37,10 +37,10 @@ export class SQFLint {
     // Currently running sqflint process
     private childProcess: ChildProcess;
 
-    private logger: Logger
+    private logger: Logger;
 
     constructor(context: LoggerContext) {
-        this.logger = context.createLogger('sqflint')
+        this.logger = context.createLogger('sqflint');
     }
 
     /**
