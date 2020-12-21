@@ -362,7 +362,7 @@ export class SQFLintServer {
 
             const files: string[] = [];
             let readFiles = 0;
-            let lastUpdate = new Date().valueOf();
+            let parsedFiles = 0;
 
             this.log("Done module index... Now indexing sqf");
 
@@ -420,21 +420,18 @@ export class SQFLintServer {
                                 linter,
                                 !this.settings.indexWorkspaceTwice || again
                             );
+
+                            parsedFiles++
                             // Only track progress sporadically to not affect performance
-                            if (
-                                this.currentRunParsedFiles.length % 10 === 0
-                                || this.currentRunParsedFiles.length === 1
-                                || ((new Date().valueOf()) - lastUpdate) >= 5000
-                            ) {
-                                lastUpdate = new Date().valueOf();
-                                let percents = Math.round((this.currentRunParsedFiles.length / files.length) * 100);
+                            if (parsedFiles % 10 === 0) {
+                                let percents = Math.round((parsedFiles / files.length) * 100);
                                 if (this.settings.indexWorkspaceTwice) {
                                     percents = again
                                         ? 50 + Math.round(percents/2)
                                         : Math.round(percents/2);
                                 }
 
-                                this.statusMessage(`$(sync~spin) Indexing.. ${percents}%`, `${this.currentRunParsedFiles.length % (files.length + 1)}/${files.length} Files`);
+                                this.statusMessage(`$(sync~spin) Indexing.. ${percents}%`, `${parsedFiles % (files.length + 1)}/${files.length} Files`);
                             }
                         } else {
                             await new Promise((res) => setTimeout(res, 250));
