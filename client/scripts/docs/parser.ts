@@ -219,20 +219,11 @@ export function parseDocument(doc: string, type: string, results = {} as Record<
 
                             if (args.length > 0) {
                                 syntax = ["[" + args.map((item) => polishSyntaxArgument(item)).join(", ") + "] call " + title];
-
-                                /*
-                                desc += "\r\nArguments:\r\n";
-                                args.forEach((arg, index) => {
-                                    // desc += "\r\n - " + (index + 1) + ": " + arg.type + " - " + arg.desc
-                                    desc += "\r\n " + index + ". " + arg.type + " - " + arg.desc;
-                                });
-                                */
                             } else {
                                 amatch = placeHolderSingularArgument.exec(match[2]);
                                 if (amatch) {
                                     const arg = { type: amatch[1].trim(), desc: amatch[2].trim() };
                                     syntax = [polishSyntaxArgument(arg) + " call " + title];
-                                    // desc += "\r\nArgument: _this: " + arg.type + " - " + arg.desc;
                                 }
                             }
                         }
@@ -242,12 +233,10 @@ export function parseDocument(doc: string, type: string, results = {} as Record<
                             const rmatch = placeHolderReturn.exec(match[3]);
                             if (rmatch) {
                                 returns = [rmatch[1]];
-                                // desc += "\r\n\r\nReturns: " + match[3];
                             } else if (sqfTypes.indexOf(match[3].toLowerCase()) != -1) {
                                 returns = [match[3]];
                             } else {
                                 returns = ["ANY"];
-                                // desc += "\r\n\r\nReturns: " + match[3];
                             }
                         }
                     }
