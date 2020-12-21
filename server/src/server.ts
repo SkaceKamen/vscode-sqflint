@@ -920,8 +920,7 @@ export class SQFLintServer {
                                 this.logger.error("Failed to get document", uri);
                             }
                         } catch (e) {
-                            this.logger.error("Failed to load " + uri);
-                            this.logger.error(e);
+                            this.logger.error("Failed to load " + uri, e);
                         }
                     }
 
