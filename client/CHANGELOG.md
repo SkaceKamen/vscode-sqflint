@@ -1,3 +1,8 @@
+# Version 0.11
+ * Added new functions and operators (#60)
+ * Fixed support for `then ARRAY` (#71, #44)
+ * Fixed `includePrefixes` in HPP files (#45)
+
 # Version 0.10.1
  * Fixed some issues with description.ext parser (#56) 
 
