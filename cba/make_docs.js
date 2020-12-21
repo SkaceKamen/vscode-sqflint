@@ -13,6 +13,8 @@ let documentation = {};
 let fncRe = /\/\*[\s-]*Function:\s([a-zA-Z_0-9]*)\s*Description:\s*(.*)\s*([^\*]*)/igm;
 
 function parseContents(contents) {
+	contents = contents.replace(/\r/g, '')
+
 	let match;
 	
 	// console.log("Trying to match", contents.length)
@@ -25,15 +27,17 @@ function parseContents(contents) {
 		let details = match[3];
 
 		let examples = false;
+		let inDesc = true;
 
 		details = details.split("\n").map((item) => {
 			if (item.length < 2) return item;
 			
 			if (!examples) {
 				if (/\s/.test(item.substr(0))) {
-					item = " - " + item.trim();
+					item = (inDesc ? '' : " - ") + item.trim();
 				} else {
 					item = "\n**" + item + "**\n";
+					inDesc = false;
 				}
 
 				if (/-{2,}/.test(item)) {
