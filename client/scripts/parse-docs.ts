@@ -2,10 +2,10 @@
  * This script is used to convert wikimedia dump of official wiki
  * to JSON format used in this extension.
  *
- * To get create xml files used by this file, you need to go to /Special:Export/,
+ * To get create xml files used by this file, you should run fetch-docs.ts, or
+ * if this scripts fails, you need to go to /Special:Export/,
  * select Functions or Commands category, then save them as functionsExport.xml and
  * operatorsExport.xml.
- *
  */
 
 import fs from 'fs'
