@@ -349,7 +349,7 @@ export class ExtModule extends Module {
         for (let tag in cfgFunctions.body.classes) {
 
             const tagClass = cfgFunctions.body.classes[tag];
-            tag = tagClass.name;
+            tag = tagClass.body.variables.tag || tagClass.name;
 
             this.logger.debug(`Detected tag: ${tag}`);
 
