@@ -24,7 +24,6 @@ import {
     MarkedString,
     Position
 } from 'vscode-languageserver';
-import { StatusBarTextNotification } from './status.bar';
 
 import { SQFLint } from './sqflint';
 import { ExtModule } from './modules/ext';
@@ -41,6 +40,7 @@ import { Function as SqfFunction } from './modules/ext';
 import { Logger } from './lib/logger';
 import { LoggerContext } from './lib/logger-context';
 import { Java } from './java';
+import { ErrorMessageNotification, StatusBarTextNotification } from './notifications';
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -271,7 +271,7 @@ export class SQFLintServer {
         this.sqflint.stop();
     }
 
-    private onConfiguration(params: DidChangeConfigurationParams): void {
+    private async onConfiguration(params: DidChangeConfigurationParams): Promise<void> {
         const settings = params.settings as Settings;
 
         this.settings.indexWorkspace = settings.sqflint.indexWorkspace;
@@ -299,13 +299,25 @@ export class SQFLintServer {
             this.modules[i].onConfiguration(settings.sqflint);
         }
 
-        Java.detect()
-            .then(v => {
-                this.logger.info('Detected java version', v)
-            })
-            .catch(e => {
-                this.connection.sendNotification(ErrorMessageNotification.text, { text: 'Java not found!' })
-            })
+        Java.customPath = this.settings.javaPath
+
+        try {
+            const version = await Java.detect()
+            this.logger.info('Detected java version', version)
+        } catch (e) {
+            this.logger.error('Java not found! Java is required for some of the SQFLint features!')
+                
+            this.connection.sendNotification(
+                ErrorMessageNotification.type,
+                {
+                    text: [
+                        'Java not found!',
+                        'You need JRE installed to use some of the SQFLint features.',
+                        'You can use also use sqflint.javaPath setting to specify path to java.'
+                    ].join(' ')
+                }
+            )
+        }
 
         if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
             this.logger.info("Indexing workspace...");
@@ -348,7 +360,7 @@ export class SQFLintServer {
                 signatureHelpProvider: {
                     triggerCharacters: ['[', ',']
                 },
-                // We're prividing completions.
+                // We're providing completions.
                 completionProvider: {
                     resolveProvider: true
                 }
