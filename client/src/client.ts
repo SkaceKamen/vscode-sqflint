@@ -12,14 +12,24 @@ import {
 } from "vscode-languageclient";
 
 export interface StatusBarTextParams {
-  text: string;
-  title?: string;
+    text: string;
+    title?: string;
+}
+
+export interface ErrorMessageParams {
+    text: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace StatusBarTextNotification {
     export const type = new NotificationType<StatusBarTextParams, void>('sqflint/status-bar/text');
     export type HandlerSignature = NotificationHandler<StatusBarTextParams>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace ErrorMessageNotification {
+    export const type = new NotificationType<ErrorMessageParams, void>('sqflint/error-message/show');
+    export type HandlerSignature = NotificationHandler<ErrorMessageParams>;
 }
 
 class StatusBarFeature implements StaticFeature {
@@ -48,14 +58,32 @@ class StatusBarFeature implements StaticFeature {
   }
 }
 
+class MessageFeature implements StaticFeature {
+    constructor(private _client: SqflintClient) {}
+
+    public bar: StatusBarItem;
+
+    // eslint-disable-next-line
+    fillClientCapabilities(capabilities: ClientCapabilities): void {}
+
+    initialize(): void {
+        this._client.onNotification(ErrorMessageNotification.type, (params) => {
+            window.showErrorMessage(params.text)
+        })
+    }
+}
+
 export class SqflintClient extends LanguageClient {
   bar: StatusBarFeature;
+  message: MessageFeature
 
   protected registerBuiltinFeatures(): void {
       super.registerBuiltinFeatures();
 
       this.bar = new StatusBarFeature(this);
+      this.message = new MessageFeature(this);
 
       this.registerFeature(this.bar);
+      this.registerFeature(this.message);
   }
 }

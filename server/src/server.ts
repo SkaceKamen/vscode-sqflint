@@ -40,6 +40,7 @@ import { MissionModule } from './modules/mission';
 import { Function as SqfFunction } from './modules/ext';
 import { Logger } from './lib/logger';
 import { LoggerContext } from './lib/logger-context';
+import { Java } from './java';
 
 const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
@@ -69,6 +70,7 @@ export interface SQFLintSettings {
     descriptionFiles: string[];
     contextSeparation: boolean;
     debugLogs: boolean;
+    javaPath?: string;
 }
 
 /**
@@ -282,6 +284,7 @@ export class SQFLintServer {
         this.settings.discoverDescriptionFiles = settings.sqflint.discoverDescriptionFiles;
         this.settings.descriptionFiles = settings.sqflint.descriptionFiles;
         this.settings.contextSeparation = settings.sqflint.contextSeparation;
+        this.settings.javaPath = settings.sqflint.javaPath;
 
         this.ignoredVariablesSet = {};
         this.settings.ignoredVariables.forEach((v) => {
@@ -295,6 +298,14 @@ export class SQFLintServer {
         for (const i in this.modules) {
             this.modules[i].onConfiguration(settings.sqflint);
         }
+
+        Java.detect()
+            .then(v => {
+                this.logger.info('Detected java version', v)
+            })
+            .catch(e => {
+                this.connection.sendNotification(ErrorMessageNotification.text, { text: 'Java not found!' })
+            })
 
         if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
             this.logger.info("Indexing workspace...");
