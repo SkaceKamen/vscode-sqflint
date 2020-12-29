@@ -10,7 +10,7 @@ export class Java {
 
     static detect(): Promise<string> {
         return new Promise<string>((resolve, reject) => {
-            child.exec(`${this.getCallPath()} -version`, (err, _, stderr) => {
+            child.exec(`"${this.getCallPath()}" -version`, (err, _, stderr) => {
                 if (err) reject(err)
 
                 const match = stderr.match(/java version "([^"]*)"/)
