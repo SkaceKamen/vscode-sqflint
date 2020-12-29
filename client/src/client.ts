@@ -24,8 +24,6 @@ class StatusBarFeature implements StaticFeature {
   initialize(): void {
       const client = this._client;
       client.onNotification(StatusBarTextNotification.type, (params) => {
-          console.log('Received bar notification!', params)
-
           this.bar.text = params.text;
           this.bar.tooltip = params.title || 'SQFLint Status';
           if (params.text) {
@@ -33,7 +31,7 @@ class StatusBarFeature implements StaticFeature {
           } else {
               this.bar.hide();
           }
-      })
+      });
   }
 }
 
@@ -45,9 +43,8 @@ class MessageFeature implements StaticFeature {
 
     initialize(): void {
         this._client.onNotification(ErrorMessageNotification.type, (params) => {
-            console.log('Received notification!', params)
-            window.showErrorMessage(params.text)
-        })
+            window.showErrorMessage(params.text);
+        });
     }
 }
 

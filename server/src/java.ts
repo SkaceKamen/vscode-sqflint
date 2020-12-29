@@ -11,20 +11,20 @@ export class Java {
     static detect(): Promise<string> {
         return new Promise<string>((resolve, reject) => {
             child.exec(`"${this.getCallPath()}" -version`, (err, _, stderr) => {
-                if (err) reject(err)
+                if (err) reject(err);
 
-                const match = stderr.match(/java version "([^"]*)"/)
+                const match = stderr.match(/java version "([^"]*)"/);
 
                 if (match) {
-                    resolve(match[1])
+                    resolve(match[1]);
                 } else {
-                    resolve('unknown')
+                    resolve('unknown');
                 }
-            })
-        })
+            });
+        });
     }
 
     private static getCallPath(): string {
-        return this.customPath ? pathResolve(this.customPath) : 'java'
+        return this.customPath ? pathResolve(this.customPath) : 'java';
     }
 }

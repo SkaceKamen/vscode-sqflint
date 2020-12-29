@@ -46,7 +46,7 @@ const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
     uiEventHandlers: "https://community.bistudio.com/wiki/User_Interface_Event_Handlers",
     commandsList: "https://community.bistudio.com/wiki/Category:Scripting_Commands"
-}
+};
 
 /**
  * Interface used to receive settings
@@ -209,8 +209,8 @@ export class SQFLintServer {
     private logger: Logger
 
     constructor() {
-        this.loggerContext = new LoggerContext()
-        this.logger = this.loggerContext.createLogger('server')
+        this.loggerContext = new LoggerContext();
+        this.logger = this.loggerContext.createLogger('server');
 
         this.loadOperators();
         this.loadDocumentation();
@@ -226,7 +226,7 @@ export class SQFLintServer {
 
         this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 
-        this.loggerContext.target = this.connection.console
+        this.loggerContext.target = this.connection.console;
 
         this.documents = new TextDocuments();
         this.documents.listen(this.connection);
@@ -289,7 +289,7 @@ export class SQFLintServer {
         this.ignoredVariablesSet = {};
         this.settings.ignoredVariables.forEach((v) => {
             this.ignoredVariablesSet[v.toLowerCase()] = true;
-        })
+        });
 
         /*this.settings.exclude = settings.sqflint.exclude.map((item) => {
             return Glob.toRegexp(<any>item);
@@ -299,13 +299,13 @@ export class SQFLintServer {
             this.modules[i].onConfiguration(settings.sqflint);
         }
 
-        Java.customPath = this.settings.javaPath
+        Java.customPath = this.settings.javaPath;
 
         try {
-            const version = await Java.detect()
-            this.logger.info('Detected java version', version)
+            const version = await Java.detect();
+            this.logger.info('Detected java version', version);
         } catch (e) {
-            this.logger.error('Java not found! Java is required for some of the SQFLint features!')
+            this.logger.error('Java not found! Java is required for some of the SQFLint features!');
                 
             this.connection.sendNotification(
                 ErrorMessageNotification.type,
@@ -316,7 +316,7 @@ export class SQFLintServer {
                         'You can use also use sqflint.javaPath setting to specify path to java.'
                     ].join(' ')
                 }
-            )
+            );
         }
 
         if (!this.indexed && this.settings.indexWorkspace && this.workspaceRoot != null) {
@@ -454,7 +454,7 @@ export class SQFLintServer {
                                 !this.settings.indexWorkspaceTwice || again
                             );
 
-                            parsedFiles++
+                            parsedFiles++;
                             // Only track progress sporadically to not affect performance
                             if (parsedFiles % 10 === 0) {
                                 let percents = Math.round((parsedFiles / files.length) * 100);
@@ -476,7 +476,7 @@ export class SQFLintServer {
                     linter.stop();
                     if (done) done();
                 }
-            )
+            );
         });
     }
 
@@ -497,7 +497,7 @@ export class SQFLintServer {
             if (err) throw err;
 
             this.events = JSON.parse(data.toString());
-        })
+        });
     }
 
     private loadOperators(): void {
@@ -622,12 +622,12 @@ export class SQFLintServer {
 
             // Calls all modules in sequence
             this.modules.reduce((promise, current) => {
-                return promise.then(() => current.parseDocument(textDocument, linter))
+                return promise.then(() => current.parseDocument(textDocument, linter));
             }, Promise.resolve()).then(() => {
 
                 const timeTook = (new Date().valueOf()) - startTime.valueOf();
                 if (timeTook > 1000) {
-                    this.logger.info(`Modules took long for: ${textDocument.uri} (${timeTook} ms)`)
+                    this.logger.info(`Modules took long for: ${textDocument.uri} (${timeTook} ms)`);
                 }
 
                 startTime = new Date();
@@ -671,15 +671,15 @@ export class SQFLintServer {
                     } as SQFLint.Options;
 
                     client.parse(uri.fsPath, contents, options).then((result: SQFLint.ParseInfo) => {
-                        const index = this.currentRunParsedFiles.indexOf(textDocument.uri)
+                        const index = this.currentRunParsedFiles.indexOf(textDocument.uri);
 
                         if (index >= 0) {
-                            this.currentRunParsedFiles.splice(index, 1)
+                            this.currentRunParsedFiles.splice(index, 1);
                         }
 
                         const timeTookParse = (new Date().valueOf()) - startTime.valueOf();
                         if (timeTookParse > 1000) {
-                            this.logger.info(`SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`)
+                            this.logger.info(`SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`);
                         }
 
                         if (!result) {
@@ -1340,13 +1340,13 @@ export class SQFLintServer {
                 }
             }
 
-            const local = this.findLocalVariables(params.textDocument, hover)
+            const local = this.findLocalVariables(params.textDocument, hover);
             local.forEach(local => {
                 items.push({
                     label: local.name,
                     kind: CompletionItemKind.Variable
                 });
-            })
+            });
 
             for (const ident in this.globalVariables) {
                 const variable = this.globalVariables[ident];
@@ -1489,7 +1489,7 @@ export class SQFLintServer {
             return null;
         return Object.keys(ns)
             .filter(name => name.toLocaleLowerCase().indexOf(query.toLowerCase()) >= 0)
-            .map(name => ns[name])
+            .map(name => ns[name]);
     }
 
     /**
