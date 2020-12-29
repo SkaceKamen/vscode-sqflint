@@ -115,12 +115,12 @@ NumericalValue "number"
   / prefix:[+-]? "." suffix:Digit* supertail:("e" NumericalValue)? { return '0.' + suffix.join("") }
   / MacroValue
   / Identifier
-  
+
 Sqf "sqf"
   = head:Identifier tail:(__ Identifier __)* { return head + " " + tail.map((t) => t[1]).join(" ") }
 
 ArrayDeclaration
-  = name:Identifier __ "[]" __ "=" __ value:ArrayValues EOS {
+  = name:Identifier __ "[]" __ ("+")? __ "=" __ value:ArrayValues EOS {
     return {
     	"variable": name,
         "value": value
