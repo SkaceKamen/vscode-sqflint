@@ -28,7 +28,7 @@ function parseEvents(filePath: string, type: string) {
             .slice(2)
             .filter((i) => i.parentElement.tagName === "H4")
             .map((i) => {
-                const name = i.textContent.trim();
+                let name = i.textContent.trim();
                 const totalParent =
                     i.parentElement.parentElement.nextElementSibling ||
                     i.parentElement.nextElementSibling;
@@ -59,11 +59,16 @@ function parseEvents(filePath: string, type: string) {
                         current = current.nextElementSibling;
                     }
                 } else {
-                    const code = codeExample.textContent
-                    const paramRegex = /"([^"]*)"/g
-                    let match: RegExpMatchArray
+                    // UI events start with on for some reason
+                    if (name.startsWith('on')) {
+                        name = name.substr(2);
+                    }
+
+                    const code = codeExample.textContent;
+                    const paramRegex = /"([^"]*)"/g;
+                    let match: RegExpMatchArray;
                     while ((match = paramRegex.exec(code))) {
-                        params += `* ${match[1]}\n`
+                        params += `* ${match[1]}\n`;
                     }
                 }
 
