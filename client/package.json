@@ -125,6 +125,10 @@
           "type": "array",
           "default": [],
           "description": "List of description.ext files to be loaded. If `discoverDescriptionFiles` is turned on, discovered files will be added to this list."
+        },
+        "sqflint.javaPath": {
+          "type": "string",
+          "description": "Path to java executable, SQFLint will try to use Java in you PATH by default"
         }
       }
     },

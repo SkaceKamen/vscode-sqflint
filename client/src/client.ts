@@ -6,21 +6,9 @@ import {
 import {
     LanguageClient,
     StaticFeature,
-    ClientCapabilities,
-    NotificationType,
-    NotificationHandler
+    ClientCapabilities
 } from "vscode-languageclient";
-
-export interface StatusBarTextParams {
-  text: string;
-  title?: string;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace StatusBarTextNotification {
-    export const type = new NotificationType<StatusBarTextParams, void>('sqflint/status-bar/text');
-    export type HandlerSignature = NotificationHandler<StatusBarTextParams>;
-}
+import { ErrorMessageNotification, StatusBarTextNotification } from './notifications';
 
 class StatusBarFeature implements StaticFeature {
     constructor(private _client: SqflintClient) {
@@ -31,12 +19,11 @@ class StatusBarFeature implements StaticFeature {
   public bar: StatusBarItem;
 
   // eslint-disable-next-line
-  fillClientCapabilities(capabilities: ClientCapabilities): void {
-  }
+  fillClientCapabilities(_: ClientCapabilities): void {}
 
   initialize(): void {
       const client = this._client;
-      client.onNotification(StatusBarTextNotification.type, (params: StatusBarTextParams) => {
+      client.onNotification(StatusBarTextNotification.type, (params) => {
           this.bar.text = params.text;
           this.bar.tooltip = params.title || 'SQFLint Status';
           if (params.text) {
@@ -44,18 +31,34 @@ class StatusBarFeature implements StaticFeature {
           } else {
               this.bar.hide();
           }
-      })
+      });
   }
+}
+
+class MessageFeature implements StaticFeature {
+    constructor(private _client: SqflintClient) {}
+
+    // eslint-disable-next-line
+    fillClientCapabilities(_: ClientCapabilities): void {}
+
+    initialize(): void {
+        this._client.onNotification(ErrorMessageNotification.type, (params) => {
+            window.showErrorMessage(params.text);
+        });
+    }
 }
 
 export class SqflintClient extends LanguageClient {
   bar: StatusBarFeature;
+  message: MessageFeature
 
   protected registerBuiltinFeatures(): void {
       super.registerBuiltinFeatures();
 
       this.bar = new StatusBarFeature(this);
+      this.message = new MessageFeature(this);
 
       this.registerFeature(this.bar);
+      this.registerFeature(this.message);
   }
 }
