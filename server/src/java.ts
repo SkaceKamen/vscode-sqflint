@@ -5,7 +5,7 @@ export class Java {
     static customPath?: string
 
     static spawn(jar: string, args: string[]): child.ChildProcess {
-        return child.spawn(this.getCallPath(), [ "-jar", jar ].concat(args));
+        return child.spawn(this.getCallPath(), [ "-Dfile.encoding=UTF-8", "-jar", jar ].concat(args));
     }
 
     static detect(): Promise<string> {
