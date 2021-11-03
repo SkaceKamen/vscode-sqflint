@@ -2,7 +2,7 @@
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
 import https from 'https';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 
 const url = "https://community.bistudio.com/wiki/Description.ext";
 const cache = "cache/description.html";
@@ -28,7 +28,7 @@ function parseDescription(filepath: string) {
             values.push({ name, description, link })
         })
 
-    fs.writeFileSync("server/definitions/description-values.json", JSON.stringify(data));
+    fs.writeFileSync(join(__dirname, "../definitions/description-values.json"), JSON.stringify(data));
 }
 
 if (!fs.existsSync(cache)) {

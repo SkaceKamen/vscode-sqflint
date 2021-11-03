@@ -1,6 +1,6 @@
 import xmldoc from 'xmldoc';
 import { parseTemplate } from './wiki/parser'
-import { WikiDocumentation } from '../../../server/src/server'
+import { WikiDocumentation } from '../../server/src/server'
 
 function loadBlock(text: string, opening: string, closing: string) {
     let bcount = -1;
@@ -76,7 +76,7 @@ function findVariables(wiki: string) {
 export function parseDocument(doc: string, type: string, results = {} as Record<string, WikiDocumentation>) {
     const document = new xmldoc.XmlDocument(doc);
     const pages = document.childrenNamed("page");
-    const findCommand = /{{(?:Command|Function)(?:\|Comments=)?((?:.|\n)*?\n?)}}/i;
+    const findCommand = /{{(?:Command|Function|RV\|type=function|RV\|type=command)(?:\|Comments=)?((?:.|\n)*?\n?)}}/i;
 
     const placeHolder = /\/\*(?:\s*File:.*)?\s*(?:\s*Author:.*)?\s*Description:\s*([^]*)\s*(?:Parameters|Parameter\(s\)):\s*([^]*)\s*(?:Returns|Returned value\(s\)):\s*([^]*)\s*\*\/\s*/i;
     const placeHolderWithExamples = /\/\*\s*Description:\s*([^]*)\s*(?:Parameters|Parameter\(s\)):\s*([^]*)\s*Returns:\s*([^]*)\s*Examples:\s*([^]*)\s*\*\/\s*/i;
@@ -107,6 +107,8 @@ export function parseDocument(doc: string, type: string, results = {} as Record<
                 // We're expecting either Command or Function template
                 let start = text.indexOf('{{Command');
                 if (start < 0) start = text.indexOf('{{Function')
+                if (start < 0) start = text.indexOf('{{RV|type=function')
+                if (start < 0) start = text.indexOf('{{RV|type=command')
                 if (start < 0) throw new Error(title + ' has no start');
 
                 // Pick only the template contents
@@ -326,7 +328,7 @@ export function parseDocument(doc: string, type: string, results = {} as Record<
     }
 
     if (noInfo.length > 1) {
-        console.log('No informations for ' + noInfo.length + ' commands/functions. Example: ' + noInfo.slice(0, 3).join(','));
+        console.log('No information for ' + noInfo.length + ' commands/functions. Example: ' + noInfo.slice(0, 3).join(','));
     }
 
     return results;

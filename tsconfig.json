@@ -1,0 +1,24 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"target": "es2019",
+		"lib": ["ES2019", "DOM"],
+		"outDir": "out",
+		"rootDir": "src",
+		"sourceMap": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true
+	},
+	"include": [
+		"src"
+	],
+	"exclude": [
+		"node_modules",
+		".vscode-test"
+	],
+	"references": [
+		{ "path": "./client" },
+		{ "path": "./server" },
+		{ "path": "./debugger" }
+	]
+}

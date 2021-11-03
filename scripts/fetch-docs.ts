@@ -71,9 +71,9 @@ async function loadAllFromCategory(category: string) {
 }
 
 async function main() {
-    fs.writeFileSync(join(__dirname, '..', 'server', 'operatorsExport.xml'), await loadAllFromCategory('Scripting_Commands'))
+    fs.writeFileSync(join(__dirname, '..', 'definitions', 'operatorsExport.xml'), await loadAllFromCategory('Scripting_Commands'))
     console.log('Saved', 'operatorsExport.xml')
-    fs.writeFileSync(join(__dirname, '..', 'server', 'functionsExport.xml'), await loadAllFromCategory('Functions'))
+    fs.writeFileSync(join(__dirname, '..', 'definitions', 'functionsExport.xml'), await loadAllFromCategory('Functions'))
     console.log('Saved', 'functionsExport.xml')
 }
 
