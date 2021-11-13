@@ -3,7 +3,7 @@
 		"target": "es6",
 		"module": "commonjs",
 		"sourceMap": true,
-		"outDir": "../client/debugger"
+		"outDir": "out"
 	},
 	"exclude": [
 		"node_modules"

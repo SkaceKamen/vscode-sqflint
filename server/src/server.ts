@@ -1,12 +1,8 @@
 'use strict';
 
 import {
-    IPCMessageReader,
-    IPCMessageWriter,
     createConnection,
-    IConnection,
     TextDocuments,
-    TextDocument,
     Diagnostic,
     DiagnosticSeverity,
     InitializeParams,
@@ -22,8 +18,12 @@ import {
     SignatureInformation,
     DidChangeConfigurationParams,
     MarkedString,
-    Position
-} from 'vscode-languageserver';
+    Position,
+    TextDocumentSyncKind,
+    _Connection,
+    ProposedFeatures
+} from 'vscode-languageserver/node';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { SQFLint } from './sqflint';
 import { ExtModule } from './modules/ext';
@@ -158,10 +158,10 @@ interface EventDocumentation {
  */
 export class SQFLintServer {
     /** Connection to client */
-    public connection: IConnection;
+    public connection: _Connection;
 
     /** Used to watch documents */
-    public documents: TextDocuments;
+    public documents: TextDocuments<TextDocument>;
 
     /** Path to workspace */
     private workspaceRoot: string;
@@ -224,11 +224,11 @@ export class SQFLintServer {
             this.missionModule
         ];
 
-        this.connection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+        this.connection = createConnection(ProposedFeatures.all);
 
         this.loggerContext.target = this.connection.console;
 
-        this.documents = new TextDocuments();
+        this.documents = new TextDocuments(TextDocument);
         this.documents.listen(this.connection);
 
         this.connection.onInitialize((params) => this.onInitialize(params));
@@ -349,7 +349,7 @@ export class SQFLintServer {
         return {
             capabilities: {
                 // Tell the client that the server works in FULL text document sync mode
-                textDocumentSync: this.documents.syncKind,
+                textDocumentSync: TextDocumentSyncKind.Full,
                 // We're providing goto definition.
                 definitionProvider: true,
                 // We're providing find references.
@@ -493,7 +493,7 @@ export class SQFLintServer {
     }
 
     private loadEvents(): void {
-        fs.readFile(__dirname + "/definitions/events.json", (err, data) => {
+        fs.readFile(__dirname + "/../../definitions/events.json", (err, data) => {
             if (err) throw err;
 
             this.events = JSON.parse(data.toString());
@@ -501,7 +501,7 @@ export class SQFLintServer {
     }
 
     private loadOperators(): void {
-        fs.readFile(__dirname + "/definitions/commands.txt", (err, data) => {
+        fs.readFile(__dirname + "/../../definitions/commands.txt", (err, data) => {
             // Pass file errors
             if (err) {
                 throw err;
@@ -577,7 +577,7 @@ export class SQFLintServer {
     }
 
     private loadDocumentation(): void {
-        fs.readFile(__dirname + "/definitions/documentation.json", (err, data): void => {
+        fs.readFile(__dirname + "/../../definitions/documentation.json", (err, data): void => {
             // Pass file errors
             if (err) {
                 throw err;

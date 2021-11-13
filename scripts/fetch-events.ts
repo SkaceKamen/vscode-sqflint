@@ -2,6 +2,7 @@
 import fs from "fs";
 import https from "https";
 import { JSDOM } from "jsdom";
+import { join } from "path";
 
 const sources = {
     units: {
@@ -82,7 +83,7 @@ function parseEvents(filePath: string, type: string) {
             });
 
         fs.writeFileSync(
-            "server/definitions/events.json",
+            join(__dirname, "../definitions/events.json"),
             JSON.stringify(events)
         );
     });

@@ -1,0 +1,206 @@
+{
+	"name": "sqflint",
+	"displayName": "SQFLint",
+	"description": "Parse errors, hover help for functions/commands and more.",
+	"author": "Jan Zípek, Senfo",
+	"icon": "images/sqflint.png",
+	"license": "MIT",
+	"version": "0.11.0",
+	"publisher": "skacekachna",
+	"engines": {
+		"vscode": "^1.33.1",
+		"node": "^7.9.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/SkaceKamen/vscode-sqflint"
+	},
+	"categories": [
+		"Programming Languages",
+		"Other"
+	],
+	"activationEvents": [
+		"onLanguage:sqf",
+		"onLanguage:ext",
+		"onCommand:extension.sqflint.unitEvents",
+		"onCommand:extension.sqflint.uiEvents",
+		"onCommand:extension.sqflint.commandsList"
+	],
+	"main": "./client/out/extension",
+	"contributes": {
+		"commands": [
+			{
+				"command": "extension.sqflint.unitEvents",
+				"title": "SQF Unit Event Handlers"
+			},
+			{
+				"command": "extension.sqflint.uiEvents",
+				"title": "SQF UI Event Handlers"
+			},
+			{
+				"command": "extension.sqflint.commandsList",
+				"title": "SQF Commands list"
+			}
+		],
+		"languages": [
+			{
+				"id": "sqf",
+				"aliases": [
+					"SQF",
+					"sqf"
+				],
+				"extensions": [
+					".sqf"
+				]
+			},
+			{
+				"id": "ext",
+				"aliases": [
+					"Arma header file"
+				],
+				"extensions": [
+					".ext",
+					".hpp"
+				],
+				"configuration": "./languages/config/ext.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "ext",
+				"scopeName": "description.ext",
+				"path": "./languages/syntaxes/ext.json"
+			}
+		],
+		"configuration": {
+			"type": "object",
+			"title": "SQFLint Configuration",
+			"properties": {
+				"sqflint.warnings": {
+					"type": "boolean",
+					"default": true,
+					"description": "Process and display sqflint warnings."
+				},
+				"sqflint.indexWorkspace": {
+					"type": "boolean",
+					"default": true,
+					"description": "Scan workspace for sqf files and parse them upon opening."
+				},
+				"sqflint.indexWorkspaceTwice": {
+					"type": "boolean",
+					"default": true,
+					"description": "Scan workspace twice, solving problems with global variables defined in files parsed later than files that are using them."
+				},
+				"sqflint.contextSeparation": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enable or disable context separation. Variables wont propagate into code blocks, even when defined in same file. This is to prevent errors when the local function is called in different context."
+				},
+				"sqflint.exclude": {
+					"type": "array",
+					"default": [],
+					"description": "List of paths to be excluded from workspace indexing. Example: \"ignored/**/*\" will ignore everything in folder 'ignored'."
+				},
+				"sqflint.checkPaths": {
+					"type": "boolean",
+					"default": false,
+					"description": "Check paths existence for file functions (execVM...)"
+				},
+				"sqflint.ignoredVariables": {
+					"type": "array",
+					"default": [],
+					"description": "Ignored variables are treated as internal commands, without definition check."
+				},
+				"sqflint.includePrefixes": {
+					"type": "object",
+					"default": {},
+					"description": "List of include paths, key is prefix used in include path, and value is local path. Example: \n{ \"\\\\A3\\\\\": \"C:/UnpackedArma/\" }\n"
+				},
+				"sqflint.discoverDescriptionFiles": {
+					"type": "boolean",
+					"default": true,
+					"description": "Search and parse description.ext files in subfolders."
+				},
+				"sqflint.descriptionFiles": {
+					"type": "array",
+					"default": [],
+					"description": "List of description.ext files to be loaded. If `discoverDescriptionFiles` is turned on, discovered files will be added to this list."
+				},
+				"sqflint.javaPath": {
+					"type": "string",
+					"description": "Path to java executable, SQFLint will try to use Java in you PATH by default"
+				}
+			}
+		},
+		"debuggers": [
+			{
+				"type": "sqflint",
+				"label": "SQFLint debugger",
+				"program": "./debugger/out/adapter.js",
+				"runtime": "node",
+				"configurationAttributes": {
+					"launch": {
+						"properties": {
+							"rptPath": {
+								"type": "string",
+								"description": "Path to folder with rpt files.",
+								"default": null
+							},
+							"messageFilter": {
+								"type": "string",
+								"description": "Regular expression which will be used to filter messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
+								"default": null
+							},
+							"errorFilter": {
+								"type": "string",
+								"description": "Regular expression which will be used to filter error messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
+								"default": null
+							}
+						}
+					}
+				},
+				"initialConfigurations": [
+					{
+						"type": "sqflint",
+						"request": "launch",
+						"name": "Watch RPT File"
+					}
+				],
+				"configurationSnippets": [
+					{
+						"label": "SQFLint: Watch RPT file",
+						"description": "A new configuration for watching RPT file.",
+						"body": {
+							"type": "sqlint",
+							"request": "launch",
+							"name": "Watch RPT File"
+						}
+					}
+				]
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "cd server && npm install && npm run grammar && cd ../client && npm install && cd ../debugger && npm install && cd .. && npm run compile",
+		"compile": "tsc -b",
+		"watch": "tsc -b -w",
+		"package": "bash build.sh",
+		"packageAndInstall": "npm run package && code sqflint-*.vsix",
+		"postinstall": "cd client && npm install && cd ../server && npm install && npm run grammar && cd ../debugger && npm install && cd ..",
+		"update-docs": "ts-node scripts/fetch-docs.ts && ts-node scripts/parse-docs.ts && ts-node scripts/fetch-description.ts && ts-node scripts/fetch-events.ts"
+	},
+	"devDependencies": {
+		"@types/node": "^14.17.32",
+		"@types/xmldoc": "^1.1.6",
+		"@typescript-eslint/eslint-plugin": "^2.33.0",
+		"@typescript-eslint/parser": "^2.33.0",
+		"eslint": "^6.0.0",
+		"node-fetch": "^2.6.6",
+		"typescript": "^4.2.4",
+		"xmldoc": "^1.1.2"
+	},
+	"dependencies": {
+		"@types/jsdom": "^16.2.13",
+		"jsdom": "^18.0.1"
+	}
+}

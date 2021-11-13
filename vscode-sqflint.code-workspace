@@ -11,9 +11,20 @@
 		},
 		{
 			"path": "sqflint"
+		},
+		{
+			"path": ".github"
+		},
+		{
+			"path": "cba"
+		},
+		{
+			"path": "ace3"
 		}
 	],
 	"settings": {
-		"typescript.tsdk": "./node_modules/typescript/lib"
+		"typescript.tsdk": "./node_modules/typescript/lib",
+		"editor.tabSize": 4,
+		"editor.useTabStops": false
 	}
 }

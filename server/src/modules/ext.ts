@@ -4,7 +4,7 @@ import * as glob from 'glob';
 import { SQFLint } from '../sqflint';
 import { Hpp } from '../parsers/hpp';
 
-import { TextDocument, Diagnostic, DiagnosticSeverity, InitializeParams, CompletionItem, CompletionItemKind, Hover, TextDocumentPositionParams, Location } from 'vscode-languageserver';
+import { Diagnostic, DiagnosticSeverity, InitializeParams, CompletionItem, CompletionItemKind, Hover, TextDocumentPositionParams, Location } from 'vscode-languageserver/node';
 import { Module } from "../module";
 import Uri from "../uri";
 import { SingleRunner } from '../single.runner';
@@ -12,6 +12,7 @@ import { SingleRunner } from '../single.runner';
 import { Docstring } from '../parsers/docstring';
 import { SQFLintServer } from '../server';
 import { Logger } from '../lib/logger';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 interface Documentation {
     name: string;
@@ -31,9 +32,9 @@ export class ExtModule extends Module {
     private logger: Logger
 
     constructor(server: SQFLintServer) {
-        super(server)
+        super(server);
 
-        this.logger = server.loggerContext.createLogger('ext-module')
+        this.logger = server.loggerContext.createLogger('ext-module');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -46,7 +47,7 @@ export class ExtModule extends Module {
                 uri: Uri.file(filename).toString(),
                 diagnostics: []
             });
-        }
+        };
 
         // This allows loading document contents if it's opened directly
         Hpp.tryToLoad = (filename: string): string => {
@@ -55,13 +56,13 @@ export class ExtModule extends Module {
                 return document.getText();
             }
             return null;
-        }
+        };
 
-        Hpp.log = (contents): void => this.logger.info(contents)
+        Hpp.log = (contents): void => this.logger.info(contents);
     }
 
     private loadDocumentation(): void {
-        fs.readFile(__dirname + "/../definitions/description-values.json", (err, data) => {
+        fs.readFile(__dirname + "/../../../definitions/description-values.json", (err, data) => {
             if (err) throw err;
 
             const info = JSON.parse(data.toString());
@@ -86,8 +87,8 @@ export class ExtModule extends Module {
             if (settings.discoverDescriptionFiles) {
                 glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
                     if (err) {
-                        this.logger.error('Issue when scanning for description.ext')
-                        this.logger.error(err.message)
+                        this.logger.error('Issue when scanning for description.ext');
+                        this.logger.error(err.message);
                     }
 
                     this.files = files.concat(discovered.map(item => path.join(root, item)));
@@ -98,14 +99,14 @@ export class ExtModule extends Module {
                     });
 
                     resolve();
-                })
+                });
             } else {
                 const descPath = path.join(root, "description.ext");
                 if (fs.existsSync(descPath)) {
-                    files.push(descPath)
+                    files.push(descPath);
                 }
 
-                this.files = files
+                this.files = files;
                 this.files.forEach(item => {
                     this.logger.debug(`Parsing: ${item}`);
                     this.parse(item);
@@ -222,7 +223,7 @@ export class ExtModule extends Module {
                             args = "[" + info.parameters.map((param, index) => {
                                 const name = param.name || `_${param.type.toLowerCase()}${index}`;
                                 if (param.optional && param.default) {
-                                    return `${name}=${param.default}`
+                                    return `${name}=${param.default}`;
                                 }
 
                                 return name;
@@ -266,10 +267,10 @@ export class ExtModule extends Module {
 
     public getFunction(name: string): Function {
         for (const file in this.functions) {
-            const exists = this.functions[file][name.toLowerCase()]
-            if (exists) return exists
+            const exists = this.functions[file][name.toLowerCase()];
+            if (exists) return exists;
         }
-        return null
+        return null;
     }
 
     /**
@@ -293,7 +294,7 @@ export class ExtModule extends Module {
             fs.readFile(filename, () => {
                 try {
                     this.logger.debug(`Proccessing: ${filename}`);
-                    Hpp.setPaths(this.getSettings().includePrefixes)
+                    Hpp.setPaths(this.getSettings().includePrefixes);
                     this.process(Hpp.parse(filename), filename);
                     this.logger.debug(`Proccessed: ${filename}`);
 

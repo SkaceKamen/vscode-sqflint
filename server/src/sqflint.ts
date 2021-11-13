@@ -6,22 +6,22 @@ import { Logger } from './lib/logger';
 
 
 function emitLines(stream): void {
-    let backlog = ''
+    let backlog = '';
     stream.on('data', function (data) {
-        backlog += data
-        let n = backlog.indexOf('\n')
+        backlog += data;
+        let n = backlog.indexOf('\n');
         // got a \n? emit one or more 'line' events
         while (~n) {
-            stream.emit('line', backlog.substring(0, n))
-            backlog = backlog.substring(n + 1)
-            n = backlog.indexOf('\n')
+            stream.emit('line', backlog.substring(0, n));
+            backlog = backlog.substring(n + 1);
+            n = backlog.indexOf('\n');
         }
-    })
+    });
     stream.on('end', function () {
         if (backlog) {
-            stream.emit('line', backlog)
+            stream.emit('line', backlog);
         }
-    })
+    });
 }
 
 /**
@@ -84,7 +84,7 @@ export class SQFLint {
             if (code != 0) {
                 this.logger.error("SQFLint: Process crashed with code", code);
             } else {
-                this.logger.info('Background server stopped')
+                this.logger.info('Background server stopped');
             }
 
             this.childProcess = null;
@@ -257,7 +257,7 @@ export class SQFLint {
      */
     public stop(): void {
         if (this.childProcess != null) {
-            this.logger.info('Stopping background server')
+            this.logger.info('Stopping background server');
             this.childProcess.stdin.write(JSON.stringify({ "type": "exit" }) + "\n");
         }
     }

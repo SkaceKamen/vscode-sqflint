@@ -13,7 +13,7 @@
     "vscode-debugprotocol": "^1.32.0"
   },
   "devDependencies": {
-    "@types/node": "^10.12.5",
+    "@types/node": "^10.17.60",
     "@typescript-eslint/eslint-plugin": "^2.33.0",
     "@typescript-eslint/parser": "^2.33.0",
     "eslint": "^7.0.0"
