@@ -3,9 +3,9 @@
 	"displayName": "SQFLint",
 	"description": "Parse errors, hover help for functions/commands and more.",
 	"author": "Jan Zípek, Senfo",
-	"icon": "images/sqflint.png",
+	"icon": "client/images/sqflint.png",
 	"license": "MIT",
-	"version": "0.11.0",
+	"version": "0.12.0",
 	"publisher": "skacekachna",
 	"engines": {
 		"vscode": "^1.33.1",
@@ -62,14 +62,14 @@
 					".ext",
 					".hpp"
 				],
-				"configuration": "./languages/config/ext.json"
+				"configuration": "../client/languages/config/ext.json"
 			}
 		],
 		"grammars": [
 			{
 				"language": "ext",
 				"scopeName": "description.ext",
-				"path": "./languages/syntaxes/ext.json"
+				"path": "./client/languages/syntaxes/ext.json"
 			}
 		],
 		"configuration": {
