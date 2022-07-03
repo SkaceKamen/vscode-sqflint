@@ -70,7 +70,7 @@ export namespace Docstring {
             .replace(/-{3,}/g, '')
             .replace(/\n\t*/g, "\n")
             .trim();
-    }
+    };
 
     /**
      * Parses docstring comment into structured output.
@@ -259,7 +259,7 @@ export namespace Docstring {
                     break;
                 }
                 }
-            })
+            });
 
         return result;
     }

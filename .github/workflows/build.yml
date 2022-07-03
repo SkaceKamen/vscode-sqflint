@@ -26,7 +26,13 @@ jobs:
         with:
           node-version: 14.19.1
           cache: npm
-      - run: npm run package
+
+      - name: Install latest NPM
+        run: npm i -g npm@latest
+
+      - name: Build package
+        run: npm run package
+    
       - name: Store vsix
         uses: actions/upload-artifact@v2
         with:

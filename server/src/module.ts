@@ -1,4 +1,4 @@
-import { SQFLintSettings, SQFLintServer } from './server'
+import { SQFLintSettings, SQFLintServer } from './server';
 import { SQFLint } from './sqflint';
 import { TextDocument, InitializeParams, PublishDiagnosticsParams, CompletionItem, Hover, TextDocumentPositionParams, Location, SignatureHelp } from 'vscode-languageserver';
 
@@ -60,6 +60,6 @@ export abstract class Module {
     }
 
     protected log(contents: string): void {
-        this.server.connection.console.log(contents)
+        this.server.connection.console.log(contents);
     }
 }
