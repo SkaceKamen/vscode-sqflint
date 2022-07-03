@@ -1,3 +1,6 @@
+# Version 0.12.1
+ * Fixed missing presentation
+
 # Version 0.11
  * Added new functions and operators (#60)
  * Fixed support for `then ARRAY` (#71, #44)
