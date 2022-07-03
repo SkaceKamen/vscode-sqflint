@@ -181,12 +181,12 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "cd server && npm install --force && npm run grammar && cd ../client && npm install --force && cd ../debugger && npm install --force && cd .. && npm run compile",
+		"vscode:prepublish": "npm install && cd server && npm install && npm run grammar && cd ../client && npm install && cd ../debugger && npm install && cd .. && npm run compile",
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
 		"package": "npm run vscode:prepublish && npx vsce package",
 		"packageAndInstall": "npm run package && code sqflint-*.vsix",
-		"postinstall": "cd client && npm install --force && cd ../server && npm install --force && npm run grammar && cd ../debugger && npm install --force && cd ..",
+		"postinstall": "cd client && npm install && cd ../server && npm install && npm run grammar && cd ../debugger && npm install && cd ..",
 		"update-docs": "ts-node scripts/fetch-docs.ts && ts-node scripts/parse-docs.ts && ts-node scripts/fetch-description.ts && ts-node scripts/fetch-events.ts"
 	},
 	"devDependencies": {

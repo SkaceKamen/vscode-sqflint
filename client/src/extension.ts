@@ -16,7 +16,7 @@ const links = {
     unitEventHandlers: "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
     uiEventHandlers: "https://community.bistudio.com/wiki/User_Interface_Event_Handlers",
     commandsList: "https://community.bistudio.com/wiki/Category:Scripting_Commands"
-}
+};
 
 export const activate = (context: vscode.ExtensionContext): void => {
     // The server is implemented in node
@@ -55,4 +55,4 @@ export const activate = (context: vscode.ExtensionContext): void => {
 
     context.subscriptions.push(client.start());
     context.subscriptions.push(client.bar.bar);
-}
+};

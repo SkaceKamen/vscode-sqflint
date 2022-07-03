@@ -5,3 +5,4 @@ bin
 images
 **/index.d.ts
 **/uri.ts
+src/parsers/grammars

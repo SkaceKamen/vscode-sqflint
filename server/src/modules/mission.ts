@@ -20,7 +20,7 @@ export class MissionModule extends Module {
                 uri: Uri.file(filename).toString(),
                 diagnostics: []
             });
-        }
+        };
 
         // This allows loading document contents if it's opened directly
         Hpp.tryToLoad = (filename: string): string => {
@@ -29,9 +29,9 @@ export class MissionModule extends Module {
                 return document.getText();
             }
             return null;
-        }
+        };
 
-        Hpp.log = (contents): void => this.log(contents)
+        Hpp.log = (contents): void => this.log(contents);
     }
 
     public indexWorkspace(root: string): Promise<void> {
@@ -40,8 +40,8 @@ export class MissionModule extends Module {
 
             glob("**/mission.sqm", { ignore: settings.exclude, root }, (err, discovered) => {
                 if (err) {
-                    this.log('Issue when scanning for mission.sqm')
-                    this.log(err.message)
+                    this.log('Issue when scanning for mission.sqm');
+                    this.log(err.message);
                 }
 
                 discovered.forEach(item => {
@@ -49,8 +49,8 @@ export class MissionModule extends Module {
                 });
 
                 resolve();
-            })
-        })
+            });
+        });
     }
 
     public onCompletion(params: TextDocumentPositionParams, name: string): CompletionItem[] {
@@ -61,7 +61,7 @@ export class MissionModule extends Module {
                 filterText: name,
                 insertText: name,
                 kind: CompletionItemKind.Variable as CompletionItemKind
-            }
+            };
         }).concat(
             this.findMarkers(name).map((name) => {
                 return {
@@ -70,34 +70,34 @@ export class MissionModule extends Module {
                     filterText: name,
                     insertText: '"' + name + '"',
                     kind: CompletionItemKind.Enum as CompletionItemKind
-                }
+                };
             })
-        )
+        );
     }
 
     public onHover(params: TextDocumentPositionParams, name: string): Hover {
-        const variable = this.getVariable(name)
+        const variable = this.getVariable(name);
         if (variable) {
             return {
                 contents: 'Object defined in mission.'
-            }
+            };
         }
     }
 
     public getVariable(name: string): string {
-        return this.variables[name.toLowerCase()]
+        return this.variables[name.toLowerCase()];
     }
 
     public findVariables(query: string): string[] {
         return Object.keys(this.variables)
             .filter(n => n.indexOf(query.toLowerCase()) >= 0)
-            .map(n => this.variables[n])
+            .map(n => this.variables[n]);
     }
 
     public findMarkers(query: string): string[] {
         return Object.keys(this.markers)
             .filter(n => n.indexOf(query.toLowerCase()) >= 0)
-            .map(n => this.markers[n])
+            .map(n => this.markers[n]);
     }
 
     /**
@@ -120,7 +120,7 @@ export class MissionModule extends Module {
         return new Promise<void>((resolve) => {
             fs.readFile(filename, () => {
                 try {
-                    Hpp.setPaths(this.getSettings().includePrefixes)
+                    Hpp.setPaths(this.getSettings().includePrefixes);
                     this.process(Hpp.parse(filename), filename);
                 } catch(error) {
                     // Skip errors, probably binarized mission
@@ -146,8 +146,8 @@ export class MissionModule extends Module {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private processEntities(entities: Hpp.Class, filename: string): void {
         Object.keys(entities.body.classes).forEach(c => {
-            this.processEntity(entities.body.classes[c])
-        })
+            this.processEntity(entities.body.classes[c]);
+        });
     }
 
     private processEntity(entity: Hpp.Class): void {
@@ -163,23 +163,23 @@ export class MissionModule extends Module {
         }
         case 'group': {
             const entities = entity.body.classes.entities.body.classes;
-            Object.keys(entities).forEach(c => this.processEntity(entities[c]))
+            Object.keys(entities).forEach(c => this.processEntity(entities[c]));
             break;
         }
         case 'object': {
             const atts = entity.body.classes.attributes;
             if (atts) {
-                const name = atts.body.variables.name
+                const name = atts.body.variables.name;
                 if (name) {
-                    this.variables[name.toLowerCase()] = name
+                    this.variables[name.toLowerCase()] = name;
                 }
             }
             break;
         }
         case 'logic': {
-            name = entity.body.variables.name
+            name = entity.body.variables.name;
             if (name) {
-                this.variables[name.toLowerCase()] = name
+                this.variables[name.toLowerCase()] = name;
             }
             break;
         }

@@ -19,6 +19,6 @@ export class LoggerContext {
     target: LoggerContextTarget = console
 
     createLogger(component: string): Logger {
-        return new Logger(this, component)
+        return new Logger(this, component);
     }
 }

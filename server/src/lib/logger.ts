@@ -12,15 +12,15 @@ export class Logger {
 
     log(level: LoggerLevel, ...args: any[]): void {
         if (level > this.context.level) {
-            return
+            return;
         }
         
-        let callback = this.context.target.log
+        let callback = this.context.target.log;
 
         if (level === LoggerLevel.Error) {
-            callback = this.context.target.error
+            callback = this.context.target.error;
         } else if (level === LoggerLevel.Warn) {
-            callback = this.context.target.warn
+            callback = this.context.target.warn;
         }
         
         callback.bind(this.context.target)([
@@ -38,18 +38,18 @@ export class Logger {
     }
 
     error(...args: any[]): void {
-        this.log(LoggerLevel.Error, ...args)
+        this.log(LoggerLevel.Error, ...args);
     }
 
     warn(...args: any[]): void {
-        this.log(LoggerLevel.Warn, ...args)
+        this.log(LoggerLevel.Warn, ...args);
     }
 
     info(...args: any[]): void {
-        this.log(LoggerLevel.Info, ...args)
+        this.log(LoggerLevel.Info, ...args);
     }
 
     debug(...args: any[]): void {
-        this.log(LoggerLevel.Debug, ...args)
+        this.log(LoggerLevel.Debug, ...args);
     }
 }

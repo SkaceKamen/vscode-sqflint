@@ -29,12 +29,16 @@ jobs:
         with:
           node-version: 14.19.1
           cache: npm
+      
+      - run: npm install -g npm@latest
       - run: npm run package
+     
       - name: Store vsix
         uses: actions/upload-artifact@v2
         with:
           name: sqflint
           path: client/sqflint-*.vsix
+      
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -45,9 +49,11 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
+      
       - name: Get the version
         id: get_version
         run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      
       - name: publish
         env:
           VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
