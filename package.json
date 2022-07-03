@@ -181,7 +181,7 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "cd server && npm install && npm run grammar && cd ../client && npm install && cd ../debugger && npm install && cd .. && npm run compile",
+		"vscode:prepublish": "npm install && cd server && npm install && npm run grammar && cd ../client && npm install && cd ../debugger && npm install && cd .. && npm run compile",
 		"compile": "tsc -b",
 		"watch": "tsc -b -w",
 		"package": "npm run vscode:prepublish && npx vsce package",
