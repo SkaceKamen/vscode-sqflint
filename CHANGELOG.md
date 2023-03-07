@@ -1,3 +1,6 @@
+# Version 0.12.2
+ * Added new functions and operators
+
 # Version 0.12.1
  * Fixed missing presentation
 
