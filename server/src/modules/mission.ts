@@ -162,6 +162,14 @@ export class MissionModule extends Module {
             break;
         }
         case 'group': {
+            const atts = entity.body.classes.attributes;
+            if (atts) {
+                const name = atts.body.variables.name;
+                if (name) {
+                    this.variables[name.toLowerCase()] = name;
+                }
+            }
+
             const entities = entity.body.classes.entities.body.classes;
             Object.keys(entities).forEach(c => this.processEntity(entities[c]));
             break;
