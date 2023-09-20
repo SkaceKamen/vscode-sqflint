@@ -60,6 +60,7 @@ interface Settings {
  */
 export interface SQFLintSettings {
     warnings: boolean;
+    globalVarWarnings: boolean,
     indexWorkspace: boolean;
     indexWorkspaceTwice: boolean;
     checkPaths: boolean;
@@ -252,6 +253,7 @@ export class SQFLintServer {
 
         this.settings = {
             warnings: true,
+            globalVarWarnings: false,
             indexWorkspace: true,
             indexWorkspaceTwice: true,
             exclude: [],
@@ -277,6 +279,7 @@ export class SQFLintServer {
         this.settings.indexWorkspace = settings.sqflint.indexWorkspace;
         this.settings.indexWorkspaceTwice = settings.sqflint.indexWorkspaceTwice;
         this.settings.warnings = settings.sqflint.warnings;
+        this.settings.globalVarWarnings = settings.sqflint.globalVarWarnings;
         this.settings.exclude = settings.sqflint.exclude;
         this.settings.ignoredVariables = settings.sqflint.ignoredVariables;
         this.settings.includePrefixes = settings.sqflint.includePrefixes;
@@ -802,7 +805,7 @@ export class SQFLintServer {
                                     }
 
                                     // Add warning if global variable wasn't defined.
-                                    if (!defined && this.settings.warnings && !this.ignoredVariablesSet[item.ident]) {
+                                    if (!defined && this.settings.warnings && !this.ignoredVariablesSet[item.ident] && this.settings.globalVarWarnings) {
                                         for (const u in item.usage) {
                                             diagnostics.push({
                                                 severity: DiagnosticSeverity.Warning,

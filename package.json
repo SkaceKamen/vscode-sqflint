@@ -81,6 +81,12 @@
 					"default": true,
 					"description": "Process and display sqflint warnings."
 				},
+				"sqflint.globalVarWarnings": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show 'Possibly undefined variable' warnings for global variables. (NOTE! Restart your Visual Studio Code after changing this setting!)"
+				}
+				,
 				"sqflint.indexWorkspace": {
 					"type": "boolean",
 					"default": true,
