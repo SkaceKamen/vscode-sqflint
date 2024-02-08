@@ -201,6 +201,7 @@
 	},
 	"dependencies": {
 		"@types/jsdom": "^16.2.13",
-		"jsdom": "^18.0.1"
+		"jsdom": "^18.0.1",
+		"wikiparser-node": "^1.4.4"
 	}
 }

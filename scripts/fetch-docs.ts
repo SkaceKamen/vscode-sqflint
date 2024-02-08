@@ -1,9 +1,9 @@
-import fetch from 'node-fetch'
-import fs from 'fs'
+import fetch from 'node-fetch';
+import fs from 'fs';
 import { join } from 'path';
 
-const T_LIST_START = "class='oo-ui-inputWidget-input'>"
-const T_LIST_END = "</textarea>"
+const T_LIST_START = "class='oo-ui-inputWidget-input'>";
+const T_LIST_END = "</textarea>";
 
 async function loadAllFromCategory(category: string) {
     const listData = await fetch("https://community.bistudio.com/wiki/Special:Export/", {
@@ -26,14 +26,14 @@ async function loadAllFromCategory(category: string) {
         "method": "POST",
     }).then(r => r.text());
 
-    const listStart = listData.indexOf(T_LIST_START)
+    const listStart = listData.indexOf(T_LIST_START);
     if (listStart < 0) {
-        throw new Error('Failed to find scripts list start')
+        throw new Error('Failed to find scripts list start');
     }
 
-    const listEnd = listData.indexOf(T_LIST_END, listStart)
+    const listEnd = listData.indexOf(T_LIST_END, listStart);
     if (listEnd < 0) {
-        throw new Error('Failed to find scripts list end')
+        throw new Error('Failed to find scripts list end');
     }
 
     const scripts = listData.substring(listStart + T_LIST_START.length, listEnd)
@@ -41,9 +41,9 @@ async function loadAllFromCategory(category: string) {
         .replace(/\r/g, '')
         .split('\n')
         .filter(item => !item.startsWith('Category:'))
-        .map(i => encodeURIComponent(i))
+        .map(i => encodeURIComponent(i));
 
-    console.log('Found', scripts.length, 'pages for category', category)
+    console.log('Found', scripts.length, 'pages for category', category);
 
     const result = await fetch("https://community.bistudio.com/wiki/Special:Export/", {
         "headers": {
@@ -65,16 +65,16 @@ async function loadAllFromCategory(category: string) {
         "method": "POST"
     }).then(res => res.text());
 
-    console.log('Successfully loaded', category)
+    console.log('Successfully loaded', category);
 
-    return result
+    return result;
 }
 
 async function main() {
-    fs.writeFileSync(join(__dirname, '..', 'definitions', 'operatorsExport.xml'), await loadAllFromCategory('Scripting_Commands'))
-    console.log('Saved', 'operatorsExport.xml')
-    fs.writeFileSync(join(__dirname, '..', 'definitions', 'functionsExport.xml'), await loadAllFromCategory('Functions'))
-    console.log('Saved', 'functionsExport.xml')
+    fs.writeFileSync(join(__dirname, '..', 'definitions', 'operatorsExport.xml'), await loadAllFromCategory('Scripting_Commands'));
+    console.log('Saved', 'operatorsExport.xml');
+    fs.writeFileSync(join(__dirname, '..', 'definitions', 'functionsExport.xml'), await loadAllFromCategory('Functions'));
+    console.log('Saved', 'functionsExport.xml');
 }
 
-main().catch(console.error)
+main().catch(console.error);

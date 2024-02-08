@@ -8,7 +8,7 @@
  * operatorsExport.xml.
  */
 
-import fs from 'fs'
+import fs from 'fs';
 import { parseDocument } from './docs/parser';
 
 fs.readFile(__dirname + '/../definitions/operatorsExport.xml', (err, data) => {
