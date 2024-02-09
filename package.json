@@ -51,7 +51,8 @@
 				],
 				"extensions": [
 					".sqf"
-				]
+				],
+                "configuration": "client/languages/configs/sqf.json"
 			},
 			{
 				"id": "ext",
@@ -62,7 +63,7 @@
 					".ext",
 					".hpp"
 				],
-				"configuration": "../client/languages/config/ext.json"
+				"configuration": "./client/languages/config/ext.json"
 			}
 		],
 		"grammars": [
@@ -70,7 +71,12 @@
 				"language": "ext",
 				"scopeName": "description.ext",
 				"path": "./client/languages/syntaxes/ext.json"
-			}
+			},
+            {
+                "language": "sqf",
+                "scopeName": "source.sqf",
+                "path": "./client/languages/syntaxes/sqf.json"
+            }
 		],
 		"configuration": {
 			"type": "object",
@@ -201,6 +207,7 @@
 	},
 	"dependencies": {
 		"@types/jsdom": "^16.2.13",
-		"jsdom": "^18.0.1"
+		"jsdom": "^18.0.1",
+		"wikiparser-node": "^1.4.4"
 	}
 }

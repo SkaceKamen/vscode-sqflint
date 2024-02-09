@@ -131,17 +131,28 @@ interface Operator {
 
 export interface WikiDocumentation {
     title: string;
-    type: string;
-    description: {
-        plain: string;
-        formatted: string;
-    };
-    signatures: WikiDocumentationSignature[];
+    type: 'function' | 'command';
+    source: 'core' | 'ace3' | 'cba';
+    description?: string;
+    syntaxes: WikiDocumentationSignature[];
+    compatibility?: { game: string; version: string }[];
 }
 
 interface WikiDocumentationSignature {
-    signature: string;
-    returns?: string;
+    code: string;
+    args: {
+        name: string;
+        type?: string;
+        desc?: string;
+        since?: string;
+        default?: string;
+        optional?: boolean;
+    }[];
+    returns?: {
+        type?: string;
+        desc?: string;
+    };
+    since?: string;
 }
 
 interface EventDocumentation {
@@ -306,7 +317,7 @@ export class SQFLintServer {
             this.logger.info('Detected java version', version);
         } catch (e) {
             this.logger.error('Java not found! Java is required for some of the SQFLint features!');
-                
+
             this.connection.sendNotification(
                 ErrorMessageNotification.type,
                 {
@@ -1027,16 +1038,19 @@ export class SQFLintServer {
      */
     private buildHoverDocs(docs: WikiDocumentation): MarkedString[] {
         const texts: MarkedString[] = [
-            docs.description.formatted
+            docs.description + (
+                docs.source === 'core'
+                    ? " ([more info](https://community.bistudio.com/wiki/" + encodeURIComponent(docs.title) + "))"
+                    : ""
+            )
         ];
 
-        for(const s in docs.signatures) {
-            const sig = docs.signatures[s];
+        for(const syntax of docs.syntaxes) {
             let ss = "(" + docs.type + ") ";
-            if (sig.returns) {
-                ss += sig.returns + " = ";
+            if (syntax.returns?.type) {
+                ss += syntax.returns.type + " = ";
             }
-            ss += sig.signature;
+            ss += syntax.code;
 
             texts.push({
                 language: "sqf",
@@ -1218,22 +1232,11 @@ export class SQFLintServer {
                     //signature.activeSignature = 0;
                     signature.activeParameter = backup.commas;
 
-                    for(const i in docs.signatures) {
-                        let params = [];
-                        const parameters = [];
-                        const sig = docs.signatures[i].signature;
-                        const match = /\[(.*?)\]/.exec(sig);
-                        if (match) {
-                            params = match[1].replace(/ /g, "").split(",");
-                            for(const p in params) {
-                                parameters.push({ label: params[p] });
-                            }
-                        }
-
+                    for (const syntax of docs.syntaxes) {
                         signatures.push({
-                            label: docs.signatures[i].signature,
-                            documentation: docs.description.plain,
-                            parameters: parameters
+                            label: syntax.code,
+                            documentation: docs.description,
+                            parameters: syntax.args.map((arg) => ({ label: arg.name }))
                         });
                     }
 
@@ -1407,7 +1410,7 @@ export class SQFLintServer {
             }
             text = ops.join("\r\n");
         } else if (documentation) {
-            text = documentation.description.plain;
+            text = documentation.description;
         }
 
         item.documentation = text;

@@ -1,4 +1,4 @@
-"use strict"
+"use strict";
 import fs from 'fs';
 import { JSDOM } from 'jsdom';
 import https from 'https';
@@ -7,7 +7,7 @@ import { dirname, join } from 'path';
 const url = "https://community.bistudio.com/wiki/Description.ext";
 const cache = "cache/description.html";
 
-fs.mkdirSync(dirname(cache), { recursive: true })
+fs.mkdirSync(dirname(cache), { recursive: true });
 
 function parseDescription(filepath: string) {
     const data = { properties: [] };
@@ -20,13 +20,13 @@ function parseDescription(filepath: string) {
         .slice(1)
         .filter(i => i.parentElement.tagName !== 'H2')
         .forEach(i => {
-            const name = i.textContent
-            const descElement = (i.parentElement.parentElement.nextElementSibling || i.parentElement.nextElementSibling) as HTMLElement
-            const description = descElement.textContent
+            const name = i.textContent;
+            const descElement = (i.parentElement.parentElement.nextElementSibling || i.parentElement.nextElementSibling) as HTMLElement;
+            const description = descElement ? descElement.textContent : '';
             const link = url + "#" + name;
 
-            values.push({ name, description, link })
-        })
+            values.push({ name, description, link });
+        });
 
     fs.writeFileSync(join(__dirname, "../definitions/description-values.json"), JSON.stringify(data));
 }
