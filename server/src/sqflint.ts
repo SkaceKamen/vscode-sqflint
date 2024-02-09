@@ -4,7 +4,11 @@ import {
     preprocess,
 } from "@bi-tools/preprocessor";
 import { analyzeSqf } from "@bi-tools/sqf-analyzer";
-import { parseSqfTokens, tokenizeSqf } from "@bi-tools/sqf-parser";
+import {
+    SqfParserError,
+    parseSqfTokens,
+    tokenizeSqf,
+} from "@bi-tools/sqf-parser";
 import * as fs from "fs";
 import * as path from "path";
 import { Logger } from "./lib/logger";
@@ -56,53 +60,50 @@ export class SQFLint {
                 },
             });
 
+            const sourceMap = preprocessed.sourceMap;
+            const fileContents = {} as Record<string, string>;
+
+            const getContents = async (filename: string) => {
+                if (!fileContents[filename]) {
+                    fileContents[filename] = await fs.promises.readFile(
+                        filename,
+                        "utf-8"
+                    );
+                }
+                return fileContents[filename];
+            };
+
+            const getProperOffset = async (offset: number) => {
+                const mapped = getMappedOffsetAt(sourceMap, offset, filename);
+
+                const location = getLocationFromOffset(
+                    mapped.offset,
+                    await getContents(mapped.file)
+                );
+
+                return location;
+            };
+
+            const offsetsToRange = async (start: number, end: number) => {
+                const startLocation = await getProperOffset(start);
+                const endLocation = await getProperOffset(end);
+
+                return new SQFLint.Range(
+                    new SQFLint.Position(
+                        startLocation.line - 1,
+                        startLocation.column - 1
+                    ),
+                    new SQFLint.Position(
+                        endLocation.line - 1,
+                        endLocation.column - 1
+                    )
+                );
+            };
+
             try {
                 const tokens = tokenizeSqf(preprocessed.code);
                 const data = parseSqfTokens(tokens, filename);
                 const analysis = analyzeSqf(data, tokens, preprocessed.code);
-                const sourceMap = preprocessed.sourceMap;
-                const fileContents = {} as Record<string, string>;
-
-                const getContents = async (filename: string) => {
-                    if (!fileContents[filename]) {
-                        fileContents[filename] = await fs.promises.readFile(
-                            filename,
-                            "utf-8"
-                        );
-                    }
-                    return fileContents[filename];
-                };
-
-                const getProperOffset = async (offset: number) => {
-                    const mapped = getMappedOffsetAt(
-                        sourceMap,
-                        offset,
-                        filename
-                    );
-
-                    const location = getLocationFromOffset(
-                        mapped.offset,
-                        await getContents(mapped.file)
-                    );
-
-                    return location;
-                };
-
-                const offsetsToRange = async (start: number, end: number) => {
-                    const startLocation = await getProperOffset(start);
-                    const endLocation = await getProperOffset(end);
-
-                    return new SQFLint.Range(
-                        new SQFLint.Position(
-                            startLocation.line - 1,
-                            startLocation.column - 1
-                        ),
-                        new SQFLint.Position(
-                            endLocation.line - 1,
-                            endLocation.column - 1
-                        )
-                    );
-                };
 
                 return {
                     errors: [
@@ -152,7 +153,6 @@ export class SQFLint {
                 };
             } catch (err) {
                 console.error(err);
-
                 console.log(preprocessed.code);
 
                 return {
@@ -169,10 +169,15 @@ export class SQFLint {
                         ),
                         new SQFLint.Error(
                             err.message,
-                            new SQFLint.Range(
-                                new SQFLint.Position(0, 0),
-                                new SQFLint.Position(0, 0)
-                            )
+                            err instanceof SqfParserError
+                                ? await offsetsToRange(
+                                    err.token.position.from,
+                                    err.token.position.to
+                                )
+                                : new SQFLint.Range(
+                                    new SQFLint.Position(0, 0),
+                                    new SQFLint.Position(0, 0)
+                                )
                         ),
                     ],
                     warnings: [],
