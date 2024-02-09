@@ -72,6 +72,11 @@ async function main() {
 
     const wordMatch = (words: string[]) => `\\s*(?i)(${words.join("|")})\\b`;
 
+    /**
+     * Most of this is copied from the SQF Extension which is no longer up to date.
+     *
+     * @author Armatixes https://github.com/Armitxes/VSCode_SQF
+     */
     const grammar = {
         fileTypes: ["sqf"],
         name: "sqf",

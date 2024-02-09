@@ -34,3 +34,7 @@ Signature help for some commands
 Autocomplete for commands and BIS functions (including basic description)
 
 ![Autocomplete example](https://sqflint.zipek.cz/images/sqflint-autocomplete.png)
+
+# Credits
+
+ - Armatixes - syntax highlight grammar - https://github.com/Armitxes/VSCode_SQF
