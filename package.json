@@ -47,8 +47,7 @@
 				"id": "sqf",
 				"aliases": [
 					"SQF",
-					"sqf",
-                    "Status Quo Function"
+					"sqf"
 				],
 				"extensions": [
 					".sqf"
