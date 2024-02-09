@@ -24,6 +24,7 @@ export class SQFLint {
         this.logger = context.createLogger("sqflint");
     }
 
+
     /**
      * Parses content and returns result wrapped in helper classes.
      */
@@ -34,30 +35,32 @@ export class SQFLint {
         try {
             const preprocessErrors = [] as Error[];
 
-            const preprocessed = await preprocess(contents, {
-                filename,
-                async resolveFn(includeParam, sourceFilename) {
-                    const resolved = path.resolve(
-                        path.dirname(sourceFilename),
-                        includeParam
+            const resolveImport = async (includeParam, sourceFilename) => {
+                const resolved = path.resolve(
+                    path.dirname(sourceFilename),
+                    includeParam
+                );
+
+                try {
+                    const contents = await fs.promises.readFile(
+                        resolved,
+                        "utf-8"
                     );
 
-                    try {
-                        const contents = await fs.promises.readFile(
-                            resolved,
-                            "utf-8"
-                        );
+                    return {
+                        contents,
+                        filename: resolved,
+                    };
+                } catch (err) {
+                    preprocessErrors.push(err);
 
-                        return {
-                            contents,
-                            filename: resolved,
-                        };
-                    } catch (err) {
-                        preprocessErrors.push(err);
+                    return { contents: "", filename: "" };
+                }
+            };
 
-                        return { contents: "", filename: "" };
-                    }
-                },
+            const preprocessed = await preprocess(contents, {
+                filename,
+                resolveFn: resolveImport
             });
 
             const sourceMap = preprocessed.sourceMap;
