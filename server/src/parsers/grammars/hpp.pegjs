@@ -72,6 +72,7 @@ NormalDeclaration
 VariableValue
   = num:NumericalExpression { return num }
   / macro:MacroValue { return macro }
+  / str:MultiLineStringLiteral { return str }
   / str:StringLiteral { return str }
   / trans:TranslationIdentifier { return trans }
 
@@ -223,6 +224,13 @@ SingleLineComment
 
 StringLiteral "string"
   = "\"" chars:("\"\"" / [^"\""])* "\"" { return chars.join("") }
+
+MultiLineStringLiteral "multiline string"
+  = lines:(StringLiteral (" \\n " StringLiteral)* ) {
+      return lines[1].reduce(function(result, element) {
+    	return result + "\n" + element[1]
+      }, lines[0])
+    }
 
 DoubleStringCharacter
   = "\"" "\""
