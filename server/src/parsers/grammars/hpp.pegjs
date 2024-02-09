@@ -29,7 +29,11 @@ ClassStatements
 ClassStatement
   = dec:VariableDeclaration { return dec }
   / dec:ClassDeclaration { return dec }
+  / imp:ClassImport { return imp }
   / macro:MacroUsage { return macro }
+
+ClassImport
+  = "import" __ name:Identifier EOS
 
 ClassDeclaration
   = "class" __ name:Identifier
