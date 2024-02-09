@@ -2,7 +2,7 @@ import xmldoc from 'xmldoc';
 import { WikiDocumentation } from '../../server/src/server';
 import { parseBikiCommandTemplate } from './biki/parseBikiCommandTemplate';
 
-export function parseDocument(doc: string, type: string, results = {} as Record<string, WikiDocumentation>) {
+export function parseDocument(doc: string, type: 'function' | 'command', results = {} as Record<string, WikiDocumentation>) {
     const document = new xmldoc.XmlDocument(doc);
     const pages = document.childrenNamed("page");
 

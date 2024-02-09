@@ -131,7 +131,7 @@ interface Operator {
 
 export interface WikiDocumentation {
     title: string;
-    type: string;
+    type: 'function' | 'command';
     source: 'core' | 'ace3' | 'cba';
     description?: string;
     syntaxes: WikiDocumentationSignature[];
@@ -145,6 +145,8 @@ interface WikiDocumentationSignature {
         type?: string;
         desc?: string;
         since?: string;
+        default?: string;
+        optional?: boolean;
     }[];
     returns?: {
         type?: string;
