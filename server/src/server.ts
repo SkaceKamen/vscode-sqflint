@@ -403,10 +403,7 @@ export class SQFLintServer {
         // Calls indexWorkspace for all modules in sequence
         this.runModules("indexWorkspace", this.workspaceRoot).then(() => {
             const linter = new SQFLint(this.loggerContext);
-
             const files: string[] = [];
-            let readFiles = 0;
-            let parsedFiles = 0;
 
             this.logger.info("Done module index... Now indexing sqf");
 
@@ -415,8 +412,35 @@ export class SQFLintServer {
                 "**/*.sqf",
                 (file) => { files.push(file); },
                 async () => {
-
                     this.logger.info(`Parsing a total of sqf ${files.length} files`);
+
+                    let parsedFiles = 0;
+                    for (const file of files) {
+                        const uri = Uri.file(file).toString();
+                        const contents = (await fs.promises.readFile(file)).toString('utf-8');
+
+                        await this.parseDocument(
+                            TextDocument.create(uri, "sqf", 0, contents),
+                            linter,
+                            !this.settings.indexWorkspaceTwice || again
+                        );
+
+                        parsedFiles++;
+                        // Only track progress sporadically to not affect performance
+                        if (parsedFiles % 10 === 0) {
+                            let percents = Math.round((parsedFiles / files.length) * 100);
+                            if (this.settings.indexWorkspaceTwice) {
+                                percents = again
+                                    ? 50 + Math.round(percents/2)
+                                    : Math.round(percents/2);
+                            }
+
+                            this.statusMessage(`$(sync~spin) Indexing.. ${percents}%`, `${parsedFiles % (files.length + 1)}/${files.length} Files`);
+                        }
+                    }
+
+
+                    /*
                     let queue = [];
                     for (const file of files) {
                         if (!queue.includes(file)) {
@@ -480,7 +504,8 @@ export class SQFLintServer {
                         } else {
                             await new Promise((res) => setTimeout(res, 250));
                         }
-                    }
+                    }*/
+
                     if (!this.settings.indexWorkspaceTwice || again) {
                         this.statusMessage(null);
                     }

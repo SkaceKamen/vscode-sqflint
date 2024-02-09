@@ -1,9 +1,12 @@
-import { Java } from './java';
-import * as path from 'path';
+import { getLocationFromOffset, getMappedOffsetAt, preprocess } from '@bi-tools/preprocessor';
+import { analyzeSqf } from '@bi-tools/sqf-analyzer';
+import { parseSqfTokens, tokenizeSqf } from '@bi-tools/sqf-parser';
 import { ChildProcess } from "child_process";
-import { LoggerContext } from './lib/logger-context';
+import * as fs from 'fs';
+import * as path from 'path';
+import { Java } from './java';
 import { Logger } from './lib/logger';
-
+import { LoggerContext } from './lib/logger-context';
 
 function emitLines(stream): void {
     let backlog = '';
@@ -229,14 +232,83 @@ export class SQFLint {
      * Parses content and returns result wrapped in helper classes.
      * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
      */
-    public parse(filename: string, contents: string, options: SQFLint.Options): Promise<SQFLint.ParseInfo> {
+    public async parse(filename: string, contents: string, options: SQFLint.Options): Promise<SQFLint.ParseInfo> {
+        try {
+            const preprocessed = preprocess(contents, { filename });
+
+            try {
+                const preprocessed = preprocess(contents, { filename });
+                const data = parseSqfTokens(tokenizeSqf(preprocessed.code), filename);
+                const analysis = analyzeSqf(data);
+                const sourceMap = preprocessed.sourceMap;
+                const fileContents = {} as Record<string, string>;
+
+                const getContents = async (filename: string) => {
+                    if (!fileContents[filename]) {
+                        fileContents[filename] = (await fs.promises.readFile(filename)).toString();
+                    }
+                    return fileContents[filename];
+                };
+
+                return {
+                    errors: [],
+                    warnings: [],
+                    variables: await Promise.all(Array.from(analysis.variables.values()).map(async v => ({
+                        name: v.originalName,
+                        comment: '',
+                        ident: v.originalName,
+                        usage: [],
+                        isLocal(): boolean {
+                            return this.name.charAt(0) == '_';
+                        },
+                        definitions: await Promise.all(v.assignments.map(async d => {
+                            const startOffset = getMappedOffsetAt(sourceMap, d[0], filename);
+                            const endOffset = getMappedOffsetAt(sourceMap, d[1], filename);
+
+                            const startLocation = getLocationFromOffset(startOffset.offset, await getContents(startOffset.file));
+                            const endLocation = getLocationFromOffset(endOffset.offset, await getContents(endOffset.file));
+
+                            return new SQFLint.Range(
+                                new SQFLint.Position(startLocation.line - 1, startLocation.column - 1),
+                                new SQFLint.Position(endLocation.line - 1, endLocation.column - 1)
+                            );
+                        })),
+                    }))),
+                    includes: [],
+                    macros: [],
+                };
+            } catch (err) {
+                console.error(err);
+
+                console.log(preprocessed.code);
+
+                return {
+                    errors: [new SQFLint.Error(err.message, new SQFLint.Range(new SQFLint.Position(0, 0), new SQFLint.Position(0, 0)),)],
+                    warnings: [],
+                    variables: [],
+                    includes: [],
+                    macros: [],
+                };
+            }
+        } catch (err) {
+            console.error(err);
+
+            return {
+                errors: [new SQFLint.Error(err.message, new SQFLint.Range(new SQFLint.Position(0, 0), new SQFLint.Position(0, 0)),)],
+                warnings: [],
+                variables: [],
+                includes: [],
+                macros: [],
+            };
+        }
+
+        /*
         // Cancel previous callback if exists
         if (this.waiting[filename]) {
             this.waiting[filename](null);
             delete(this.waiting[filename]);
         }
-
-        return new Promise<SQFLint.ParseInfo>((success /*, reject */): void => {
+        return new Promise<SQFLint.ParseInfo>((success): void => {
             if (!this.childProcess) {
                 this.logger.info("Starting background server...");
                 this.launchProcess();
@@ -250,6 +322,7 @@ export class SQFLint {
             };
             this.childProcess.stdin.write(JSON.stringify({ "file": filename, "contents": contents, "options": options }) + "\n");
         });
+        */
     }
 
     /**
