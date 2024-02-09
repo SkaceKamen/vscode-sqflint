@@ -25,7 +25,7 @@ export class SQFLint {
      */
     public async parse(
         filename: string,
-        contents: string,
+        contents: string
     ): Promise<SQFLint.ParseInfo> {
         try {
             const preprocessErrors = [] as Error[];
@@ -57,21 +57,51 @@ export class SQFLint {
             });
 
             try {
-                const data = parseSqfTokens(
-                    tokenizeSqf(preprocessed.code),
-                    filename
-                );
-                const analysis = analyzeSqf(data);
+                const tokens = tokenizeSqf(preprocessed.code);
+                const data = parseSqfTokens(tokens, filename);
+                const analysis = analyzeSqf(data, tokens, preprocessed.code);
                 const sourceMap = preprocessed.sourceMap;
                 const fileContents = {} as Record<string, string>;
 
                 const getContents = async (filename: string) => {
                     if (!fileContents[filename]) {
-                        fileContents[filename] = (
-                            await fs.promises.readFile(filename)
-                        ).toString();
+                        fileContents[filename] = await fs.promises.readFile(
+                            filename,
+                            "utf-8"
+                        );
                     }
                     return fileContents[filename];
+                };
+
+                const getProperOffset = async (offset: number) => {
+                    const mapped = getMappedOffsetAt(
+                        sourceMap,
+                        offset,
+                        filename
+                    );
+
+                    const location = getLocationFromOffset(
+                        mapped.offset,
+                        await getContents(mapped.file)
+                    );
+
+                    return location;
+                };
+
+                const offsetsToRange = async (start: number, end: number) => {
+                    const startLocation = await getProperOffset(start);
+                    const endLocation = await getProperOffset(end);
+
+                    return new SQFLint.Range(
+                        new SQFLint.Position(
+                            startLocation.line - 1,
+                            startLocation.column - 1
+                        ),
+                        new SQFLint.Position(
+                            endLocation.line - 1,
+                            endLocation.column - 1
+                        )
+                    );
                 };
 
                 return {
@@ -92,51 +122,27 @@ export class SQFLint {
                         Array.from(analysis.variables.values()).map(
                             async (v) => ({
                                 name: v.originalName,
-                                comment: "",
+                                comment: this.parseComment(
+                                    v.assignments
+                                        .map((a) => a.comment)
+                                        .find((a) => !!a) ?? ""
+                                ),
                                 ident: v.originalName,
-                                usage: [],
+                                usage: await Promise.all(
+                                    v.usage.map((d) =>
+                                        offsetsToRange(d[0], d[1])
+                                    )
+                                ),
                                 isLocal(): boolean {
                                     return this.name.charAt(0) == "_";
                                 },
                                 definitions: await Promise.all(
-                                    v.assignments.map(async (d) => {
-                                        const startOffset = getMappedOffsetAt(
-                                            sourceMap,
-                                            d[0],
-                                            filename
-                                        );
-                                        const endOffset = getMappedOffsetAt(
-                                            sourceMap,
-                                            d[1],
-                                            filename
-                                        );
-
-                                        const startLocation =
-                                            getLocationFromOffset(
-                                                startOffset.offset,
-                                                await getContents(
-                                                    startOffset.file
-                                                )
-                                            );
-                                        const endLocation =
-                                            getLocationFromOffset(
-                                                endOffset.offset,
-                                                await getContents(
-                                                    endOffset.file
-                                                )
-                                            );
-
-                                        return new SQFLint.Range(
-                                            new SQFLint.Position(
-                                                startLocation.line - 1,
-                                                startLocation.column - 1
-                                            ),
-                                            new SQFLint.Position(
-                                                endLocation.line - 1,
-                                                endLocation.column - 1
-                                            )
-                                        );
-                                    })
+                                    v.assignments.map((d) =>
+                                        offsetsToRange(
+                                            d.position[0],
+                                            d.position[1]
+                                        )
+                                    )
                                 ),
                             })
                         )
