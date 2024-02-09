@@ -69,6 +69,10 @@ const innerText = (node: Parser.Token | Parser.AstText | undefined): string => {
     }
 
     if (node?.type === 'template') {
+        if (node?.name === 'Template:Hl') {
+            return '`' + innerText(node.childNodes?.[1]) + '`';
+        }
+
         return '';
     }
 
