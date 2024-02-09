@@ -33,7 +33,15 @@ ClassStatement
   / macro:MacroUsage { return macro }
 
 ClassImport
-  = "import" __ name:Identifier EOS
+  = "import" __ name:Identifier as:(__ "as" __ asName: Identifier { return asName })? from:(__ "from" __ fromName: Identifier { return fromName })? EOS {
+    return {
+      "import": {
+        "name": name,
+        "as": as,
+        "from": from
+      }
+    }
+  }
 
 ClassDeclaration
   = "class" __ name:Identifier
