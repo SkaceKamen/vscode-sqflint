@@ -24,7 +24,6 @@ export class SQFLint {
         this.logger = context.createLogger("sqflint");
     }
 
-
     /**
      * Parses content and returns result wrapped in helper classes.
      */
@@ -33,9 +32,16 @@ export class SQFLint {
         contents: string
     ): Promise<SQFLint.ParseInfo> {
         try {
-            const preprocessErrors = [] as Error[];
+            const preprocessErrors = [] as {
+                err: Error;
+                position: [start: number, end: number];
+            }[];
 
-            const resolveImport = async (includeParam, sourceFilename) => {
+            const resolveImport = async (
+                includeParam: string,
+                sourceFilename: string,
+                position: [number, number]
+            ) => {
                 const resolved = path.resolve(
                     path.dirname(sourceFilename),
                     includeParam
@@ -52,7 +58,7 @@ export class SQFLint {
                         filename: resolved,
                     };
                 } catch (err) {
-                    preprocessErrors.push(err);
+                    preprocessErrors.push({ err, position });
 
                     return { contents: "", filename: "" };
                 }
@@ -60,7 +66,7 @@ export class SQFLint {
 
             const preprocessed = await preprocess(contents, {
                 filename,
-                resolveFn: resolveImport
+                resolveFn: resolveImport,
             });
 
             const sourceMap = preprocessed.sourceMap;
@@ -68,10 +74,16 @@ export class SQFLint {
 
             const getContents = async (filename: string) => {
                 if (!fileContents[filename]) {
-                    fileContents[filename] = await fs.promises.readFile(
-                        filename,
-                        "utf-8"
-                    );
+                    try {
+                        fileContents[filename] = await fs.promises.readFile(
+                            filename,
+                            "utf-8"
+                        );
+                    } catch (err) {
+                        console.error('Failed to load source map file', filename, err)
+
+                        fileContents[filename] = "";
+                    }
                 }
                 return fileContents[filename];
             };
@@ -110,16 +122,18 @@ export class SQFLint {
 
                 return {
                     errors: [
-                        ...preprocessErrors.map(
-                            (e) =>
-                                new SQFLint.Error(
-                                    e.message,
-                                    new SQFLint.Range(
-                                        new SQFLint.Position(0, 0),
-                                        new SQFLint.Position(0, 0)
+                        ...(await Promise.all(
+                            preprocessErrors.map(
+                                async (e) =>
+                                    new SQFLint.Error(
+                                        e.err.message,
+                                        await offsetsToRange(
+                                            e.position[0],
+                                            e.position[1]
+                                        )
                                     )
-                                )
-                        ),
+                            )
+                        )),
                     ],
                     warnings: [],
                     variables: await Promise.all(
@@ -155,32 +169,34 @@ export class SQFLint {
                     macros: [],
                 };
             } catch (err) {
-                console.error(err);
+                console.error('failed to parse', filename, err);
                 console.log(preprocessed.code);
 
                 return {
                     errors: [
-                        ...preprocessErrors.map(
-                            (e) =>
-                                new SQFLint.Error(
-                                    e.message,
-                                    new SQFLint.Range(
-                                        new SQFLint.Position(0, 0),
-                                        new SQFLint.Position(0, 0)
+                        ...(await Promise.all(
+                            preprocessErrors.map(
+                                async (e) =>
+                                    new SQFLint.Error(
+                                        e.err.message,
+                                        await offsetsToRange(
+                                            e.position[0],
+                                            e.position[1]
+                                        )
                                     )
-                                )
-                        ),
+                            )
+                        )),
                         new SQFLint.Error(
                             err.message,
                             err instanceof SqfParserError
                                 ? await offsetsToRange(
-                                    err.token.position.from,
-                                    err.token.position.to
-                                )
+                                      err.token.position.from,
+                                      err.token.position.to
+                                  )
                                 : new SQFLint.Range(
-                                    new SQFLint.Position(0, 0),
-                                    new SQFLint.Position(0, 0)
-                                )
+                                      new SQFLint.Position(0, 0),
+                                      new SQFLint.Position(0, 0)
+                                  )
                         ),
                     ],
                     warnings: [],
@@ -190,7 +206,7 @@ export class SQFLint {
                 };
             }
         } catch (err) {
-            console.error(err);
+            console.error('failed to pre-process', filename, err);
 
             return {
                 errors: [
