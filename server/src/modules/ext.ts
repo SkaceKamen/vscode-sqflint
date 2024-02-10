@@ -22,7 +22,7 @@ interface Documentation {
 }
 
 export class ExtModule extends Module {
-    private single: SingleRunner = new SingleRunner(200);
+    private single: SingleRunner = new SingleRunner(20);
 
     public functions: { [descriptionFile: string]: { [functionName: string]: Function } } = {};
     private documentation: { [variable: string]: Documentation } = {};
@@ -120,10 +120,15 @@ export class ExtModule extends Module {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public parseDocument(textDocument: TextDocument, linter?: SQFLint): Promise<void> {
+        const uri = Uri.parse(textDocument.uri);
+
+        if (path.basename(uri.fsPath) != "description.ext" && path.extname(uri.fsPath) != ".hpp") {
+            return Promise.resolve();
+        }
+
         return new Promise<void>((resolve) => {
             this.single.run(() => {
                 // @TODO: Rewrite this, the logic can be much simpler
-                const uri = Uri.parse(textDocument.uri);
                 if (path.basename(uri.fsPath) == "description.ext") {
                     resolve(this.parseFile(uri.fsPath));
                 } else if (path.extname(uri.fsPath) == ".hpp") {
