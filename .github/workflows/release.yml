@@ -12,17 +12,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Use Node.js 14.19.1
+      - name: Use Node.js 20.x
         uses: actions/setup-node@v3
         with:
-          node-version: 14.19.1
+          node-version: 20.x
           cache: npm
 
       - run: npm install -g npm@latest
       - run: npm run package
 
       - name: Store vsix
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: sqflint
           path: client/sqflint-*.vsix
@@ -32,12 +32,13 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
 
-      - name: Get the version
-        id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+      # TODO: Automatic release to VSCode Marketplace
+      #- name: Get the version
+      #  id: get_version
+      #  run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
 
-      - name: publish
-        env:
-          VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
-        run: |
-          npx vsce publish -p $VSCE_TOKEN ${{ steps.get_version.outputs.VERSION }}
+      #- name: publish
+      #  env:
+      #    VSCE_TOKEN: ${{ secrets.VSCE_TOKEN }}
+      #  run: |
+      #    npx vsce publish -p $VSCE_TOKEN ${{ steps.get_version.outputs.VERSION }}
