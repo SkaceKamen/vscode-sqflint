@@ -14,6 +14,10 @@ import * as path from "path";
 import { Logger } from "./lib/logger";
 import { LoggerContext } from "./lib/logger-context";
 
+type Options = {
+    includePrefixes: Map<string, string>;
+}
+
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
  */
@@ -24,13 +28,13 @@ export class SQFLint {
         this.logger = context.createLogger("sqflint");
     }
 
-
     /**
      * Parses content and returns result wrapped in helper classes.
      */
     public async parse(
         filename: string,
-        contents: string
+        contents: string,
+        options?: Options
     ): Promise<SQFLint.ParseInfo> {
         try {
             const preprocessErrors = [] as Error[];
