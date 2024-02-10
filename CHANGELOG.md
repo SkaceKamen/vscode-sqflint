@@ -1,3 +1,7 @@
+# Version 0.12.3
+ * Added new functions and operators
+ * Fixed slow workspace indexing
+
 # Version 0.12.2
  * Added new functions and operators
 

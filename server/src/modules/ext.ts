@@ -128,7 +128,6 @@ export class ExtModule extends Module {
         return new Promise<void>((resolve) => {
             this.single.run(() => {
                 // @TODO: Rewrite this, the logic can be much simpler
-                const uri = Uri.parse(textDocument.uri);
                 if (path.basename(uri.fsPath) == "description.ext") {
                     resolve(this.parseFile(uri.fsPath));
                 } else if (path.extname(uri.fsPath) == ".hpp") {
