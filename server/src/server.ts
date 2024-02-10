@@ -424,7 +424,7 @@ export class SQFLintServer {
         for (const file of pboPrefixes) {
             const contents = await fs.promises.readFile(file, 'utf-8');
             const lines = contents.split("\n");
-            this.includePrefixes.set(lines[0], path.basename(file));
+            this.includePrefixes.set(lines[0].trim(), path.dirname(file));
         }
 
         // Load list of files so we can track progress

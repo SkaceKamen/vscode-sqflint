@@ -16,7 +16,7 @@ import { LoggerContext } from "./lib/logger-context";
 
 type Options = {
     includePrefixes: Map<string, string>;
-}
+};
 
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
@@ -47,10 +47,42 @@ export class SQFLint {
                 sourceFilename: string,
                 position: [number, number]
             ) => {
-                const resolved = path.resolve(
-                    path.dirname(sourceFilename),
-                    includeParam
+                const matchingPrefix = [
+                    ...options.includePrefixes.entries(),
+                ].find(
+                    ([p]) =>
+                        includeParam
+                            .toLowerCase()
+                            .startsWith(p.toLowerCase()) ||
+                        includeParam
+                            .toLowerCase()
+                            .startsWith(`\\${p.toLowerCase()}`)
                 );
+
+                const replacePrefix = (prefix: string, include: string) => {
+                    if (
+                        include.toLowerCase().startsWith(prefix.toLowerCase())
+                    ) {
+                        return include.substring(prefix.length);
+                    }
+
+                    if (
+                        include
+                            .toLowerCase()
+                            .startsWith(`\\${prefix.toLowerCase()}`)
+                    ) {
+                        return include.substring(prefix.length + 1);
+                    }
+
+                    return include;
+                };
+
+                const resolved = matchingPrefix
+                    ? path.join(
+                          matchingPrefix[1],
+                          replacePrefix(matchingPrefix[0], includeParam)
+                      )
+                    : path.resolve(path.dirname(sourceFilename), includeParam);
 
                 try {
                     const contents = await fs.promises.readFile(
@@ -85,7 +117,11 @@ export class SQFLint {
                             "utf-8"
                         );
                     } catch (err) {
-                        console.error('Failed to load source map file', filename, err)
+                        console.error(
+                            "Failed to load source map file",
+                            filename,
+                            err
+                        );
 
                         fileContents[filename] = "";
                     }
@@ -175,7 +211,7 @@ export class SQFLint {
                 };
             } catch (err) {
                 console.error('failed to parse', filename, err);
-                console.log(preprocessed.code);
+               //  console.log(preprocessed.code);
 
                 return {
                     errors: [
