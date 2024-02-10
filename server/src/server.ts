@@ -40,6 +40,7 @@ import { Logger } from "./lib/logger";
 import { LoggerContext } from "./lib/logger-context";
 import { Function as SqfFunction } from "./modules/ext";
 import { StatusBarTextNotification } from "./notifications";
+import path = require("path");
 
 const links = {
     unitEventHandlers:
@@ -226,6 +227,8 @@ export class SQFLintServer {
 
     public loggerContext: LoggerContext;
     private logger: Logger;
+
+    private includePrefixes = new Map<string, string>();
 
     constructor() {
         this.loggerContext = new LoggerContext();
@@ -415,6 +418,14 @@ export class SQFLintServer {
         const linter = new SQFLint(this.loggerContext);
 
         this.logger.info("Done module index... Now indexing sqf");
+
+        // Load all pbo prefix files
+        const pboPrefixes = await this.getAllFiles("**/$PBOPREFIX$");
+        for (const file of pboPrefixes) {
+            const contents = await fs.promises.readFile(file, 'utf-8');
+            const lines = contents.split("\n");
+            this.includePrefixes.set(lines[0], path.basename(file));
+        }
 
         // Load list of files so we can track progress
         const files = await this.getAllFiles("**/*.sqf");
@@ -677,17 +688,17 @@ export class SQFLintServer {
                         const contents = textDocument.getText();
 
                         /*
-                    const options = {
-                        pathsRoot: this.workspaceRoot || fsPath.dirname(Uri.parse(textDocument.uri).fsPath),
-                        checkPaths: this.settings.checkPaths,
-                        ignoredVariables: this.settings.ignoredVariables,
-                        includePrefixes: this.settings.includePrefixes,
-                        contextSeparation: this.settings.contextSeparation
-                    } as SQFLint.Options;
-                    */
+                        const options = {
+                            pathsRoot: this.workspaceRoot || fsPath.dirname(Uri.parse(textDocument.uri).fsPath),
+                            checkPaths: this.settings.checkPaths,
+                            ignoredVariables: this.settings.ignoredVariables,
+                            includePrefixes: this.settings.includePrefixes,
+                            contextSeparation: this.settings.contextSeparation
+                        } as SQFLint.Options;
+                        */
 
                         client
-                            .parse(uri.fsPath, contents)
+                            .parse(uri.fsPath, contents, {  includePrefixes: this.includePrefixes })
                             .then((result: SQFLint.ParseInfo) => {
                                 const index =
                                     this.currentRunParsedFiles.indexOf(

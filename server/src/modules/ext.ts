@@ -22,7 +22,7 @@ interface Documentation {
 }
 
 export class ExtModule extends Module {
-    private single: SingleRunner = new SingleRunner(50);
+    private single: SingleRunner = new SingleRunner(5);
 
     public functions: { [descriptionFile: string]: { [functionName: string]: Function } } = {};
     private documentation: { [variable: string]: Documentation } = {};
