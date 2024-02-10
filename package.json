@@ -2,7 +2,7 @@
 	"name": "sqflint",
 	"displayName": "SQFLint",
 	"description": "Parse errors, hover help for functions/commands and more.",
-	"author": "Jan Zípek, Senfo",
+	"author": "Jan Zípek, Senfo, Armatixes",
 	"icon": "client/images/sqflint.png",
 	"license": "MIT",
 	"version": "0.12.3",
