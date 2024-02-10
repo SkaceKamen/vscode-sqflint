@@ -210,8 +210,8 @@ export class SQFLint {
                     macros: [],
                 };
             } catch (err) {
-                console.error('failed to parse', filename, err);
-               //  console.log(preprocessed.code);
+                console.error("failed to parse", filename, err);
+                //  console.log(preprocessed.code);
 
                 return {
                     errors: [
@@ -247,7 +247,7 @@ export class SQFLint {
                 };
             }
         } catch (err) {
-            console.error('failed to pre-process', filename, err);
+            console.error("failed to pre-process", filename, err);
 
             return {
                 errors: [
