@@ -158,7 +158,7 @@ export class SQFLint {
 
             try {
                 const tokens = tokenizeSqf(preprocessed.code);
-                const data = parseSqfTokens(tokens, filename);
+                const data = parseSqfTokens(tokens);
                 const analysis = analyzeSqf(data, tokens, preprocessed.code);
 
                 return {
@@ -207,7 +207,24 @@ export class SQFLint {
                         )
                     ),
                     includes: [],
-                    macros: [],
+                    macros: await Promise.all(
+                        [...preprocessed.defines.values()].map(
+                            async (d): Promise<SQFLint.Macroinfo> => ({
+                                name: d.name,
+                                arguments: d.args.join(","),
+                                definitions: [
+                                    {
+                                        value: d.value,
+                                        filename: d.file,
+                                        position: await offsetsToRange(
+                                            d.location[0],
+                                            d.location[1]
+                                        ),
+                                    },
+                                ],
+                            })
+                        )
+                    ),
                 };
             } catch (err) {
                 console.error("failed to parse", filename, err);
