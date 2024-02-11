@@ -5,7 +5,7 @@ import {
 import * as fs from "fs";
 import * as fsPath from "path";
 import * as pegjs from "pegjs";
-import { SQFLint } from "../sqflint";
+import { SqfParser } from "../sqf.parser";
 
 const hppParser = require("./grammars/pegjs-hpp") as pegjs.Parser;
 
@@ -19,7 +19,7 @@ export namespace Hpp {
     export class ParseError {
         constructor(
             public filename: string,
-            public range: SQFLint.Range,
+            public range: SqfParser.Range,
             public message: string
         ) {}
     }
@@ -49,7 +49,7 @@ export namespace Hpp {
         useMap = false
     ): {
         filename: string;
-        range: SQFLint.Range;
+        range: SqfParser.Range;
     } {
         if (useMap) {
             for (const i in preprocessorMap) {
@@ -71,7 +71,7 @@ export namespace Hpp {
                                 character:
                                     location.end.column - map.offset[3] - 1,
                             },
-                        } as SQFLint.Range,
+                        } as SqfParser.Range,
                     };
                 }
             }
@@ -88,7 +88,7 @@ export namespace Hpp {
                     line: location.end.line - 1,
                     character: location.end.column - 1,
                 },
-            } as SQFLint.Range,
+            } as SqfParser.Range,
         };
     }
 
@@ -188,9 +188,9 @@ export namespace Hpp {
             if (e instanceof PreprocessorError) {
                 throw new ParseError(
                     filename,
-                    new SQFLint.Range(
-                        new SQFLint.Position(0, 0),
-                        new SQFLint.Position(0, 0)
+                    new SqfParser.Range(
+                        new SqfParser.Position(0, 0),
+                        new SqfParser.Position(0, 0)
                     ),
                     e.message
                 );
@@ -222,7 +222,7 @@ export namespace Hpp {
         location: pegjs.LocationRange;
         fileLocation: {
             filename: string;
-            range: SQFLint.Range;
+            range: SqfParser.Range;
         };
         filename: string;
     }

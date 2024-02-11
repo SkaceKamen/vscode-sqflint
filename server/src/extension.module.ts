@@ -1,14 +1,23 @@
+import { Logger } from './lib/logger';
 import { SQFLintSettings, SQFLintServer } from './server';
-import { SQFLint } from './sqflint';
-import { TextDocument, InitializeParams, PublishDiagnosticsParams, CompletionItem, Hover, TextDocumentPositionParams, Location, SignatureHelp } from 'vscode-languageserver';
+import { SqfParser } from './sqf.parser';
+import { TextDocument, InitializeParams, PublishDiagnosticsParams, CompletionItem, Hover, TextDocumentPositionParams, Location, SignatureHelp, ReferenceParams } from 'vscode-languageserver';
 
-export abstract class Module {
+export abstract class ExtensionModule {
+    protected logger: Logger;
+
     public constructor(
         protected server: SQFLintServer
-    ) {}
+    ) {
+        this.logger = server.loggerContext.createLogger(this.constructor.name);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public onInitialize(params: InitializeParams): void {
+    public onInitialize(params: InitializeParams) {
+        // do nothing
+    }
+
+    public async initialize() {
         // do nothing
     }
 
@@ -18,12 +27,12 @@ export abstract class Module {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public indexWorkspace(root: string): Promise<void> {
+    public indexWorkspace(root: string, isSecondIndex: boolean): Promise<void> {
         return Promise.resolve();
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public parseDocument(textDocument: TextDocument, linter?: SQFLint): Promise<void> {
+    public parseDocument(textDocument: TextDocument, linter?: SqfParser): Promise<void> {
         return Promise.resolve();
     }
 
@@ -49,6 +58,11 @@ export abstract class Module {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onSignatureHelp(params: TextDocumentPositionParams, name: string): SignatureHelp {
         return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public onReferences(params: ReferenceParams): Location[] {
+        return [];
     }
 
     protected sendDiagnostics(params: PublishDiagnosticsParams): void {

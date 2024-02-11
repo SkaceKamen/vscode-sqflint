@@ -1,27 +1,17 @@
 import * as fs from 'fs';
 import { glob } from 'glob';
+import { CompletionItem, CompletionItemKind, Hover, InitializeParams, TextDocumentPositionParams } from 'vscode-languageserver';
+import { ExtensionModule } from "../extension.module";
+import { Docstring } from '../parsers/docstring';
 import { Hpp } from '../parsers/hpp';
-
-import { InitializeParams, CompletionItem, CompletionItemKind, Hover, TextDocumentPositionParams } from 'vscode-languageserver';
-import { Module } from "../module";
 import Uri from "../uri";
 
-import { Docstring } from '../parsers/docstring';
-import { Logger } from '../lib/logger';
-import { SQFLintServer } from '../server';
-
-export class MissionModule extends Module {
+export class MissionModule extends ExtensionModule {
     public variables: { [name: string]: string } = {};
     public markers: { [name: string]: string } = {};
-    public logger: Logger;
-
-    constructor(server: SQFLintServer) {
-        super(server);
-        this.logger = server.loggerContext.createLogger("mission-module");
-    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public onInitialize(params: InitializeParams): void {
+    public onInitialize(params: InitializeParams) {
         // This allows clearing errors when document is reparsed
         Hpp.onFilename = (filename: string): void => {
             this.sendDiagnostics({

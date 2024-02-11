@@ -11,6 +11,7 @@ import {
 } from "@bi-tools/sqf-parser";
 import * as fs from "fs";
 import * as path from "path";
+import { performance } from "perf_hooks";
 import { Logger } from "./lib/logger";
 import { LoggerContext } from "./lib/logger-context";
 
@@ -18,14 +19,55 @@ type Options = {
     includePrefixes: Map<string, string>;
 };
 
-/**
- * Class allowing abstract interface for accessing sqflint CLI.
- */
-export class SQFLint {
+export class SqfParser {
     private logger: Logger;
 
     constructor(context: LoggerContext) {
-        this.logger = context.createLogger("sqflint");
+        this.logger = context.createLogger("sqf-parser");
+    }
+
+    private async resolveImport(
+        includeParam: string,
+        sourceFilename: string,
+        options: Options
+    ): Promise<{ contents: string; filename: string }> {
+        const matchPrefix = (path: string) =>
+            includeParam.toLowerCase().startsWith(path.toLowerCase()) ||
+            includeParam.toLowerCase().startsWith(`\\${path.toLowerCase()}`);
+
+        const matchingPrefix = [...options.includePrefixes.entries()].find(
+            ([p]) => matchPrefix(p)
+        );
+
+        const replacePrefix = (prefix: string, include: string) => {
+            if (include.toLowerCase().startsWith(prefix.toLowerCase())) {
+                return include.substring(prefix.length);
+            }
+
+            if (include.toLowerCase().startsWith(`\\${prefix.toLowerCase()}`)) {
+                return include.substring(prefix.length + 1);
+            }
+
+            return include;
+        };
+
+        const resolved = matchingPrefix
+            ? path.join(
+                matchingPrefix[1],
+                replacePrefix(matchingPrefix[0], includeParam)
+            )
+            : path.resolve(path.dirname(sourceFilename), includeParam);
+
+        try {
+            const contents = await fs.promises.readFile(resolved, "utf-8");
+
+            return {
+                contents,
+                filename: resolved,
+            };
+        } catch (err) {
+            return { contents: "", filename: "" };
+        }
     }
 
     /**
@@ -35,7 +77,7 @@ export class SQFLint {
         filename: string,
         contents: string,
         options?: Options
-    ): Promise<SQFLint.ParseInfo> {
+    ): Promise<SqfParser.ParseInfo> {
         this.logger.info("Parsing file: " + filename);
 
         try {
@@ -49,53 +91,12 @@ export class SQFLint {
                 sourceFilename: string,
                 position: [number, number]
             ) => {
-                const matchingPrefix = [
-                    ...options.includePrefixes.entries(),
-                ].find(
-                    ([p]) =>
-                        includeParam
-                            .toLowerCase()
-                            .startsWith(p.toLowerCase()) ||
-                        includeParam
-                            .toLowerCase()
-                            .startsWith(`\\${p.toLowerCase()}`)
-                );
-
-                const replacePrefix = (prefix: string, include: string) => {
-                    if (
-                        include.toLowerCase().startsWith(prefix.toLowerCase())
-                    ) {
-                        return include.substring(prefix.length);
-                    }
-
-                    if (
-                        include
-                            .toLowerCase()
-                            .startsWith(`\\${prefix.toLowerCase()}`)
-                    ) {
-                        return include.substring(prefix.length + 1);
-                    }
-
-                    return include;
-                };
-
-                const resolved = matchingPrefix
-                    ? path.join(
-                        matchingPrefix[1],
-                        replacePrefix(matchingPrefix[0], includeParam)
-                    )
-                    : path.resolve(path.dirname(sourceFilename), includeParam);
-
                 try {
-                    const contents = await fs.promises.readFile(
-                        resolved,
-                        "utf-8"
+                    return this.resolveImport(
+                        includeParam,
+                        sourceFilename,
+                        options
                     );
-
-                    return {
-                        contents,
-                        filename: resolved,
-                    };
                 } catch (err) {
                     preprocessErrors.push({ err, position });
 
@@ -103,12 +104,20 @@ export class SQFLint {
                 }
             };
 
+            let start = performance.now();
+
             const preprocessed = await preprocess(contents, {
                 filename,
                 resolveFn: resolveImport,
             });
 
+            this.logger.info(
+                `${filename} preprocessed in ${performance.now() - start}ms`
+            );
+
             const sourceMap = preprocessed.sourceMap;
+
+            // TODO: This should be cached when doing workspace indexing
             const fileContents = {} as Record<string, string>;
 
             const getContents = async (filename: string) => {
@@ -132,6 +141,7 @@ export class SQFLint {
             };
 
             const getProperOffset = async (offset: number) => {
+                // TODO: This function is slow if you have tons of sourceMaps
                 const mapped = getMappedOffsetAt(sourceMap, offset, filename);
 
                 const location = getLocationFromOffset(
@@ -142,16 +152,17 @@ export class SQFLint {
                 return location;
             };
 
+            // TODO: This is the slowest part of this function, hard to optimize now
             const offsetsToRange = async (start: number, end: number) => {
                 const startLocation = await getProperOffset(start);
                 const endLocation = await getProperOffset(end);
 
-                return new SQFLint.Range(
-                    new SQFLint.Position(
+                return new SqfParser.Range(
+                    new SqfParser.Position(
                         startLocation.line - 1,
                         startLocation.column - 1
                     ),
-                    new SQFLint.Position(
+                    new SqfParser.Position(
                         endLocation.line - 1,
                         endLocation.column - 1
                     )
@@ -159,86 +170,119 @@ export class SQFLint {
             };
 
             try {
+                start = performance.now();
+
                 const tokens = tokenizeSqf(preprocessed.code);
+
+                this.logger.info(
+                    `${filename} tokenized in ${performance.now() - start}ms`
+                );
+
+                start = performance.now();
+
                 const { errors, script } = parseSqfTokens(tokens);
+
+                this.logger.info(
+                    `${filename} parsed in ${performance.now() - start}ms`
+                );
+
+                start = performance.now();
+
                 const analysis = analyzeSqf(script, tokens, preprocessed.code);
+
+                this.logger.info(
+                    `${filename} analyzed in ${performance.now() - start}ms`
+                );
+
+                start = performance.now();
+
+                const variables = await Promise.all(
+                    Array.from(analysis.variables.values()).map(async (v) => ({
+                        name: v.originalName,
+                        comment: this.parseComment(
+                            v.assignments
+                                .map((a) => a.comment)
+                                .find((a) => !!a) ?? ""
+                        ),
+                        ident: v.originalName,
+                        usage: await Promise.all(
+                            v.usage.map((d) => offsetsToRange(d[0], d[1]))
+                        ),
+                        isLocal(): boolean {
+                            return this.name.charAt(0) == "_";
+                        },
+                        definitions: await Promise.all(
+                            v.assignments.map((d) =>
+                                offsetsToRange(d.position[0], d.position[1])
+                            )
+                        ),
+                    }))
+                );
+
+                this.logger.info(
+                    `${filename} variables processed in ${
+                        performance.now() - start
+                    }ms`
+                );
+
+                start = performance.now();
+
+                const macros = await Promise.all(
+                    [...preprocessed.defines.values()].map(
+                        async (d): Promise<SqfParser.MacroInfo> => ({
+                            name: d.name,
+                            arguments: d.args.join(","),
+                            definitions: [
+                                {
+                                    value: d.value,
+                                    filename: d.file,
+                                    position: await offsetsToRange(
+                                        d.location[0],
+                                        d.location[1]
+                                    ),
+                                },
+                            ],
+                        })
+                    )
+                );
+
+                this.logger.info(
+                    `${filename} macros processed in ${
+                        performance.now() - start
+                    }ms`
+                );
 
                 return {
                     errors: [
                         ...(await Promise.all(
                             preprocessErrors.map(
                                 async (e) =>
-                                    new SQFLint.Error(
+                                    new SqfParser.Error(
                                         e.err.message,
                                         await offsetsToRange(
                                             e.position[0],
                                             e.position[1]
                                         )
                                     )
-                            ),
+                            )
                         )),
                         ...(await Promise.all(
                             errors.map(
                                 async (e) =>
-                                    new SQFLint.Error(
+                                    new SqfParser.Error(
                                         e.message,
                                         await offsetsToRange(
                                             e.token.position.from,
                                             e.token.position.to
                                         )
                                     )
-                            ),
+                            )
                         )),
                     ],
                     warnings: [],
-                    variables: await Promise.all(
-                        Array.from(analysis.variables.values()).map(
-                            async (v) => ({
-                                name: v.originalName,
-                                comment: this.parseComment(
-                                    v.assignments
-                                        .map((a) => a.comment)
-                                        .find((a) => !!a) ?? ""
-                                ),
-                                ident: v.originalName,
-                                usage: await Promise.all(
-                                    v.usage.map((d) =>
-                                        offsetsToRange(d[0], d[1])
-                                    )
-                                ),
-                                isLocal(): boolean {
-                                    return this.name.charAt(0) == "_";
-                                },
-                                definitions: await Promise.all(
-                                    v.assignments.map((d) =>
-                                        offsetsToRange(
-                                            d.position[0],
-                                            d.position[1]
-                                        )
-                                    )
-                                ),
-                            })
-                        )
-                    ),
+                    variables,
                     includes: [],
-                    macros: await Promise.all(
-                        [...preprocessed.defines.values()].map(
-                            async (d): Promise<SQFLint.Macroinfo> => ({
-                                name: d.name,
-                                arguments: d.args.join(","),
-                                definitions: [
-                                    {
-                                        value: d.value,
-                                        filename: d.file,
-                                        position: await offsetsToRange(
-                                            d.location[0],
-                                            d.location[1]
-                                        ),
-                                    },
-                                ],
-                            })
-                        )
-                    ),
+                    macros,
                 };
             } catch (err) {
                 console.error("failed to parse", filename, err);
@@ -249,7 +293,7 @@ export class SQFLint {
                         ...(await Promise.all(
                             preprocessErrors.map(
                                 async (e) =>
-                                    new SQFLint.Error(
+                                    new SqfParser.Error(
                                         e.err.message,
                                         await offsetsToRange(
                                             e.position[0],
@@ -258,16 +302,16 @@ export class SQFLint {
                                     )
                             )
                         )),
-                        new SQFLint.Error(
+                        new SqfParser.Error(
                             err.message,
                             err instanceof SqfParserError
                                 ? await offsetsToRange(
                                     err.token.position.from,
                                     err.token.position.to
                                 )
-                                : new SQFLint.Range(
-                                    new SQFLint.Position(0, 0),
-                                    new SQFLint.Position(0, 0)
+                                : new SqfParser.Range(
+                                    new SqfParser.Position(0, 0),
+                                    new SqfParser.Position(0, 0)
                                 )
                         ),
                     ],
@@ -282,11 +326,11 @@ export class SQFLint {
 
             return {
                 errors: [
-                    new SQFLint.Error(
+                    new SqfParser.Error(
                         err.message,
-                        new SQFLint.Range(
-                            new SQFLint.Position(0, 0),
-                            new SQFLint.Position(0, 0)
+                        new SqfParser.Range(
+                            new SqfParser.Position(0, 0),
+                            new SqfParser.Position(0, 0)
                         )
                     ),
                 ],
@@ -332,7 +376,7 @@ export class SQFLint {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace SQFLint {
+export namespace SqfParser {
     /**
      * Base message.
      */
@@ -361,7 +405,7 @@ export namespace SQFLint {
         errors: Error[] = [];
         warnings: Warning[] = [];
         variables: VariableInfo[] = [];
-        macros: Macroinfo[] = [];
+        macros: MacroInfo[] = [];
         includes: IncludeInfo[] = [];
         timeNeededSqfLint?: number;
         timeNeededMessagePass?: number;
@@ -390,7 +434,7 @@ export namespace SQFLint {
     /**
      * Info about macro.
      */
-    export class Macroinfo {
+    export class MacroInfo {
         name: string;
         arguments: string = null;
         definitions: MacroDefinition[];

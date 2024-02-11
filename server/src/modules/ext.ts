@@ -9,15 +9,12 @@ import {
     Diagnostic,
     DiagnosticSeverity,
     Hover,
-    InitializeParams,
     Location,
     TextDocumentPositionParams,
 } from "vscode-languageserver/node";
-import { Logger } from "../lib/logger";
-import { Module } from "../module";
+import { ExtensionModule } from "../extension.module";
 import { Docstring } from "../parsers/docstring";
 import { Hpp } from "../parsers/hpp";
-import { SQFLintServer } from "../server";
 import { SingleRunner } from "../single.runner";
 import Uri from "../uri";
 
@@ -28,28 +25,20 @@ interface Documentation {
     link: string;
 }
 
-export class ExtModule extends Module {
+export class ExtModule extends ExtensionModule {
     private single: SingleRunner = new SingleRunner(5);
 
     public functions: {
         // eslint-disable-next-line @typescript-eslint/ban-types
-        [descriptionFile: string]: { [functionName: string]: Function };
+        [descriptionFile: string]: { [functionName: string]: SqfFunction };
     } = {};
     private documentation: { [variable: string]: Documentation } = {};
 
     private files: string[] = [];
 
-    private logger: Logger;
-
-    constructor(server: SQFLintServer) {
-        super(server);
-
-        this.logger = server.loggerContext.createLogger("ext-module");
-    }
-
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public onInitialize(params: InitializeParams): void {
-        this.loadDocumentation();
+    public async initialize() {
+        await this.loadDocumentation();
 
         // This allows clearing errors when document is reparsed
         Hpp.onFilename = (filename: string): void => {
@@ -73,20 +62,18 @@ export class ExtModule extends Module {
         Hpp.log = (contents): void => this.logger.info(contents);
     }
 
-    private loadDocumentation(): void {
-        fs.readFile(
+    private async loadDocumentation() {
+        const data = await fs.promises.readFile(
             __dirname + "/../../../definitions/description-values.json",
-            (err, data) => {
-                if (err) throw err;
-
-                const info = JSON.parse(data.toString());
-                const items = info.properties;
-                for (let i = 0; i < items.length; i++) {
-                    const item = items[i];
-                    this.documentation[item.name.toLowerCase()] = item;
-                }
-            }
+            "utf-8"
         );
+
+        const info = JSON.parse(data);
+        const items = info.properties;
+
+        for (const item of items) {
+            this.documentation[item.name.toLowerCase()] = item;
+        }
     }
 
     public async indexWorkspace(root: string) {
@@ -94,24 +81,35 @@ export class ExtModule extends Module {
 
         // Predefined files or empty list
         const files =
-                settings.descriptionFiles.map((file) =>
-                    path.isAbsolute(file) ? file : path.join(root, file)
-                ) || [];
+            settings.descriptionFiles.map((file) =>
+                path.isAbsolute(file) ? file : path.join(root, file)
+            ) || [];
 
         // Try to disco
         if (settings.discoverDescriptionFiles) {
-            const discovered = await glob(
-                "**/description.ext",
-                { ignore: settings.exclude, root });
+            const descriptions = await glob("**/description.ext", {
+                ignore: settings.exclude,
+                root,
+            });
+
             this.files = files.concat(
-                discovered.map((item) => path.join(root, item))
+                descriptions.map((item) => path.join(root, item))
             );
+
+            const configs = await glob("**/config.cpp", {
+                ignore: settings.exclude,
+                root,
+            });
+
+            this.files = files.concat(
+                configs.map((item) => path.join(root, item))
+            );
+
             this.files.forEach((item) => {
                 this.logger.debug(`Parsing: ${item}`);
                 this.parse(item);
                 this.logger.debug(`Parsed: ${item}`);
             });
-
         } else {
             const descPath = path.join(root, "description.ext");
             if (fs.existsSync(descPath)) {
@@ -315,7 +313,7 @@ export class ExtModule extends Module {
         ];
     }
 
-    public getFunction(name: string): Function {
+    public getFunction(name: string): SqfFunction {
         for (const file in this.functions) {
             const exists = this.functions[file][name.toLowerCase()];
             if (exists) return exists;
@@ -540,7 +538,7 @@ export class ExtModule extends Module {
     }
 }
 
-export interface Function {
+export interface SqfFunction {
     name: string;
     filename: string;
     info?: Docstring.Info;

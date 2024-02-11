@@ -1,5 +1,5 @@
 export class SingleRunner {
-    private timeouts: { [key: string]: NodeJS.Timer } = {};
+    private timeouts: { [key: string]: ReturnType<typeof setTimeout> } = {};
     private running: { [key: string]: boolean } = {};
 
     constructor(

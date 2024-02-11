@@ -6,7 +6,8 @@
 		"sourceMap": true,
 		"outDir": "out",
 		"rootDir": "src",
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        "lib": ["es2023", "DOM"]
 	},
 	"exclude": [
 		"node_modules"
