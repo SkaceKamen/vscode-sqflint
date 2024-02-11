@@ -19,23 +19,12 @@ import {
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { ExtensionModule } from "../extension.module";
 import { DefinitionsStorage } from "../lib/definitions.storage";
+import { EventDocumentation, formatEventDocs } from "../lib/formatEventDocs";
+import { Operator, OperatorType, loadOperators } from "../lib/load.operators";
 import { SQFLintServer, WikiDocumentation } from "../server";
 import { SqfParser } from "../sqf.parser";
 import Uri from "../uri";
 import { SqfFunction } from "./ext";
-
-const TERNARY_RE = /b:([a-z,]*) ([a-z0-9_]*) ([a-z0-9,]*)/i;
-const BINARY_RE = /u:([a-z0-9_]*) ([a-z0-9,]*)/i;
-const UNARY_RE = /n:([a-z0-9_]*)/i;
-
-const WIKI_LINKS = {
-    unitEventHandlers:
-        "https://community.bistudio.com/wiki/Arma_3:_Event_Handlers",
-    uiEventHandlers:
-        "https://community.bistudio.com/wiki/User_Interface_Event_Handlers",
-    commandsList:
-        "https://community.bistudio.com/wiki/Category:Scripting_Commands",
-};
 
 /**
  * Variable local to document. Contains locations local to document.
@@ -58,30 +47,6 @@ type GlobalMacro = {
     name: string;
     arguments: string;
     definitions: { [uri: string]: SqfParser.MacroDefinition[] };
-};
-
-enum OperatorType {
-    Ternary,
-    Binary,
-    Unary,
-}
-
-type Operator = {
-    name: string;
-    left: string;
-    right: string;
-    documentation: string;
-    type: OperatorType;
-    wiki: WikiDocumentation;
-};
-
-type EventDocumentation = {
-    id: string;
-    title: string;
-    description: string;
-    args: string;
-    type: string;
-    scope?: string;
 };
 
 export class SqfModule extends ExtensionModule {
@@ -491,59 +456,9 @@ export class SqfModule extends ExtensionModule {
     }
 
     async loadOperators() {
-        const data = await fs.promises.readFile(
-            __dirname + "/../../../definitions/commands.txt",
-            "utf-8"
-        );
+        const items = await loadOperators();
 
-        const parseOperatorInfo = (line: string) => {
-            const ternaryMatch = TERNARY_RE.exec(line);
-            if (ternaryMatch) {
-                return {
-                    name: ternaryMatch[2],
-                    left: ternaryMatch[1],
-                    right: ternaryMatch[3],
-                    type: OperatorType.Ternary,
-                    documentation: ternaryMatch[1] + " " + ternaryMatch[2],
-                    wiki: null,
-                };
-            }
-
-            const binaryMatch = BINARY_RE.exec(line);
-            if (binaryMatch) {
-                return {
-                    name: binaryMatch[1],
-                    left: "",
-                    right: binaryMatch[2],
-                    type: OperatorType.Binary,
-                    documentation: binaryMatch[1],
-                    wiki: null,
-                };
-            }
-
-            const unaryMatch = UNARY_RE.exec(line);
-            if (unaryMatch) {
-                return {
-                    name: unaryMatch[1],
-                    left: "",
-                    right: "",
-                    type: OperatorType.Unary,
-                    documentation: unaryMatch[1],
-                    wiki: null,
-                };
-            }
-
-            return null;
-        };
-
-        const items = data.split("\n");
-        for (const line of items) {
-            const data = parseOperatorInfo(line);
-
-            if (!data) {
-                continue;
-            }
-
+        for (const data of items) {
             const ident = data.name.toLowerCase();
             const existingOperator = this.operatorsStorage.get(ident);
 
@@ -660,16 +575,7 @@ export class SqfModule extends ExtensionModule {
             }
 
             if (ev) {
-                let contents = "";
-
-                if (ev.type == "units") {
-                    contents = `**${ev.title}** - _Unit event_\n\n**Arguments**\n\n${ev.args}\n\n**Description**\n\n${ev.description}\n\n([more info](${WIKI_LINKS.unitEventHandlers}#${ev.id}))`;
-                }
-                if (ev.type == "ui") {
-                    contents = `**${ev.title}** - _UI event_\n\n**Arguments**\n\n${ev.args}\n\n**Scope**\n\n${ev.scope}\n\n**Description**\n\n${ev.description}\n\n([more info](${WIKI_LINKS.uiEventHandlers}))`;
-                }
-
-                return { contents };
+                return { contents: formatEventDocs(ev) };
             }
         }
     }
