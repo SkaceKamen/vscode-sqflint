@@ -245,8 +245,10 @@ export class SQFLint {
 
             const startTime = new Date();
             this.waiting[filename] = (info: SQFLint.ParseInfo): void => {
-                info.timeNeededMessagePass = new Date().valueOf() - startTime.valueOf();
-                success(info);
+                if (info) {
+                    info.timeNeededMessagePass = new Date().valueOf() - startTime.valueOf();
+                    success(info);
+                }
             };
             this.childProcess.stdin.write(JSON.stringify({ "file": filename, "contents": contents, "options": options }) + "\n");
         });
