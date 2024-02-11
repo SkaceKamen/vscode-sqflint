@@ -1,3 +1,6 @@
+# Version 0.12.4
+ * Fix server crash
+
 # Version 0.12.3
  * Added new functions and operators
  * Fixed slow workspace indexing
