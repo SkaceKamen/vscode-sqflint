@@ -15,8 +15,8 @@ export interface LoggerContextTarget {
 }
 
 export class LoggerContext {
-    level = LoggerLevel.Info
-    target: LoggerContextTarget = console
+    level = LoggerLevel.Info;
+    target: LoggerContextTarget = console;
 
     createLogger(component: string): Logger {
         return new Logger(this, component);

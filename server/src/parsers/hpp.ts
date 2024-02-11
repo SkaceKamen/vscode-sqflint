@@ -5,7 +5,7 @@ import {
 import * as fs from "fs";
 import * as fsPath from "path";
 import * as pegjs from "pegjs";
-import { SqfParser } from "../sqf.parser";
+import { SqfParser } from "../sqfParser";
 
 const hppParser = require("./grammars/pegjs-hpp") as pegjs.Parser;
 

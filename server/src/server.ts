@@ -17,14 +17,14 @@ import {
     _Connection,
     createConnection,
 } from "vscode-languageserver/node";
-import { ExtensionModule } from "./extension.module";
+import { ExtensionModule } from "./extensionModule";
 import { Logger } from "./lib/logger";
-import { LoggerContext } from "./lib/logger-context";
+import { LoggerContext } from "./lib/loggerContext";
 import { ExtModule } from "./modules/ext";
 import { MissionModule } from "./modules/mission";
 import { SqfModule } from "./modules/sqf";
 import { StatusBarTextNotification } from "./notifications";
-import { SqfParser } from "./sqf.parser";
+import { SqfParser } from "./sqfParser";
 import path = require("path");
 
 /**

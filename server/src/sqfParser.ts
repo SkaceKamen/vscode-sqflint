@@ -13,7 +13,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { performance } from "perf_hooks";
 import { Logger } from "./lib/logger";
-import { LoggerContext } from "./lib/logger-context";
+import { LoggerContext } from "./lib/loggerContext";
 
 type Options = {
     includePrefixes: Map<string, string>;

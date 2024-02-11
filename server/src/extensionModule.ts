@@ -1,6 +1,6 @@
 import { Logger } from './lib/logger';
 import { SQFLintSettings, SQFLintServer } from './server';
-import { SqfParser } from './sqf.parser';
+import { SqfParser } from './sqfParser';
 import { TextDocument, InitializeParams, PublishDiagnosticsParams, CompletionItem, Hover, TextDocumentPositionParams, Location, SignatureHelp, ReferenceParams } from 'vscode-languageserver';
 
 export abstract class ExtensionModule {

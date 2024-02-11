@@ -7,7 +7,7 @@ import {
     InitializeParams,
     TextDocumentPositionParams,
 } from "vscode-languageserver";
-import { ExtensionModule } from "../extension.module";
+import { ExtensionModule } from "../extensionModule";
 import { Docstring } from "../parsers/docstring";
 import { Hpp } from "../parsers/hpp";
 import Uri from "../uri";

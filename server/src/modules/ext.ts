@@ -12,10 +12,10 @@ import {
     Location,
     TextDocumentPositionParams,
 } from "vscode-languageserver/node";
-import { ExtensionModule } from "../extension.module";
+import { ExtensionModule } from "../extensionModule";
 import { Docstring } from "../parsers/docstring";
 import { Hpp } from "../parsers/hpp";
-import { SingleRunner } from "../single.runner";
+import { SingleRunner } from "../singleRunner";
 import Uri from "../uri";
 
 interface Documentation {

@@ -17,12 +17,12 @@ import {
     TextDocumentPositionParams,
 } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { ExtensionModule } from "../extension.module";
+import { ExtensionModule } from "../extensionModule";
 import { DefinitionsStorage } from "../lib/definitions.storage";
 import { EventDocumentation, formatEventDocs } from "../lib/formatEventDocs";
-import { Operator, OperatorType, loadOperators } from "../lib/load.operators";
+import { Operator, OperatorType, loadOperators } from "../lib/loadOperators";
 import { SQFLintServer, WikiDocumentation } from "../server";
-import { SqfParser } from "../sqf.parser";
+import { SqfParser } from "../sqfParser";
 import Uri from "../uri";
 import { SqfFunction } from "./ext";
 

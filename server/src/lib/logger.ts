@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LoggerContext, LoggerLevel } from "./logger-context";
+import { LoggerContext, LoggerLevel } from "./loggerContext";
 
 export class Logger {
     context: LoggerContext;
@@ -14,7 +14,7 @@ export class Logger {
         if (level > this.context.level) {
             return;
         }
-        
+
         let callback = this.context.target.log;
 
         if (level === LoggerLevel.Error) {
@@ -22,7 +22,7 @@ export class Logger {
         } else if (level === LoggerLevel.Warn) {
             callback = this.context.target.warn;
         }
-        
+
         callback.bind(this.context.target)([
             '[' +
             new Date().toLocaleTimeString("en-US", {
