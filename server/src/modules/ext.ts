@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/ban-types */
 import * as fs from "fs";
-import * as glob from "glob";
+import { glob } from "glob";
 import * as path from "path";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
@@ -31,6 +32,7 @@ export class ExtModule extends Module {
     private single: SingleRunner = new SingleRunner(5);
 
     public functions: {
+        // eslint-disable-next-line @typescript-eslint/ban-types
         [descriptionFile: string]: { [functionName: string]: Function };
     } = {};
     private documentation: { [variable: string]: Documentation } = {};
@@ -87,81 +89,42 @@ export class ExtModule extends Module {
         );
     }
 
-    public indexWorkspace(root: string): Promise<void> {
-        return new Promise<void>((resolve) => {
-            const settings = this.getSettings();
+    public async indexWorkspace(root: string) {
+        const settings = this.getSettings();
 
-            // Predefined files or empty list
-            const files =
+        // Predefined files or empty list
+        const files =
                 settings.descriptionFiles.map((file) =>
                     path.isAbsolute(file) ? file : path.join(root, file)
                 ) || [];
 
-            // Try to disco
-            if (settings.discoverDescriptionFiles) {
-                glob(
-                    "**/description.ext",
-                    { ignore: settings.exclude, root },
-                    (err, discovered) => {
-                        if (err) {
-                            this.logger.error(
-                                "Issue when scanning for description.ext"
-                            );
-                            this.logger.error(err.message);
-                        }
+        // Try to disco
+        if (settings.discoverDescriptionFiles) {
+            const discovered = await glob(
+                "**/description.ext",
+                { ignore: settings.exclude, root });
+            this.files = files.concat(
+                discovered.map((item) => path.join(root, item))
+            );
+            this.files.forEach((item) => {
+                this.logger.debug(`Parsing: ${item}`);
+                this.parse(item);
+                this.logger.debug(`Parsed: ${item}`);
+            });
 
-                        this.files = files.concat(
-                            discovered.map((item) => path.join(root, item))
-                        );
-                        this.files.forEach((item) => {
-                            this.logger.debug(`Parsing: ${item}`);
-                            this.parse(item);
-                            this.logger.debug(`Parsed: ${item}`);
-                        });
-
-                        resolve();
-                    }
-                );
-
-                glob(
-                    "**/config.cpp",
-                    { ignore: settings.exclude, root },
-                    (err, discovered) => {
-                        if (err) {
-                            this.logger.error(
-                                "Issue when scanning for configs"
-                            );
-                            this.logger.error(err.message);
-                        }
-
-                        this.files = files.concat(
-                            discovered.map((item) => path.join(root, item))
-                        );
-                        this.files.forEach((item) => {
-                            this.logger.debug(`Parsing: ${item}`);
-                            this.parse(item);
-                            this.logger.debug(`Parsed: ${item}`);
-                        });
-
-                        resolve();
-                    }
-                );
-            } else {
-                const descPath = path.join(root, "description.ext");
-                if (fs.existsSync(descPath)) {
-                    files.push(descPath);
-                }
-
-                this.files = files;
-                this.files.forEach((item) => {
-                    this.logger.debug(`Parsing: ${item}`);
-                    this.parse(item);
-                    this.logger.debug(`Parsed: ${item}`);
-                });
-
-                resolve();
+        } else {
+            const descPath = path.join(root, "description.ext");
+            if (fs.existsSync(descPath)) {
+                files.push(descPath);
             }
-        });
+
+            this.files = files;
+            this.files.forEach((item) => {
+                this.logger.debug(`Parsing: ${item}`);
+                this.parse(item);
+                this.logger.debug(`Parsed: ${item}`);
+            });
+        }
     }
 
     public async parseDocument(textDocument: TextDocument) {
@@ -364,6 +327,8 @@ export class ExtModule extends Module {
      * Tries to parse mission description.ext, if exists.
      */
     private parse(file: string): Promise<void> {
+        this.logger.info(`Parsing: ${file}`);
+
         return new Promise<void>((resolve) => {
             if (fs.existsSync(file)) {
                 resolve(this.parseFile(file));

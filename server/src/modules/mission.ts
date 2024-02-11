@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import * as glob from 'glob';
+import { glob } from 'glob';
 import { Hpp } from '../parsers/hpp';
 
 import { InitializeParams, CompletionItem, CompletionItemKind, Hover, TextDocumentPositionParams } from 'vscode-languageserver';
@@ -7,10 +7,18 @@ import { Module } from "../module";
 import Uri from "../uri";
 
 import { Docstring } from '../parsers/docstring';
+import { Logger } from '../lib/logger';
+import { SQFLintServer } from '../server';
 
 export class MissionModule extends Module {
-    public variables: { [name: string]: string } = {}
-    public markers: { [name: string]: string } = {}
+    public variables: { [name: string]: string } = {};
+    public markers: { [name: string]: string } = {};
+    public logger: Logger;
+
+    constructor(server: SQFLintServer) {
+        super(server);
+        this.logger = server.loggerContext.createLogger("mission-module");
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public onInitialize(params: InitializeParams): void {
@@ -34,23 +42,15 @@ export class MissionModule extends Module {
         Hpp.log = (contents): void => this.log(contents);
     }
 
-    public indexWorkspace(root: string): Promise<void> {
-        return new Promise<void>((resolve) => {
-            const settings = this.getSettings();
+    public async indexWorkspace(root: string): Promise<void> {
+        const settings = this.getSettings();
 
-            glob("**/mission.sqm", { ignore: settings.exclude, root }, (err, discovered) => {
-                if (err) {
-                    this.log('Issue when scanning for mission.sqm');
-                    this.log(err.message);
-                }
+        this.logger.info('Searching for mission files');
 
-                discovered.forEach(item => {
-                    this.parse(item);
-                });
-
-                resolve();
-            });
-        });
+        const discovered = await glob("**/mission.sqm", { ignore: settings.exclude, root });
+        for (const item of discovered) {
+            await this.parse(item);
+        }
     }
 
     public onCompletion(params: TextDocumentPositionParams, name: string): CompletionItem[] {
@@ -118,19 +118,15 @@ export class MissionModule extends Module {
     /**
      * Parses description.ext file.
      */
-    private parseFile(filename: string): Promise<void> {
-        return new Promise<void>((resolve) => {
-            fs.readFile(filename, () => {
-                try {
-                    Hpp.setPaths(this.getSettings().includePrefixes);
-                    this.process(Hpp.parse(filename), filename);
-                } catch(error) {
-                    // Skip errors, probably binarized mission
-                }
+    private async parseFile(filename: string): Promise<void> {
+        this.logger.info('Parsing mission file: ' + filename);
 
-                resolve();
-            });
-        });
+        try {
+            Hpp.setPaths(this.getSettings().includePrefixes);
+            this.process(await Hpp.parse(filename), filename);
+        } catch(error) {
+            // Skip errors, probably binarized mission
+        }
     }
 
 

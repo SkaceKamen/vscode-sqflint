@@ -36,6 +36,8 @@ export class SQFLint {
         contents: string,
         options?: Options
     ): Promise<SQFLint.ParseInfo> {
+        this.logger.info("Parsing file: " + filename);
+
         try {
             const preprocessErrors = [] as {
                 err: Error;
@@ -79,9 +81,9 @@ export class SQFLint {
 
                 const resolved = matchingPrefix
                     ? path.join(
-                          matchingPrefix[1],
-                          replacePrefix(matchingPrefix[0], includeParam)
-                      )
+                        matchingPrefix[1],
+                        replacePrefix(matchingPrefix[0], includeParam)
+                    )
                     : path.resolve(path.dirname(sourceFilename), includeParam);
 
                 try {
@@ -158,8 +160,8 @@ export class SQFLint {
 
             try {
                 const tokens = tokenizeSqf(preprocessed.code);
-                const data = parseSqfTokens(tokens);
-                const analysis = analyzeSqf(data, tokens, preprocessed.code);
+                const { errors, script } = parseSqfTokens(tokens);
+                const analysis = analyzeSqf(script, tokens, preprocessed.code);
 
                 return {
                     errors: [
@@ -173,7 +175,19 @@ export class SQFLint {
                                             e.position[1]
                                         )
                                     )
-                            )
+                            ),
+                        )),
+                        ...(await Promise.all(
+                            errors.map(
+                                async (e) =>
+                                    new SQFLint.Error(
+                                        e.message,
+                                        await offsetsToRange(
+                                            e.token.position.from,
+                                            e.token.position.to
+                                        )
+                                    )
+                            ),
                         )),
                     ],
                     warnings: [],
@@ -248,13 +262,13 @@ export class SQFLint {
                             err.message,
                             err instanceof SqfParserError
                                 ? await offsetsToRange(
-                                      err.token.position.from,
-                                      err.token.position.to
-                                  )
+                                    err.token.position.from,
+                                    err.token.position.to
+                                )
                                 : new SQFLint.Range(
-                                      new SQFLint.Position(0, 0),
-                                      new SQFLint.Position(0, 0)
-                                  )
+                                    new SQFLint.Position(0, 0),
+                                    new SQFLint.Position(0, 0)
+                                )
                         ),
                     ],
                     warnings: [],

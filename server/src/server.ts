@@ -31,7 +31,7 @@ import { SQFLint } from "./sqflint";
 import * as fs from "fs";
 import * as fsPath from "path";
 
-import * as glob from "glob";
+import { glob } from "glob";
 import { Module } from "./module";
 import { MissionModule } from "./modules/mission";
 import Uri from "./uri";
@@ -336,12 +336,18 @@ export class SQFLintServer {
             this.workspaceRoot != null
         ) {
             this.logger.info("Indexing workspace...");
+
             this.statusMessage(
                 `$(sync~spin) Indexing.. 0%`,
                 "Parsing and Reading CfgFunctions"
             );
 
-            await this.indexWorkspace(false);
+            try {
+                await this.indexWorkspace(false);
+            } catch (err) {
+                this.logger.error("Error while indexing workspace", err);
+            }
+
             this.logger.info("Done indexing workspace.");
 
             if (this.settings.indexWorkspaceTwice) {
@@ -388,15 +394,15 @@ export class SQFLintServer {
         };
     }
 
-    private runModules(method: string, ...args: unknown[]): Promise<unknown> {
-        return this.modules.reduce(
-            (promise, current) =>
-                promise.then(
-                    // eslint-disable-next-line prefer-spread
-                    () => current[method].apply(current, args)
-                ),
-            Promise.resolve()
-        );
+    private async runModules(method: string, ...args: unknown[]) {
+        for (const i in this.modules) {
+            try {
+                this.logger.info('Running module', this.modules[i].constructor.name, method, args);
+                await this.modules[i][method](...args);
+            } catch(err) {
+                this.logger.error(`Error in module ${this.modules[i].constructor.name} while running ${method}`, err);
+            }
+        }
     }
 
     private statusMessage(text: string, title?: string): void {
@@ -411,6 +417,8 @@ export class SQFLintServer {
      */
     private async indexWorkspace(again = false) {
         this.currentRunParsedFiles = [];
+
+        this.logger.info("Module index...");
 
         // Calls indexWorkspace for all modules in sequence
         await this.runModules("indexWorkspace", this.workspaceRoot);
@@ -471,23 +479,11 @@ export class SQFLintServer {
      * Walks specified path while calling callback for each sqf file found.
      */
     private async getAllFiles(path: string) {
-        return new Promise<string[]>((resolve, reject) => {
-            glob(
-                path,
-                { ignore: this.settings.exclude, root: this.workspaceRoot },
-                (err, files) => {
-                    if (err) {
-                        return reject(err);
-                    }
+        return (await glob(
+            path,
+            { ignore: this.settings.exclude, root: this.workspaceRoot },
+        )).map((file) => fsPath.join(this.workspaceRoot, file));
 
-                    resolve(
-                        files.map((file) =>
-                            fsPath.join(this.workspaceRoot, file)
-                        )
-                    );
-                }
-            );
-        });
     }
 
     private loadEvents(): void {
