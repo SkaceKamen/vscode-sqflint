@@ -2,8 +2,8 @@ export class DefinitionsStorage<TValue> {
     private definitions: Record<string, TValue[]> = {};
     private definitionsByPrefix: Record<string, TValue[]> = {};
 
-    get(name: string): TValue[] | undefined {
-        return this.definitions[name];
+    get(name: string): TValue[] {
+        return this.definitions[name] ?? [];
     }
 
     add(name: string, value: TValue): void {
