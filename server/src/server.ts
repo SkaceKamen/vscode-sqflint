@@ -15,7 +15,7 @@ import {
     TextDocumentSyncKind,
     TextDocuments,
     _Connection,
-    createConnection
+    createConnection,
 } from "vscode-languageserver/node";
 import { ExtensionModule } from "./extension.module";
 import { Logger } from "./lib/logger";
@@ -306,10 +306,11 @@ export class SQFLintServer {
      */
     private async indexWorkspace(again = false) {
         // Load all pbo prefix files
-        const pboPrefixes = (await glob("**/$PBOPREFIX$", {
+        const pboPrefixes = await glob("**/$PBOPREFIX$", {
             root: this.workspaceRoot,
             ignore: this.settings.exclude,
-        })).map(f => path.join(this.workspaceRoot, f));
+            absolute: true,
+        });
 
         for (const file of pboPrefixes) {
             const contents = await fs.promises.readFile(file, "utf-8");

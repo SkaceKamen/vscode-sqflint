@@ -18,6 +18,7 @@ import {
 } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { ExtensionModule } from "../extension.module";
+import { DefinitionsStorage } from "../lib/definitions.storage";
 import { SQFLintServer, WikiDocumentation } from "../server";
 import { SqfParser } from "../sqf.parser";
 import Uri from "../uri";
@@ -97,8 +98,7 @@ export class SqfModule extends ExtensionModule {
     /** Contains documentation for operators */
     private documentation: Record<string, WikiDocumentation>;
     /** SQF Language operators */
-    private operators: { [name: string]: Operator[] } = {};
-    private operatorsByPrefix: { [prefix: string]: Operator[] } = {};
+    private operatorsStorage = new DefinitionsStorage<Operator>();
 
     private events: { [name: string]: EventDocumentation };
 
@@ -115,10 +115,11 @@ export class SqfModule extends ExtensionModule {
     }
 
     async indexWorkspace(root: string, isSecondIndex: boolean): Promise<void> {
-        const files = (await glob("**/*.sqf", {
+        const files = await glob("**/*.sqf", {
             root,
             ignore: this.server.settings.exclude,
-        })).map(f => path.join(root, f));
+            absolute: true,
+        });
 
         let parsedFiles = 0;
 
@@ -452,45 +453,10 @@ export class SqfModule extends ExtensionModule {
     }
 
     /**
-     * Returns if local variable exists.
-     */
-    private hasLocalVariable(
-        document: TextDocumentIdentifier,
-        name: string
-    ): boolean {
-        let ns;
-        return (
-            typeof (ns = this.documentVariables[document.uri]) !==
-                "undefined" && typeof ns[name] !== "undefined"
-        );
-    }
-
-    /**
      * Tries to load macro info by name.
      */
     private getGlobalMacro(name: string): GlobalMacro {
         return this.globalMacros[name.toLowerCase()] || null;
-    }
-
-    private addOperatorInfo(ident: string, operator: Operator) {
-        // Add operator to prefixed map
-        for (let l = 1; l <= 3; l++) {
-            const prefix = ident.toLowerCase().substring(0, l);
-
-            let subOperator = this.operatorsByPrefix[prefix];
-            if (!subOperator) {
-                subOperator = this.operatorsByPrefix[prefix] = [];
-            }
-
-            subOperator.push(operator);
-        }
-
-        if (!this.operators[ident]) {
-            this.operators[ident] = [];
-        }
-
-        // Save to the list
-        this.operators[ident].push(operator);
     }
 
     async loadDocumentation() {
@@ -501,25 +467,25 @@ export class SqfModule extends ExtensionModule {
 
         this.documentation = JSON.parse(data);
 
+        // Load documentation into operators
         for (const [ident, data] of Object.entries(this.documentation)) {
-            if (this.operators[ident]) {
+            const existing = this.operatorsStorage.get(ident);
+
+            if (existing.length > 0) {
                 // Update existing operator definition
-                for (const operator of this.operators[ident]) {
+                for (const operator of existing) {
                     operator.name = data.title;
                     operator.wiki = data;
                 }
             } else {
-                // Prepare data
-                const item = {
+                this.operatorsStorage.add(ident, {
                     name: data.title,
                     left: "",
                     right: "",
                     type: OperatorType.Binary,
                     documentation: "",
                     wiki: data,
-                };
-
-                this.addOperatorInfo(ident, item);
+                });
             }
         }
     }
@@ -579,10 +545,10 @@ export class SqfModule extends ExtensionModule {
             }
 
             const ident = data.name.toLowerCase();
-            const existingOperator = this.operators[ident];
+            const existingOperator = this.operatorsStorage.get(ident);
 
             if (!existingOperator) {
-                this.addOperatorInfo(ident, data);
+                this.operatorsStorage.add(ident, data);
             } else {
                 existingOperator.push(data);
             }
@@ -815,37 +781,13 @@ export class SqfModule extends ExtensionModule {
     }
 
     /**
-     * Returns if global variable with specified name exists.
-     */
-    private hasGlobalVariable(name: string): boolean {
-        return typeof this.globalVariables[name.toLowerCase()] !== "undefined";
-    }
-
-    private findOperators(params: TextDocumentPositionParams): Operator[] {
-        let found: Operator[] = [];
-        const hover = this.server.getNameFromParams(params).toLowerCase();
-
-        for (const name in this.operators) {
-            if (
-                name.length >= hover.length &&
-                name.substr(0, hover.length) == hover
-            ) {
-                found = found.concat(this.operators[name]);
-            }
-        }
-
-        return found;
-    }
-
-    /**
      * Tries to fetch event info at specified position.
      */
     private findEvent(params: TextDocumentPositionParams): EventDocumentation {
         // Only search for events, when we find plain ident enclosed in quotes
-        const found = this.server.getNameFromParams(
-            params,
-            "[a-z0-9_\"']"
-        ).toLowerCase();
+        const found = this.server
+            .getNameFromParams(params, "[a-z0-9_\"']")
+            .toLowerCase();
         if (
             /["']/.test(found.charAt(0)) &&
             /["']/.test(found.charAt(found.length - 1))
@@ -858,7 +800,9 @@ export class SqfModule extends ExtensionModule {
      * Tries to fetch operator info at specified position.
      */
     private findOperator(params: TextDocumentPositionParams): Operator[] {
-        return this.operators[this.server.getNameFromParams(params).toLowerCase()];
+        return this.operatorsStorage.get(
+            this.server.getNameFromParams(params).toLowerCase()
+        );
     }
 
     public onReferences(params: ReferenceParams): Location[] {
@@ -1004,12 +948,14 @@ export class SqfModule extends ExtensionModule {
                 position: backup.position,
             });
             const docs =
-                    this.documentation[
-                        this.server.getNameFromParams({
+                this.documentation[
+                    this.server
+                        .getNameFromParams({
                             textDocument: params.textDocument,
                             position: backup.position,
-                        }).toLowerCase()
-                    ];
+                        })
+                        .toLowerCase()
+                ];
 
             const signatures: SignatureInformation[] = [];
             const signature: SignatureHelp = {
@@ -1043,9 +989,9 @@ export class SqfModule extends ExtensionModule {
 
                     signatures.push({
                         label:
-                                (item.left ? item.left + " " : "") +
-                                item.name +
-                                (item.right ? " " + item.right : ""),
+                            (item.left ? item.left + " " : "") +
+                            item.name +
+                            (item.right ? " " + item.right : ""),
                         parameters: parameters,
                     });
                 }
@@ -1053,7 +999,6 @@ export class SqfModule extends ExtensionModule {
                 return signature;
             }
         }
-
     }
 
     private walkBackToOperator(params: TextDocumentPositionParams): {
@@ -1097,33 +1042,19 @@ export class SqfModule extends ExtensionModule {
         return null;
     }
 
-    public onCompletion(params: TextDocumentPositionParams, hover: string): CompletionItem[] {
+    public onCompletion(
+        params: TextDocumentPositionParams,
+        hover: string
+    ): CompletionItem[] {
         const items: CompletionItem[] = [];
 
-        // Use prefix lookup for smaller items
-        if (hover.length <= 3) {
-            const operators = this.operatorsByPrefix[hover];
-            for (const index in operators) {
-                const operator = operators[index];
-                items.push({
-                    label: operator.name,
-                    kind: CompletionItemKind.Function,
-                });
-            }
-        } else {
-            for (const ident in this.operators) {
-                const operator = this.operators[ident];
-
-                if (
-                    ident.length >= hover.length &&
-                    ident.substr(0, hover.length) == hover
-                ) {
-                    items.push({
-                        label: operator[0].name,
-                        kind: CompletionItemKind.Function,
-                    });
-                }
-            }
+        const operators = this.operatorsStorage.find(hover);
+        for (const index in operators) {
+            const operator = operators[index];
+            items.push({
+                label: operator.name,
+                kind: CompletionItemKind.Function,
+            });
         }
 
         const local = this.findLocalVariables(params.textDocument, hover);
@@ -1176,8 +1107,10 @@ export class SqfModule extends ExtensionModule {
     }
 
     public onCompletionResolve(item: CompletionItem): CompletionItem {
-        const documentation = this.documentation[item.label.toLowerCase()];
-        const operator = this.operators[item.label.toLowerCase()];
+        const name = item.label.toLowerCase();
+        const documentation = this.documentation[name];
+        const operator = this.operatorsStorage.get(name);
+
         let event: EventDocumentation = null;
         let text = "";
 

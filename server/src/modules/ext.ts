@@ -99,6 +99,7 @@ export class ExtModule extends ExtensionModule {
             const configs = await glob("**/config.cpp", {
                 ignore: settings.exclude,
                 root,
+                absolute: true,
             });
 
             this.files = files.concat(

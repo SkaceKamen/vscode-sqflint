@@ -1,9 +1,15 @@
-import * as fs from 'fs';
-import { glob } from 'glob';
-import { CompletionItem, CompletionItemKind, Hover, InitializeParams, TextDocumentPositionParams } from 'vscode-languageserver';
+import * as fs from "fs";
+import { glob } from "glob";
+import {
+    CompletionItem,
+    CompletionItemKind,
+    Hover,
+    InitializeParams,
+    TextDocumentPositionParams,
+} from "vscode-languageserver";
 import { ExtensionModule } from "../extension.module";
-import { Docstring } from '../parsers/docstring';
-import { Hpp } from '../parsers/hpp';
+import { Docstring } from "../parsers/docstring";
+import { Hpp } from "../parsers/hpp";
 import Uri from "../uri";
 
 export class MissionModule extends ExtensionModule {
@@ -16,13 +22,15 @@ export class MissionModule extends ExtensionModule {
         Hpp.onFilename = (filename: string): void => {
             this.sendDiagnostics({
                 uri: Uri.file(filename).toString(),
-                diagnostics: []
+                diagnostics: [],
             });
         };
 
         // This allows loading document contents if it's opened directly
         Hpp.tryToLoad = (filename: string): string => {
-            const document = this.server.documents.get(Uri.file(filename).toString());
+            const document = this.server.documents.get(
+                Uri.file(filename).toString()
+            );
             if (document) {
                 return document.getText();
             }
@@ -35,41 +43,51 @@ export class MissionModule extends ExtensionModule {
     public async indexWorkspace(root: string): Promise<void> {
         const settings = this.getSettings();
 
-        this.logger.info('Searching for mission files');
+        this.logger.info("Searching for mission files");
 
-        const discovered = await glob("**/mission.sqm", { ignore: settings.exclude, root });
+        const discovered = await glob("**/mission.sqm", {
+            ignore: settings.exclude,
+            root,
+            absolute: true,
+        });
+
         for (const item of discovered) {
             await this.parse(item);
         }
     }
 
-    public onCompletion(params: TextDocumentPositionParams, name: string): CompletionItem[] {
-        return this.findVariables(name).map(name => {
-            return {
-                label: name,
-                data: name,
-                filterText: name,
-                insertText: name,
-                kind: CompletionItemKind.Variable as CompletionItemKind
-            };
-        }).concat(
-            this.findMarkers(name).map((name) => {
+    public onCompletion(
+        params: TextDocumentPositionParams,
+        name: string
+    ): CompletionItem[] {
+        return this.findVariables(name)
+            .map((name) => {
                 return {
                     label: name,
                     data: name,
                     filterText: name,
-                    insertText: '"' + name + '"',
-                    kind: CompletionItemKind.Enum as CompletionItemKind
+                    insertText: name,
+                    kind: CompletionItemKind.Variable as CompletionItemKind,
                 };
             })
-        );
+            .concat(
+                this.findMarkers(name).map((name) => {
+                    return {
+                        label: name,
+                        data: name,
+                        filterText: name,
+                        insertText: '"' + name + '"',
+                        kind: CompletionItemKind.Enum as CompletionItemKind,
+                    };
+                })
+            );
     }
 
     public onHover(params: TextDocumentPositionParams, name: string): Hover {
         const variable = this.getVariable(name);
         if (variable) {
             return {
-                contents: 'Object defined in mission.'
+                contents: "Object defined in mission.",
             };
         }
     }
@@ -80,21 +98,21 @@ export class MissionModule extends ExtensionModule {
 
     public findVariables(query: string): string[] {
         return Object.keys(this.variables)
-            .filter(n => n.indexOf(query.toLowerCase()) >= 0)
-            .map(n => this.variables[n]);
+            .filter((n) => n.indexOf(query.toLowerCase()) >= 0)
+            .map((n) => this.variables[n]);
     }
 
     public findMarkers(query: string): string[] {
         return Object.keys(this.markers)
-            .filter(n => n.indexOf(query.toLowerCase()) >= 0)
-            .map(n => this.markers[n]);
+            .filter((n) => n.indexOf(query.toLowerCase()) >= 0)
+            .map((n) => this.markers[n]);
     }
 
     /**
      * Tries to parse mission description.ext, if exists.
      */
     private parse(file: string): Promise<void> {
-        if (!file.endsWith('description.ext')) return Promise.resolve();
+        if (!file.endsWith("description.ext")) return Promise.resolve();
 
         return new Promise<void>((resolve) => {
             if (fs.existsSync(file)) {
@@ -109,21 +127,20 @@ export class MissionModule extends ExtensionModule {
      * Parses description.ext file.
      */
     private async parseFile(filename: string): Promise<void> {
-        this.logger.info('Parsing mission file: ' + filename);
+        this.logger.info("Parsing mission file: " + filename);
 
         try {
             Hpp.setPaths(this.getSettings().includePrefixes);
             this.process(await Hpp.parse(filename), filename);
-        } catch(error) {
+        } catch (error) {
             // Skip errors, probably binarized mission
         }
     }
 
-
     private process(context: Hpp.ClassBody, filename: string): void {
-        const mission = context.classes['mission'];
+        const mission = context.classes["mission"];
         if (!mission) return;
-        const entities = mission.body.classes['entities'];
+        const entities = mission.body.classes["entities"];
         if (!entities) return;
         this.processEntities(entities, filename);
     }
@@ -133,7 +150,7 @@ export class MissionModule extends ExtensionModule {
      */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     private processEntities(entities: Hpp.Class, filename: string): void {
-        Object.keys(entities.body.classes).forEach(c => {
+        Object.keys(entities.body.classes).forEach((c) => {
             this.processEntity(entities.body.classes[c]);
         });
     }
@@ -142,14 +159,14 @@ export class MissionModule extends ExtensionModule {
         let name: string;
 
         switch (entity.body.variables.datatype.toLowerCase()) {
-        case 'marker': {
+        case "marker": {
             name = entity.body.variables.name;
             if (name) {
                 this.markers[name.toLowerCase()] = name;
             }
             break;
         }
-        case 'group': {
+        case "group": {
             const atts = entity.body.classes.attributes;
             if (atts) {
                 const name = atts.body.variables.name;
@@ -159,10 +176,12 @@ export class MissionModule extends ExtensionModule {
             }
 
             const entities = entity.body.classes.entities.body.classes;
-            Object.keys(entities).forEach(c => this.processEntity(entities[c]));
+            Object.keys(entities).forEach((c) =>
+                this.processEntity(entities[c])
+            );
             break;
         }
-        case 'object': {
+        case "object": {
             const atts = entity.body.classes.attributes;
             if (atts) {
                 const name = atts.body.variables.name;
@@ -172,7 +191,7 @@ export class MissionModule extends ExtensionModule {
             }
             break;
         }
-        case 'logic': {
+        case "logic": {
             name = entity.body.variables.name;
             if (name) {
                 this.variables[name.toLowerCase()] = name;
@@ -183,8 +202,7 @@ export class MissionModule extends ExtensionModule {
     }
 }
 
-export interface Function
-{
+export interface Function {
     name: string;
     filename: string;
     info?: Docstring.Info;
