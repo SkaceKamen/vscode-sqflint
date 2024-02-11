@@ -104,6 +104,8 @@ export class MissionModule extends Module {
      * Tries to parse mission description.ext, if exists.
      */
     private parse(file: string): Promise<void> {
+        if (!file.endsWith('description.ext')) return Promise.resolve();
+
         return new Promise<void>((resolve) => {
             if (fs.existsSync(file)) {
                 resolve(this.parseFile(file));

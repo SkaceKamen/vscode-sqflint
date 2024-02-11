@@ -1,18 +1,24 @@
-import * as fs from 'fs';
-import * as path from 'path';
-import * as glob from 'glob';
-import { SQFLint } from '../sqflint';
-import { Hpp } from '../parsers/hpp';
-
-import { Diagnostic, DiagnosticSeverity, InitializeParams, CompletionItem, CompletionItemKind, Hover, TextDocumentPositionParams, Location } from 'vscode-languageserver/node';
+import * as fs from "fs";
+import * as glob from "glob";
+import * as path from "path";
+import { TextDocument } from "vscode-languageserver-textdocument";
+import {
+    CompletionItem,
+    CompletionItemKind,
+    Diagnostic,
+    DiagnosticSeverity,
+    Hover,
+    InitializeParams,
+    Location,
+    TextDocumentPositionParams,
+} from "vscode-languageserver/node";
+import { Logger } from "../lib/logger";
 import { Module } from "../module";
+import { Docstring } from "../parsers/docstring";
+import { Hpp } from "../parsers/hpp";
+import { SQFLintServer } from "../server";
+import { SingleRunner } from "../single.runner";
 import Uri from "../uri";
-import { SingleRunner } from '../single.runner';
-
-import { Docstring } from '../parsers/docstring';
-import { SQFLintServer } from '../server';
-import { Logger } from '../lib/logger';
-import { TextDocument } from 'vscode-languageserver-textdocument';
 
 interface Documentation {
     name: string;
@@ -22,19 +28,21 @@ interface Documentation {
 }
 
 export class ExtModule extends Module {
-    private single: SingleRunner = new SingleRunner(20);
+    private single: SingleRunner = new SingleRunner(5);
 
-    public functions: { [descriptionFile: string]: { [functionName: string]: Function } } = {};
+    public functions: {
+        [descriptionFile: string]: { [functionName: string]: Function };
+    } = {};
     private documentation: { [variable: string]: Documentation } = {};
 
     private files: string[] = [];
 
-    private logger: Logger
+    private logger: Logger;
 
     constructor(server: SQFLintServer) {
         super(server);
 
-        this.logger = server.loggerContext.createLogger('ext-module');
+        this.logger = server.loggerContext.createLogger("ext-module");
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -45,13 +53,15 @@ export class ExtModule extends Module {
         Hpp.onFilename = (filename: string): void => {
             this.sendDiagnostics({
                 uri: Uri.file(filename).toString(),
-                diagnostics: []
+                diagnostics: [],
             });
         };
 
         // This allows loading document contents if it's opened directly
         Hpp.tryToLoad = (filename: string): string => {
-            const document = this.server.documents.get(Uri.file(filename).toString());
+            const document = this.server.documents.get(
+                Uri.file(filename).toString()
+            );
             if (document) {
                 return document.getText();
             }
@@ -62,16 +72,19 @@ export class ExtModule extends Module {
     }
 
     private loadDocumentation(): void {
-        fs.readFile(__dirname + "/../../../definitions/description-values.json", (err, data) => {
-            if (err) throw err;
+        fs.readFile(
+            __dirname + "/../../../definitions/description-values.json",
+            (err, data) => {
+                if (err) throw err;
 
-            const info = JSON.parse(data.toString());
-            const items = info.properties;
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
-                this.documentation[item.name.toLowerCase()] = item;
+                const info = JSON.parse(data.toString());
+                const items = info.properties;
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    this.documentation[item.name.toLowerCase()] = item;
+                }
             }
-        });
+        );
     }
 
     public indexWorkspace(root: string): Promise<void> {
@@ -80,26 +93,59 @@ export class ExtModule extends Module {
 
             // Predefined files or empty list
             const files =
-                settings.descriptionFiles.map(file => path.isAbsolute(file) ? file : path.join(root, file))
-                || [];
+                settings.descriptionFiles.map((file) =>
+                    path.isAbsolute(file) ? file : path.join(root, file)
+                ) || [];
 
             // Try to disco
             if (settings.discoverDescriptionFiles) {
-                glob("**/description.ext", { ignore: settings.exclude, root }, (err, discovered) => {
-                    if (err) {
-                        this.logger.error('Issue when scanning for description.ext');
-                        this.logger.error(err.message);
+                glob(
+                    "**/description.ext",
+                    { ignore: settings.exclude, root },
+                    (err, discovered) => {
+                        if (err) {
+                            this.logger.error(
+                                "Issue when scanning for description.ext"
+                            );
+                            this.logger.error(err.message);
+                        }
+
+                        this.files = files.concat(
+                            discovered.map((item) => path.join(root, item))
+                        );
+                        this.files.forEach((item) => {
+                            this.logger.debug(`Parsing: ${item}`);
+                            this.parse(item);
+                            this.logger.debug(`Parsed: ${item}`);
+                        });
+
+                        resolve();
                     }
+                );
 
-                    this.files = files.concat(discovered.map(item => path.join(root, item)));
-                    this.files.forEach(item => {
-                        this.logger.debug(`Parsing: ${item}`);
-                        this.parse(item);
-                        this.logger.debug(`Parsed: ${item}`);
-                    });
+                glob(
+                    "**/config.cpp",
+                    { ignore: settings.exclude, root },
+                    (err, discovered) => {
+                        if (err) {
+                            this.logger.error(
+                                "Issue when scanning for configs"
+                            );
+                            this.logger.error(err.message);
+                        }
 
-                    resolve();
-                });
+                        this.files = files.concat(
+                            discovered.map((item) => path.join(root, item))
+                        );
+                        this.files.forEach((item) => {
+                            this.logger.debug(`Parsing: ${item}`);
+                            this.parse(item);
+                            this.logger.debug(`Parsed: ${item}`);
+                        });
+
+                        resolve();
+                    }
+                );
             } else {
                 const descPath = path.join(root, "description.ext");
                 if (fs.existsSync(descPath)) {
@@ -107,7 +153,7 @@ export class ExtModule extends Module {
                 }
 
                 this.files = files;
-                this.files.forEach(item => {
+                this.files.forEach((item) => {
                     this.logger.debug(`Parsing: ${item}`);
                     this.parse(item);
                     this.logger.debug(`Parsed: ${item}`);
@@ -118,11 +164,12 @@ export class ExtModule extends Module {
         });
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public parseDocument(textDocument: TextDocument, linter?: SQFLint): Promise<void> {
+    public async parseDocument(textDocument: TextDocument) {
         const uri = Uri.parse(textDocument.uri);
-
-        if (path.basename(uri.fsPath) != "description.ext" && path.extname(uri.fsPath) != ".hpp") {
+        if (
+            path.basename(uri.fsPath) !== "description.ext" &&
+            path.extname(uri.fsPath) != ".hpp"
+        ) {
             return Promise.resolve();
         }
 
@@ -132,7 +179,7 @@ export class ExtModule extends Module {
                 if (path.basename(uri.fsPath) == "description.ext") {
                     resolve(this.parseFile(uri.fsPath));
                 } else if (path.extname(uri.fsPath) == ".hpp") {
-                    this.files.forEach(item => this.parse(item));
+                    this.files.forEach((item) => this.parse(item));
                     resolve();
                 } else {
                     resolve();
@@ -141,7 +188,10 @@ export class ExtModule extends Module {
         });
     }
 
-    public onCompletion(params: TextDocumentPositionParams, name: string): CompletionItem[] {
+    public onCompletion(
+        params: TextDocumentPositionParams,
+        name: string
+    ): CompletionItem[] {
         const items: CompletionItem[] = [];
 
         if (path.extname(params.textDocument.uri).toLowerCase() == ".sqf") {
@@ -149,31 +199,48 @@ export class ExtModule extends Module {
             for (const file in this.functions) {
                 for (const ident in this.functions[file]) {
                     const fnc = this.functions[file][ident];
-                    if (ident.length >= name.length && ident.substr(0, name.length) == name) {
+                    if (
+                        ident.length >= name.length &&
+                        ident.substr(0, name.length) == name
+                    ) {
                         items.push({
                             label: fnc.name,
                             data: ident,
                             filterText: fnc.name,
                             insertText: fnc.name,
-                            kind: CompletionItemKind.Function
+                            kind: CompletionItemKind.Function,
                         });
                     }
                 }
             }
         }
 
-        if (path.basename(params.textDocument.uri).toLowerCase() == "description.ext") {
+        if (
+            path.basename(params.textDocument.uri).toLowerCase() ==
+            "description.ext"
+        ) {
             for (const ident in this.documentation) {
                 const value = this.documentation[ident];
-                if (ident.length >= name.length && ident.substr(0, name.length) == name) {
+                if (
+                    ident.length >= name.length &&
+                    ident.substr(0, name.length) == name
+                ) {
                     // Build replacement string based on value type
                     let replace = value.name;
-                    switch(value.type.toLowerCase()) {
-                    case "string": replace = value.name + " = \""; break;
+                    switch (value.type.toLowerCase()) {
+                    case "string":
+                        replace = value.name + ' = "';
+                        break;
                     case "array":
-                    case "array of strings": replace = value.name + "[] = {"; break;
-                    case "class": replace = "class " + value.name + "\n{\n"; break;
-                    default: replace = value.name + " = "; break;
+                    case "array of strings":
+                        replace = value.name + "[] = {";
+                        break;
+                    case "class":
+                        replace = "class " + value.name + "\n{\n";
+                        break;
+                    default:
+                        replace = value.name + " = ";
+                        break;
                     }
 
                     items.push({
@@ -182,7 +249,7 @@ export class ExtModule extends Module {
                         filterText: replace,
                         insertText: replace,
                         kind: CompletionItemKind.Property,
-                        documentation: value.description
+                        documentation: value.description,
                     });
                 }
             }
@@ -207,12 +274,13 @@ export class ExtModule extends Module {
                         contents +=
                             "\r\n" +
                             info.parameters
-                                .map((param ,index) => {
+                                .map((param, index) => {
                                     if (param.name)
                                         return `${index}. \`${param.name} (${param.type})\` - ${param.description}`;
                                     return `${index}. \`${param.type}\` - ${param.description}`;
                                 })
-                                .join("\r\n") + "\r\n\r\n";
+                                .join("\r\n") +
+                            "\r\n\r\n";
                     }
 
                     contents += "```sqf\r\n(function)";
@@ -225,14 +293,21 @@ export class ExtModule extends Module {
                         if (info.parameter) {
                             args = info.parameter.type;
                         } else if (info.parameters.length > 0) {
-                            args = "[" + info.parameters.map((param, index) => {
-                                const name = param.name || `_${param.type.toLowerCase()}${index}`;
-                                if (param.optional && param.default) {
-                                    return `${name}=${param.default}`;
-                                }
+                            args =
+                                "[" +
+                                info.parameters
+                                    .map((param, index) => {
+                                        const name =
+                                            param.name ||
+                                            `_${param.type.toLowerCase()}${index}`;
+                                        if (param.optional && param.default) {
+                                            return `${name}=${param.default}`;
+                                        }
 
-                                return name;
-                            }).join(',') + "]";
+                                        return name;
+                                    })
+                                    .join(",") +
+                                "]";
                         }
                     }
 
@@ -243,11 +318,15 @@ export class ExtModule extends Module {
             }
         }
 
-        if (path.basename(params.textDocument.uri).toLowerCase() == "description.ext") {
+        if (
+            path.basename(params.textDocument.uri).toLowerCase() ==
+            "description.ext"
+        ) {
             const item = this.documentation[name];
 
             if (item) {
-                const contents = item.description + " _([more info](" + item.link + "))_";
+                const contents =
+                    item.description + " _([more info](" + item.link + "))_";
                 return { contents };
             }
         }
@@ -255,7 +334,10 @@ export class ExtModule extends Module {
         return null;
     }
 
-    public onDefinition(params: TextDocumentPositionParams, name: string): Location[] {
+    public onDefinition(
+        params: TextDocumentPositionParams,
+        name: string
+    ): Location[] {
         const fun = this.getFunction(name);
         if (!fun) return [];
 
@@ -264,9 +346,9 @@ export class ExtModule extends Module {
                 uri: Uri.file(fun.filename).toString(),
                 range: {
                     start: { line: 0, character: 0 },
-                    end: { line: 0, character: 1 }
-                }
-            }
+                    end: { line: 0, character: 1 },
+                },
+            },
         ];
     }
 
@@ -294,44 +376,36 @@ export class ExtModule extends Module {
     /**
      * Parses description.ext file.
      */
-    private parseFile(filename: string): Promise<void> {
-        return new Promise<void>((resolve) => {
-            fs.readFile(filename, () => {
-                try {
-                    this.logger.debug(`Proccessing: ${filename}`);
-                    Hpp.setPaths(this.getSettings().includePrefixes);
-                    this.process(Hpp.parse(filename), filename);
-                    this.logger.debug(`Proccessed: ${filename}`);
+    private async parseFile(filename: string) {
+        try {
+            this.logger.debug(`Parsing: ${filename}`);
+            Hpp.setPaths(this.getSettings().includePrefixes);
+            this.process(await Hpp.parse(filename), filename);
+            this.logger.debug(`Parsed: ${filename}`);
 
-                    // Clear diagnostics
-                    this.sendDiagnostics({
-                        uri: Uri.file(filename).toString(),
-                        diagnostics: []
-                    });
-
-                } catch(error) {
-                    if (error instanceof Hpp.ParseError && error.filename) {
-                        this.sendDiagnostics({
-                            uri: Uri.file(error.filename).toString(),
-                            diagnostics:  [
-                                {
-                                    severity: DiagnosticSeverity.Error,
-                                    range: error.range,
-                                    message: error.message,
-                                    source: "sqflint"
-                                }
-                            ]
-                        });
-                    } else {
-                        console.error(error);
-                    }
-                }
-
-                resolve();
+            // Clear diagnostics
+            this.sendDiagnostics({
+                uri: Uri.file(filename).toString(),
+                diagnostics: [],
             });
-        });
+        } catch (error) {
+            if (error instanceof Hpp.ParseError && error.filename) {
+                this.sendDiagnostics({
+                    uri: Uri.file(error.filename).toString(),
+                    diagnostics: [
+                        {
+                            severity: DiagnosticSeverity.Error,
+                            range: error.range,
+                            message: error.message,
+                            source: "sqflint",
+                        },
+                    ],
+                });
+            } else {
+                console.error(error);
+            }
+        }
     }
-
 
     private process(context: Hpp.ClassBody, filename: string): void {
         const cfgFunctions = context.classes["cfgfunctions"];
@@ -344,16 +418,18 @@ export class ExtModule extends Module {
     /**
      * Loads list of functions and paths to their files.
      */
-    private processCfgFunctions(cfgFunctions: Hpp.Class, rootFilename: string): void {
+    private processCfgFunctions(
+        cfgFunctions: Hpp.Class,
+        rootFilename: string
+    ): void {
         const settings = this.getSettings();
         const diagnostics: { [uri: string]: Diagnostic[] } = {};
         const root = path.dirname(rootFilename);
 
-        const functions = this.functions[rootFilename] = {};
+        const functions = (this.functions[rootFilename] = {});
         let functionsCount = 0;
 
         for (let tag in cfgFunctions.body.classes) {
-
             const tagClass = cfgFunctions.body.classes[tag];
             tag = tagClass.body.variables.tag || tagClass.name;
 
@@ -369,7 +445,7 @@ export class ExtModule extends Module {
                 let categoryPath = path.join("functions", category);
 
                 // Tagname for this category, can be overriden
-                const categoryTag = (categoryClass.body.variables["tag"]) || tag;
+                const categoryTag = categoryClass.body.variables["tag"] || tag;
 
                 // Category path can be overriden if requested
                 const categoryOverride = categoryClass.body.variables["file"];
@@ -378,20 +454,26 @@ export class ExtModule extends Module {
                 }
 
                 for (let functionName in categoryClass.body.classes) {
-                    const functionClass = categoryClass.body.classes[functionName];
+                    const functionClass =
+                        categoryClass.body.classes[functionName];
                     functionName = functionClass.name;
 
                     // Extension can be changed to sqm
                     const ext = functionClass.body.variables["ext"] || ".sqf";
 
                     // Full function name
-                    const fullFunctionName = categoryTag + "_fnc_" + functionName;
+                    const fullFunctionName =
+                        categoryTag + "_fnc_" + functionName;
 
                     // Default filename
-                    let filename = path.join(categoryPath, "fn_" + functionName + ext);
+                    let filename = path.join(
+                        categoryPath,
+                        "fn_" + functionName + ext
+                    );
 
                     // Filename can be overriden by attribute
-                    const filenameOverride = functionClass.body.variables["file"];
+                    const filenameOverride =
+                        functionClass.body.variables["file"];
                     if (filenameOverride) {
                         filename = filenameOverride;
                     }
@@ -400,10 +482,20 @@ export class ExtModule extends Module {
                         for (const prefix in settings.includePrefixes) {
                             if (filename.startsWith(prefix)) {
                                 foundPrefix = true;
-                                if (path.isAbsolute(settings.includePrefixes[prefix])) {
-                                    filename = settings.includePrefixes[prefix] + filename.slice(prefix.length);
+                                if (
+                                    path.isAbsolute(
+                                        settings.includePrefixes[prefix]
+                                    )
+                                ) {
+                                    filename =
+                                        settings.includePrefixes[prefix] +
+                                        filename.slice(prefix.length);
                                 } else {
-                                    filename = path.join(root, settings.includePrefixes[prefix] + filename.slice(prefix.length));
+                                    filename = path.join(
+                                        root,
+                                        settings.includePrefixes[prefix] +
+                                            filename.slice(prefix.length)
+                                    );
                                 }
                                 break;
                             }
@@ -419,37 +511,43 @@ export class ExtModule extends Module {
                     // Save the function
                     functions[fullFunctionName.toLowerCase()] = {
                         filename: filename,
-                        name: fullFunctionName
+                        name: fullFunctionName,
                     };
 
                     // Check file existence
                     if (!fs.existsSync(filename)) {
-                        const fname = functionClass.fileLocation.filename || rootFilename;
+                        const fname =
+                            functionClass.fileLocation.filename || rootFilename;
                         const uri = Uri.file(fname).toString();
 
                         if (!diagnostics[uri]) {
                             diagnostics[uri] = [];
                         }
 
-                        diagnostics[uri].push(
-                            {
-                                severity: DiagnosticSeverity.Error,
-                                range: functionClass.fileLocation.range,
-                                message: "Failed to find " + filename + " for function " + fullFunctionName + ".",
-                                source: "sqflint"
-                            }
-                        );
+                        diagnostics[uri].push({
+                            severity: DiagnosticSeverity.Error,
+                            range: functionClass.fileLocation.range,
+                            message:
+                                "Failed to find " +
+                                filename +
+                                " for function " +
+                                fullFunctionName +
+                                ".",
+                            source: "sqflint",
+                        });
                     }
                 }
             }
         }
 
-        this.logger.debug(`Detected a total of ${functionsCount} in ${rootFilename}`);
+        this.logger.debug(
+            `Detected a total of ${functionsCount} in ${rootFilename}`
+        );
 
         for (const uri in diagnostics) {
             this.sendDiagnostics({
                 uri: uri,
-                diagnostics: diagnostics[uri]
+                diagnostics: diagnostics[uri],
             });
         }
 

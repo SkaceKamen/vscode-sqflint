@@ -1,275 +1,287 @@
-import { Java } from './java';
-import * as path from 'path';
-import { ChildProcess } from "child_process";
-import { LoggerContext } from './lib/logger-context';
-import { Logger } from './lib/logger';
+import {
+    getLocationFromOffset,
+    getMappedOffsetAt,
+    preprocess,
+} from "@bi-tools/preprocessor";
+import { analyzeSqf } from "@bi-tools/sqf-analyzer";
+import {
+    SqfParserError,
+    parseSqfTokens,
+    tokenizeSqf,
+} from "@bi-tools/sqf-parser";
+import * as fs from "fs";
+import * as path from "path";
+import { Logger } from "./lib/logger";
+import { LoggerContext } from "./lib/logger-context";
 
-
-function emitLines(stream): void {
-    let backlog = '';
-    stream.on('data', function (data) {
-        backlog += data;
-        let n = backlog.indexOf('\n');
-        // got a \n? emit one or more 'line' events
-        while (~n) {
-            stream.emit('line', backlog.substring(0, n));
-            backlog = backlog.substring(n + 1);
-            n = backlog.indexOf('\n');
-        }
-    });
-    stream.on('end', function () {
-        if (backlog) {
-            stream.emit('line', backlog);
-        }
-    });
-}
+type Options = {
+    includePrefixes: Map<string, string>;
+};
 
 /**
  * Class allowing abstract interface for accessing sqflint CLI.
  */
 export class SQFLint {
-    // This is list of waiting results
-    private waiting: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        [filename: string]: ((info: SQFLint.ParseInfo) => any);
-    } = {};
-
-    // Currently running sqflint process
-    private childProcess: ChildProcess;
-
     private logger: Logger;
 
     constructor(context: LoggerContext) {
-        this.logger = context.createLogger('sqflint');
-    }
-
-    /**
-     * Launches sqflint process and assigns basic handlers.
-     */
-    private launchProcess(): void {
-        this.childProcess = Java.spawn(
-            path.join(__dirname, "..", "bin", "SQFLint.jar"),
-            [
-                "-j"
-                ,"-v"
-                ,"-s"
-                // ,"-bl"
-            ]
-        );
-
-        // Fix for nodejs issue (see https://gist.github.com/TooTallNate/1785026)
-        emitLines(this.childProcess.stdout);
-
-        this.childProcess.stdout.resume();
-        this.childProcess.stdout.setEncoding('utf-8');
-        this.childProcess.stdout.on('line', line => this.processLine(line.toString()));
-
-        this.childProcess.stderr.on('data', data => {
-            let dataStr: string = data.toString().trim();
-            if (dataStr.startsWith('\n')) {
-                dataStr = dataStr.substring(1).trim();
-            }
-            // benchLog begin with timestamp
-            // TODO find better filter
-            this.logger.error(dataStr.startsWith("158") ? "" : "SQFLint: Error message", dataStr);
-        });
-
-        this.childProcess.on('error', msg => {
-            this.logger.error("SQFLint: Process crashed", msg);
-            this.childProcess = null;
-            this.flushWaiters();
-        });
-
-        this.childProcess.on('close', code => {
-            if (code != 0) {
-                this.logger.error("SQFLint: Process crashed with code", code);
-            } else {
-                this.logger.info('Background server stopped');
-            }
-
-            this.childProcess = null;
-            this.flushWaiters();
-        });
-    }
-
-    /**
-     * Calls all waiters with empty result and clears the waiters list.
-     */
-    private flushWaiters(): void {
-        for (const i in this.waiting) {
-            this.waiting[i](new SQFLint.ParseInfo());
-        }
-        this.waiting = {};
-    }
-
-    /**
-     * Processes sqflint server line
-     * @param line sqflint output line in server mode
-     */
-    private processLine(line: string): void {
-        // Prepare result info
-        const info = new SQFLint.ParseInfo();
-
-        // Skip empty lines
-        if (line.replace(/(\r\n|\n|\r)/gm, "").length == 0) {
-            return;
-        }
-
-        // Parse message
-        let serverMessage: RawServerMessage;
-        try {
-            serverMessage = JSON.parse(line) as RawServerMessage;
-        } catch (ex) {
-            console.error("SQFLint: Failed to parse server output.");
-            console.error(line);
-            return;
-        }
-
-        // log some bench
-        info.timeNeededSqfLint = serverMessage.timeneeded;
-
-        // Parse messages
-        for (const l in serverMessage.messages) {
-            this.processMessage(serverMessage.messages[l], info);
-        }
-
-        // Pass result to waiter
-        const waiter = this.waiting[serverMessage.file];
-        if (waiter) {
-            waiter(info);
-            delete this.waiting[serverMessage.file];
-        } else {
-            console.error("SQFLint: Received unrequested info.");
-        }
-    }
-
-    /**
-     * Converts raw sqflint message into specific classes.
-     * @param message sqflint info message
-     * @param info used to store parsed messages
-     */
-    private processMessage(message: RawMessage, info: SQFLint.ParseInfo): void {
-        const errors: SQFLint.Error[] = info.errors;
-        const warnings: SQFLint.Warning[] = info.warnings;
-        const variables: SQFLint.VariableInfo[] = info.variables;
-        const macros: SQFLint.Macroinfo[] = info.macros;
-        const includes: SQFLint.IncludeInfo[] = info.includes;
-
-        // Preload position if present
-        let position: SQFLint.Range = null;
-        if (message.line && message.column) {
-            position = this.parsePosition(message);
-        }
-
-        // Create different wrappers based on type
-        if (message.type == "error") {
-            errors.push(new SQFLint.Error(
-                message.error || message.message,
-                position
-            ));
-        } else if (message.type == "warning") {
-            warnings.push(new SQFLint.Warning(
-                message.error || message.message,
-                position,
-                message.filename
-            ));
-        } else if (message.type == "variable") {
-            // Build variable info wrapper
-            const variable = new SQFLint.VariableInfo();
-
-            variable.name = message.variable;
-            variable.comment = this.parseComment(message.comment);
-            variable.usage = [];
-            variable.definitions = [];
-
-            // We need to convert raw positions to our format (compatible with vscode format)
-            for(const i in message.definitions) {
-                variable.definitions.push(this.parsePosition(message.definitions[i]));
-            }
-
-            for(const i in message.usage) {
-                variable.usage.push(this.parsePosition(message.usage[i]));
-            }
-
-            variables.push(variable);
-        } else if (message.type == "macro") {
-            const macro = new SQFLint.Macroinfo();
-
-            macro.name = message.macro;
-            macro.definitions = [];
-
-            if (macro.name.indexOf('(') >= 0) {
-                macro.arguments = macro.name.substr(macro.name.indexOf('('));
-                if (macro.arguments.indexOf(')') >= 0) {
-                    macro.arguments = macro.arguments.substr(0, macro.arguments.indexOf(')') + 1);
-                }
-                macro.name = macro.name.substr(0, macro.name.indexOf('('));
-            }
-
-            const defs = message.definitions as unknown as { range: RawMessagePosition; value: string; filename: string }[];
-            for(const i in defs) {
-                const definition = new SQFLint.MacroDefinition();
-                definition.position = this.parsePosition(defs[i].range);
-                definition.value = defs[i].value;
-                definition.filename = defs[i].filename;
-                macro.definitions.push(definition);
-            }
-
-            macros.push(macro);
-        } else if (message.type == "include") {
-            const include = new SQFLint.IncludeInfo();
-            include.filename = message.include;
-            include.expanded = message.expandedInclude;
-
-            includes.push(include);
-        }
+        this.logger = context.createLogger("sqflint");
     }
 
     /**
      * Parses content and returns result wrapped in helper classes.
-     * Warning: This only queues the item, the linting will start after 200ms to prevent fooding.
      */
-    public parse(filename: string, contents: string, options: SQFLint.Options): Promise<SQFLint.ParseInfo> {
-        // Cancel previous callback if exists
-        if (this.waiting[filename]) {
-            this.waiting[filename](null);
-            delete(this.waiting[filename]);
-        }
+    public async parse(
+        filename: string,
+        contents: string,
+        options?: Options
+    ): Promise<SQFLint.ParseInfo> {
+        try {
+            const preprocessErrors = [] as {
+                err: Error;
+                position: [start: number, end: number];
+            }[];
 
-        return new Promise<SQFLint.ParseInfo>((success /*, reject */): void => {
-            if (!this.childProcess) {
-                this.logger.info("Starting background server...");
-                this.launchProcess();
-                this.logger.info("Background server started");
-            }
+            const resolveImport = async (
+                includeParam: string,
+                sourceFilename: string,
+                position: [number, number]
+            ) => {
+                const matchingPrefix = [
+                    ...options.includePrefixes.entries(),
+                ].find(
+                    ([p]) =>
+                        includeParam
+                            .toLowerCase()
+                            .startsWith(p.toLowerCase()) ||
+                        includeParam
+                            .toLowerCase()
+                            .startsWith(`\\${p.toLowerCase()}`)
+                );
 
-            const startTime = new Date();
-            this.waiting[filename] = (info: SQFLint.ParseInfo): void => {
-                info.timeNeededMessagePass = new Date().valueOf() - startTime.valueOf();
-                success(info);
+                const replacePrefix = (prefix: string, include: string) => {
+                    if (
+                        include.toLowerCase().startsWith(prefix.toLowerCase())
+                    ) {
+                        return include.substring(prefix.length);
+                    }
+
+                    if (
+                        include
+                            .toLowerCase()
+                            .startsWith(`\\${prefix.toLowerCase()}`)
+                    ) {
+                        return include.substring(prefix.length + 1);
+                    }
+
+                    return include;
+                };
+
+                const resolved = matchingPrefix
+                    ? path.join(
+                          matchingPrefix[1],
+                          replacePrefix(matchingPrefix[0], includeParam)
+                      )
+                    : path.resolve(path.dirname(sourceFilename), includeParam);
+
+                try {
+                    const contents = await fs.promises.readFile(
+                        resolved,
+                        "utf-8"
+                    );
+
+                    return {
+                        contents,
+                        filename: resolved,
+                    };
+                } catch (err) {
+                    preprocessErrors.push({ err, position });
+
+                    return { contents: "", filename: "" };
+                }
             };
-            this.childProcess.stdin.write(JSON.stringify({ "file": filename, "contents": contents, "options": options }) + "\n");
-        });
-    }
 
-    /**
-     * Stops subprocess if running.
-     */
-    public stop(): void {
-        if (this.childProcess != null) {
-            this.logger.info('Stopping background server');
-            this.childProcess.stdin.write(JSON.stringify({ "type": "exit" }) + "\n");
+            const preprocessed = await preprocess(contents, {
+                filename,
+                resolveFn: resolveImport,
+            });
+
+            const sourceMap = preprocessed.sourceMap;
+            const fileContents = {} as Record<string, string>;
+
+            const getContents = async (filename: string) => {
+                if (!fileContents[filename]) {
+                    try {
+                        fileContents[filename] = await fs.promises.readFile(
+                            filename,
+                            "utf-8"
+                        );
+                    } catch (err) {
+                        console.error(
+                            "Failed to load source map file",
+                            filename,
+                            err
+                        );
+
+                        fileContents[filename] = "";
+                    }
+                }
+                return fileContents[filename];
+            };
+
+            const getProperOffset = async (offset: number) => {
+                const mapped = getMappedOffsetAt(sourceMap, offset, filename);
+
+                const location = getLocationFromOffset(
+                    mapped.offset,
+                    await getContents(mapped.file)
+                );
+
+                return location;
+            };
+
+            const offsetsToRange = async (start: number, end: number) => {
+                const startLocation = await getProperOffset(start);
+                const endLocation = await getProperOffset(end);
+
+                return new SQFLint.Range(
+                    new SQFLint.Position(
+                        startLocation.line - 1,
+                        startLocation.column - 1
+                    ),
+                    new SQFLint.Position(
+                        endLocation.line - 1,
+                        endLocation.column - 1
+                    )
+                );
+            };
+
+            try {
+                const tokens = tokenizeSqf(preprocessed.code);
+                const data = parseSqfTokens(tokens);
+                const analysis = analyzeSqf(data, tokens, preprocessed.code);
+
+                return {
+                    errors: [
+                        ...(await Promise.all(
+                            preprocessErrors.map(
+                                async (e) =>
+                                    new SQFLint.Error(
+                                        e.err.message,
+                                        await offsetsToRange(
+                                            e.position[0],
+                                            e.position[1]
+                                        )
+                                    )
+                            )
+                        )),
+                    ],
+                    warnings: [],
+                    variables: await Promise.all(
+                        Array.from(analysis.variables.values()).map(
+                            async (v) => ({
+                                name: v.originalName,
+                                comment: this.parseComment(
+                                    v.assignments
+                                        .map((a) => a.comment)
+                                        .find((a) => !!a) ?? ""
+                                ),
+                                ident: v.originalName,
+                                usage: await Promise.all(
+                                    v.usage.map((d) =>
+                                        offsetsToRange(d[0], d[1])
+                                    )
+                                ),
+                                isLocal(): boolean {
+                                    return this.name.charAt(0) == "_";
+                                },
+                                definitions: await Promise.all(
+                                    v.assignments.map((d) =>
+                                        offsetsToRange(
+                                            d.position[0],
+                                            d.position[1]
+                                        )
+                                    )
+                                ),
+                            })
+                        )
+                    ),
+                    includes: [],
+                    macros: await Promise.all(
+                        [...preprocessed.defines.values()].map(
+                            async (d): Promise<SQFLint.Macroinfo> => ({
+                                name: d.name,
+                                arguments: d.args.join(","),
+                                definitions: [
+                                    {
+                                        value: d.value,
+                                        filename: d.file,
+                                        position: await offsetsToRange(
+                                            d.location[0],
+                                            d.location[1]
+                                        ),
+                                    },
+                                ],
+                            })
+                        )
+                    ),
+                };
+            } catch (err) {
+                console.error("failed to parse", filename, err);
+                //  console.log(preprocessed.code);
+
+                return {
+                    errors: [
+                        ...(await Promise.all(
+                            preprocessErrors.map(
+                                async (e) =>
+                                    new SQFLint.Error(
+                                        e.err.message,
+                                        await offsetsToRange(
+                                            e.position[0],
+                                            e.position[1]
+                                        )
+                                    )
+                            )
+                        )),
+                        new SQFLint.Error(
+                            err.message,
+                            err instanceof SqfParserError
+                                ? await offsetsToRange(
+                                      err.token.position.from,
+                                      err.token.position.to
+                                  )
+                                : new SQFLint.Range(
+                                      new SQFLint.Position(0, 0),
+                                      new SQFLint.Position(0, 0)
+                                  )
+                        ),
+                    ],
+                    warnings: [],
+                    variables: [],
+                    includes: [],
+                    macros: [],
+                };
+            }
+        } catch (err) {
+            console.error("failed to pre-process", filename, err);
+
+            return {
+                errors: [
+                    new SQFLint.Error(
+                        err.message,
+                        new SQFLint.Range(
+                            new SQFLint.Position(0, 0),
+                            new SQFLint.Position(0, 0)
+                        )
+                    ),
+                ],
+                warnings: [],
+                variables: [],
+                includes: [],
+                macros: [],
+            };
         }
-    }
-
-    /**
-     * Converts raw position to result position.
-     */
-    private parsePosition(position: RawMessagePosition): SQFLint.Range {
-        return new SQFLint.Range(
-            new SQFLint.Position(position.line[0] - 1, position.column[0] - 1),
-            new SQFLint.Position(position.line[1] - 1, position.column[1])
-        );
     }
 
     /**
@@ -283,55 +295,26 @@ export class SQFLint {
             }
 
             if (comment.indexOf("/*") == 0) {
-                const clines = comment.substr(2, comment.length - 4).trim().split("\n");
-                for(const c in clines) {
+                const clines = comment
+                    .substr(2, comment.length - 4)
+                    .trim()
+                    .split("\n");
+                for (const c in clines) {
                     let cline = clines[c].trim();
                     if (cline.indexOf("*") == 0) {
                         cline = cline.substr(1).trim();
                     }
                     clines[c] = cline;
                 }
-                comment = clines.filter((i) => !!i).join("\r\n").trim();
+                comment = clines
+                    .filter((i) => !!i)
+                    .join("\r\n")
+                    .trim();
             }
         }
 
         return comment;
     }
-}
-
-/**
- * Raw message received from server.
- */
-interface RawServerMessage {
-    timeneeded?: number;
-    file: string;
-    messages: RawMessage[];
-}
-
-/**
- * Raw position received from sqflint CLI.
- */
-interface RawMessagePosition {
-    line: number[];
-    column: number[];
-}
-
-/**
- * Raw message received from sqflint CLI.
- */
-interface RawMessage extends RawMessagePosition {
-    type: string;
-    error?: string;
-    message?: string;
-    macro?: string;
-    filename?: string;
-    include?: string;
-    expandedInclude?: string;
-
-    variable?: string;
-    comment?: string;
-    usage: RawMessagePosition[];
-    definitions: RawMessagePosition[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -386,7 +369,7 @@ export namespace SQFLint {
         usage: Range[];
 
         public isLocal(): boolean {
-            return this.name.charAt(0) == '_';
+            return this.name.charAt(0) == "_";
         }
     }
 
@@ -396,7 +379,7 @@ export namespace SQFLint {
     export class Macroinfo {
         name: string;
         arguments: string = null;
-        definitions: MacroDefinition[]
+        definitions: MacroDefinition[];
     }
 
     /**
@@ -412,20 +395,14 @@ export namespace SQFLint {
      * vscode compatible range
      */
     export class Range {
-        constructor(
-            public start: Position,
-            public end: Position
-        ) {}
+        constructor(public start: Position, public end: Position) {}
     }
 
     /**
      * vscode compatible position
      */
     export class Position {
-        constructor(
-            public line: number,
-            public character: number
-        ) {}
+        constructor(public line: number, public character: number) {}
     }
 
     export interface Options {

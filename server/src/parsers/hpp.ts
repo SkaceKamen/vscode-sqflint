@@ -1,10 +1,13 @@
-import * as pegjs from 'pegjs';
-import * as fs from 'fs';
-import * as fsPath from 'path';
-import { SQFLint } from '../sqflint';
+import {
+    PreprocessorError,
+    preprocess as preprocessFile,
+} from "@bi-tools/preprocessor";
+import * as fs from "fs";
+import * as fsPath from "path";
+import * as pegjs from "pegjs";
+import { SQFLint } from "../sqflint";
 
-const hppParser = require('./grammars/pegjs-hpp') as pegjs.Parser;
-const hppPreprocessor = require('./grammars/pegjs-hpp-pre') as pegjs.Parser;
+const hppParser = require("./grammars/pegjs-hpp") as pegjs.Parser;
 
 interface SourceMap {
     offset: { 0: number; 1: number; 2: number; 3: number };
@@ -13,7 +16,6 @@ interface SourceMap {
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace Hpp {
-
     export class ParseError {
         constructor(
             public filename: string,
@@ -32,20 +34,28 @@ export namespace Hpp {
 
     // assigned by other class
     // eslint-disable-next-line prefer-const
-    export let tryToLoad: (filename: string) => string = () => { return null; };
+    export let tryToLoad: (filename: string) => string = () => {
+        return null;
+    };
 
     // assigned by other class
     // eslint-disable-next-line prefer-const
-    export let log: (contents: string) => void = () => { return; };
+    export let log: (contents: string) => void = () => {
+        return;
+    };
 
-    export function pegjsLocationToSqflint(location: pegjs.LocationRange, useMap = false): {
+    export function pegjsLocationToSqflint(
+        location: pegjs.LocationRange,
+        useMap = false
+    ): {
         filename: string;
         range: SQFLint.Range;
     } {
         if (useMap) {
             for (const i in preprocessorMap) {
                 const map = preprocessorMap[i];
-                if (location.start.offset >= map.offset[0] &&
+                if (
+                    location.start.offset >= map.offset[0] &&
                     location.start.offset < map.offset[1]
                 ) {
                     return {
@@ -53,13 +63,15 @@ export namespace Hpp {
                         range: {
                             start: {
                                 line: location.start.line - map.offset[2],
-                                character: location.start.column - map.offset[3] - 1
+                                character:
+                                    location.start.column - map.offset[3] - 1,
                             },
                             end: {
                                 line: location.end.line - map.offset[2],
-                                character: location.end.column - map.offset[3] - 1
-                            }
-                        } as SQFLint.Range
+                                character:
+                                    location.end.column - map.offset[3] - 1,
+                            },
+                        } as SQFLint.Range,
                     };
                 }
             }
@@ -70,13 +82,13 @@ export namespace Hpp {
             range: {
                 start: {
                     line: location.start.line - 1,
-                    character: location.start.column - 1
+                    character: location.start.column - 1,
                 },
                 end: {
                     line: location.end.line - 1,
-                    character: location.end.column - 1
-                }
-            } as SQFLint.Range
+                    character: location.end.column - 1,
+                },
+            } as SQFLint.Range,
         };
     }
 
@@ -92,7 +104,6 @@ export namespace Hpp {
     };
 
     const applyExtendsClass = (context: Class): void => {
-
         // console.log(`Class: ` + context.name, context.body ? context.body.variables : null);
 
         if (context.extends) {
@@ -122,25 +133,18 @@ export namespace Hpp {
 
             context.fileLocation = {
                 filename: info.filename,
-                range: info.range
+                range: info.range,
             };
         }
 
         applyExtends(context.body);
     };
 
-    const createParseError = (error: pegjs.PegjsError, filename: string): ParseError => {
-        const info = pegjsLocationToSqflint(error.location, true);
-        return new ParseError(
-            info.filename || filename, info.range, error.message
-        );
-    };
-
     const resolveFilename = (filename: string, root: string): string => {
         for (const [prefix, newTarget] of Object.entries(paths)) {
             if (filename.startsWith(prefix)) {
                 filename = filename.replace(prefix, newTarget);
-                
+
                 if (fsPath.isAbsolute(newTarget)) {
                     return filename;
                 }
@@ -152,106 +156,47 @@ export namespace Hpp {
         return fsPath.join(root, filename);
     };
 
-    const preprocess = (filename: string, mapOffset = 0): string => {
-        if (onFilename) {
-            onFilename(filename);
-        }
+    const preprocess = async (filename: string) => {
+        const contents =
+            tryToLoad(filename) || fs.readFileSync(filename).toString();
 
-        try {
-            let contents = tryToLoad(filename) || fs.readFileSync(filename).toString();
-            const result = hppPreprocessor.parse(contents) as PreprocessorOutput;
-            let offset = 0;
-
-            const basepath = fsPath.dirname(filename);
-
-            for (const i in result) {
-                const item = result[i];
-                if (item.include) {
-                    const itempath = resolveFilename(item.include, basepath);
-
-                    if (fs.existsSync(itempath)) {
-                        const offsetStart = offset + item.location.start.offset;
-                        const offsetEnd = offset + item.location.end.offset;
-                        const offsetLine = contents.substr(0, offsetStart).split("\n").length;
-                        const offsetChar = contents.substring(contents.lastIndexOf("\n", offsetStart), offsetStart).length;
-                        const output = preprocess(itempath, mapOffset + offsetStart);
-
-                        preprocessorMap.push({
-                            offset: [ mapOffset + offsetStart, mapOffset + offsetStart + output.length, offsetLine, offsetChar ],
-                            filename: itempath
-                        });
-
-                        contents = contents.substr(0, offsetStart) +
-                            output +
-                            contents.substr(offsetEnd);
-
-                        offset += output.length;
-                    } else {
-                        // @TODO: Maybe continue?
-                        throw new ParseError(
-                            filename, pegjsLocationToSqflint(item.location).range, "Failed to find '" + itempath + "'"
-                        );
-                    }
-                } else if (item.eval) {
-                    contents = contents.substr(0, offset + item.location.start.offset) + '"";' +
-                        contents.substr(offset + item.location.end.offset);
-                    offset += 3;
-                } else {
-                    contents = contents.substr(0, offset + item.location.start.offset) +
-                        contents.substr(offset + item.location.end.offset);
-                }
-
-                offset -= (item.location.end.offset - item.location.start.offset);
-            }
-
-            return contents;
-        } catch (e) {
-            if (e.location !== undefined) {
-                throw new ParseError(
-                    filename, pegjsLocationToSqflint((e as pegjs.PegjsError).location).range, e.message
+        const processed = await preprocessFile(contents, {
+            filename,
+            async resolveFn(param, sourceFilename) {
+                const resolvedFname = resolveFilename(
+                    param,
+                    fsPath.dirname(sourceFilename)
                 );
-            } else {
-                throw e;
-            }
-        }
+                const contents = await (tryToLoad(resolvedFname) ||
+                    fs.promises.readFile(resolvedFname, "utf-8"));
+                return {
+                    filename: resolvedFname,
+                    contents,
+                };
+            },
+        });
+        return processed.code;
     };
 
-    export function parse(filename: string): ClassBody {
+    export async function parse(filename: string): Promise<ClassBody> {
         let processed: string = null;
         preprocessorMap = [];
         try {
-            processed = preprocess(filename);
+            processed = await preprocess(filename);
             return applyExtends(hppParser.parse(processed) as ClassBody);
         } catch (e) {
-            if (e.location !== undefined) {
-                const location = (e as pegjs.PegjsError).location;
-                const linewise = processed.split('\n').map((x) => x.replace('\r', ''));
-                linewise[location.start.line - 1] = linewise[location.start.line - 1] + ' <--- ERROR LINE';
-                console.log(
-                    'Error while parsing ' + filename,
-                    e,
-                    linewise.slice(
-                        Math.max(0, location.start.line - 5),
-                        Math.max(0, location.start.line + 10)
-                    )
+            if (e instanceof PreprocessorError) {
+                throw new ParseError(
+                    filename,
+                    new SQFLint.Range(
+                        new SQFLint.Position(0, 0),
+                        new SQFLint.Position(0, 0)
+                    ),
+                    e.message
                 );
-
-                /*
-                if (processed) {
-                    var lines = processed.split("\n");
-                    for (var i = -2; i <= 2; i++) {
-                        var index = location.start.line - 1 + i;
-                        if (index >= 0 && index < lines.length) {
-                            log(lines[index]);
-                        }
-                    }
-                }
-                */
-
-                throw createParseError(e as pegjs.PegjsError, filename);
-            } else {
-                throw e;
             }
+
+            throw e;
         }
     }
 
@@ -263,7 +208,6 @@ export namespace Hpp {
         eval: string;
         location: pegjs.LocationRange;
     }
-
 
     export interface ClassBody {
         parent: ClassBody;

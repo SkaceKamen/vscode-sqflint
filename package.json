@@ -9,7 +9,7 @@
 	"publisher": "skacekachna",
 	"engines": {
 		"vscode": "^1.33.1",
-		"node": "^7.9.0"
+		"node": "^20"
 	},
 	"repository": {
 		"type": "git",
@@ -52,7 +52,7 @@
 				"extensions": [
 					".sqf"
 				],
-                "configuration": "client/languages/configs/sqf.json"
+				"configuration": "client/languages/configs/sqf.json"
 			},
 			{
 				"id": "ext",
@@ -72,11 +72,11 @@
 				"scopeName": "description.ext",
 				"path": "./client/languages/syntaxes/ext.json"
 			},
-            {
-                "language": "sqf",
-                "scopeName": "source.sqf",
-                "path": "./client/languages/syntaxes/sqf.json"
-            }
+			{
+				"language": "sqf",
+				"scopeName": "source.sqf",
+				"path": "./client/languages/syntaxes/sqf.json"
+			}
 		],
 		"configuration": {
 			"type": "object",
@@ -198,9 +198,9 @@
 	"devDependencies": {
 		"@types/node": "^14.17.32",
 		"@types/xmldoc": "^1.1.6",
-		"@typescript-eslint/eslint-plugin": "^2.33.0",
-		"@typescript-eslint/parser": "^2.33.0",
-		"eslint": "^6.0.0",
+		"@typescript-eslint/eslint-plugin": "^6.21.0",
+		"@typescript-eslint/parser": "^6.21.0",
+		"eslint": "^8.56.0",
 		"node-fetch": "^2.6.6",
 		"typescript": "^4.2.4",
 		"xmldoc": "^1.1.2"
