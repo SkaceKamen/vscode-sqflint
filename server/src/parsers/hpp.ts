@@ -7,6 +7,7 @@ import * as fsPath from "path";
 import * as pegjs from "pegjs";
 import { SqfParser } from "../sqfParser";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const hppParser = require("./grammars/pegjs-hpp") as pegjs.Parser;
 
 interface SourceMap {
