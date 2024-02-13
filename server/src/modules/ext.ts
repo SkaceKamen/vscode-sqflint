@@ -34,7 +34,7 @@ export class ExtModule extends ExtensionModule {
     } = {};
     private documentation: { [variable: string]: Documentation } = {};
 
-    private files: string[] = [];
+    private files = new Set<string>();
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public async initialize() {
@@ -80,21 +80,32 @@ export class ExtModule extends ExtensionModule {
         const settings = this.getSettings();
 
         // Predefined files or empty list
-        const files =
+        const files = new Set(
             settings.descriptionFiles.map((file) =>
                 path.isAbsolute(file) ? file : path.join(root, file)
-            ) || [];
+            ) || []
+        );
 
         // Try to disco
         if (settings.discoverDescriptionFiles) {
+            this.logger.info("Discovering description.ext files");
+
             const descriptions = await glob("**/description.ext", {
                 ignore: settings.exclude,
                 root,
+                absolute: true,
             });
 
-            this.files = files.concat(
-                descriptions.map((item) => path.join(root, item))
-            );
+            if (descriptions.length > 0) {
+                for (const file of descriptions) {
+                    this.logger.info(`  Found: ${file}`);
+                    files.add(file);
+                }
+            } else {
+                this.logger.info("No description.ext files found");
+            }
+
+            this.logger.info("Discovering config.cpp files");
 
             const configs = await glob("**/config.cpp", {
                 ignore: settings.exclude,
@@ -102,27 +113,31 @@ export class ExtModule extends ExtensionModule {
                 absolute: true,
             });
 
-            this.files = files.concat(
-                configs.map((item) => path.join(root, item))
-            );
-
-            this.files.forEach((item) => {
-                this.logger.debug(`Parsing: ${item}`);
-                this.parse(item);
-                this.logger.debug(`Parsed: ${item}`);
-            });
+            if (configs.length > 0) {
+                for (const file of configs) {
+                    this.logger.info(`  Found: ${file}`);
+                    files.add(file);
+                }
+            } else {
+                this.logger.info("No config.cpp files found");
+            }
         } else {
             const descPath = path.join(root, "description.ext");
             if (fs.existsSync(descPath)) {
-                files.push(descPath);
+                this.logger.info("Found root description.ext");
+                files.add(descPath);
             }
+        }
 
-            this.files = files;
-            this.files.forEach((item) => {
-                this.logger.debug(`Parsing: ${item}`);
-                this.parse(item);
-                this.logger.debug(`Parsed: ${item}`);
-            });
+        this.files = files;
+        await this.parseDiscoveredFiles();
+    }
+
+    private async parseDiscoveredFiles() {
+        for (const file of this.files) {
+            this.logger.debug(`Parsing: ${file}`);
+            await this.parseFile(file);
+            this.logger.debug(`Parsed: ${file}`);
         }
     }
 

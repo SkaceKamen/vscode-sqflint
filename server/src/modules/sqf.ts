@@ -29,7 +29,7 @@ import { SqfFunction } from "./ext";
 /**
  * Variable local to document. Contains locations local to document.
  */
-type DocumentVariable = {
+type LocalVariable = {
     name: string;
     comment: string;
     usage: SqfParser.Range[];
@@ -52,20 +52,22 @@ type GlobalMacro = {
 export class SqfModule extends ExtensionModule {
     private parser: SqfParser;
 
-    private documentVariables = {} as Record<
-        string,
-        Record<string, DocumentVariable>
-    >;
-    private globalVariables = {} as Record<string, GlobalVariable>;
-    private globalMacros = {} as Record<string, GlobalMacro>;
+    /** Variables defined privately inside specific file */
+    private localVariables: Record<string, Record<string, LocalVariable>> = {};
+    /** Variables defined in global scope */
+    private globalVariables: Record<string, GlobalVariable> = {};
+    /** Macros definition */
+    // TODO: Macros are always local, we should respect that
+    private globalMacros: Record<string, GlobalMacro> = {};
+    /** Info about included files in macros */
     private includes: Record<string, SqfParser.IncludeInfo[]> = {};
 
-    /** Contains documentation for operators */
-    private documentation: Record<string, WikiDocumentation>;
-    /** SQF Language operators */
+    /** Contains documentation core for operators and functions */
+    private documentation: Record<string, WikiDocumentation> = {};
+    /** SQF Language operators, BIS_fnc_*, CBA_fnc_* and ACE_fnc_* */
     private operatorsStorage = new DefinitionsStorage<Operator>();
-
-    private events: { [name: string]: EventDocumentation };
+    /** Contains various event strings */
+    private events: Record<string, EventDocumentation> = {};
 
     constructor(server: SQFLintServer) {
         super(server);
@@ -134,7 +136,7 @@ export class SqfModule extends ExtensionModule {
         const client = this.parser;
 
         // Reset variables local to document
-        this.documentVariables[textDocument.uri] = {};
+        this.localVariables[textDocument.uri] = {};
 
         // Remove info about global variables created from this document
         for (const global in this.globalVariables) {
@@ -374,12 +376,12 @@ export class SqfModule extends ExtensionModule {
     private setLocalVariable(
         document: TextDocumentIdentifier,
         name: string,
-        local: DocumentVariable
-    ): DocumentVariable {
-        let ns = this.documentVariables[document.uri];
+        local: LocalVariable
+    ): LocalVariable {
+        let ns = this.localVariables[document.uri];
 
         if (!ns) {
-            ns = this.documentVariables[document.uri] = {};
+            ns = this.localVariables[document.uri] = {};
         }
 
         ns[name.toLowerCase()] = local;
@@ -393,9 +395,9 @@ export class SqfModule extends ExtensionModule {
     private getLocalVariable(
         document: TextDocumentIdentifier,
         name: string
-    ): DocumentVariable {
+    ): LocalVariable {
         let ns;
-        if (typeof (ns = this.documentVariables[document.uri]) === "undefined")
+        if (typeof (ns = this.localVariables[document.uri]) === "undefined")
             return null;
         return ns[name.toLowerCase()];
     }
@@ -634,7 +636,7 @@ export class SqfModule extends ExtensionModule {
      * Finds variable info for word at specified position.
      */
     private findReferences(params: TextDocumentPositionParams): {
-        local: DocumentVariable;
+        local: LocalVariable;
         global: GlobalVariable;
         macro: GlobalMacro;
         func: SqfFunction;
@@ -655,7 +657,7 @@ export class SqfModule extends ExtensionModule {
         source: TextDocumentIdentifier,
         name: string
     ): {
-        local: DocumentVariable;
+        local: LocalVariable;
         global: GlobalVariable;
         macro: GlobalMacro;
         func: SqfFunction;
@@ -674,8 +676,8 @@ export class SqfModule extends ExtensionModule {
     private findLocalVariables(
         document: TextDocumentIdentifier,
         query: string
-    ): DocumentVariable[] {
-        const ns = this.documentVariables[document.uri];
+    ): LocalVariable[] {
+        const ns = this.localVariables[document.uri];
         if (ns === undefined) return null;
 
         return Object.keys(ns)

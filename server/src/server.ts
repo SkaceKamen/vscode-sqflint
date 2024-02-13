@@ -395,9 +395,9 @@ export class SQFLintServer {
      */
     private onHover(params: TextDocumentPositionParams): Hover {
         const name = this.getNameFromParams(params).toLowerCase();
-        let hover;
-        for (const i in this.modules) {
-            if ((hover = this.modules[i].onHover(params, name))) {
+        for (const module of this.modules) {
+            const hover = module.onHover(params, name);
+            if (hover) {
                 return hover;
             }
         }

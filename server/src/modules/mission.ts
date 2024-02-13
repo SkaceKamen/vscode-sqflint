@@ -52,6 +52,8 @@ export class MissionModule extends ExtensionModule {
         });
 
         for (const item of discovered) {
+            this.logger.info("  Found mission file: " + item);
+
             await this.parse(item);
         }
     }

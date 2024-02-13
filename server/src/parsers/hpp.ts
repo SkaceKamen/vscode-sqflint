@@ -170,12 +170,14 @@ export namespace Hpp {
                 );
                 const contents = await (tryToLoad(resolvedFname) ||
                     fs.promises.readFile(resolvedFname, "utf-8"));
+
                 return {
                     filename: resolvedFname,
                     contents,
                 };
             },
         });
+
         return processed.code;
     };
 
@@ -186,6 +188,8 @@ export namespace Hpp {
             processed = await preprocess(filename);
             return applyExtends(hppParser.parse(processed) as ClassBody);
         } catch (e) {
+            console.log(await preprocess(filename));
+
             if (e instanceof PreprocessorError) {
                 throw new ParseError(
                     filename,
