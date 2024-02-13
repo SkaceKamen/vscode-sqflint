@@ -234,7 +234,7 @@ export class SqfParser {
                             arguments: d.args.join(","),
                             definitions: [
                                 {
-                                    value: d.value,
+                                    value: typeof d.value === 'function' ? d.value() : d.value,
                                     filename: d.file,
                                     position: await offsetsToRange(
                                         d.location[0],
