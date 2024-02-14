@@ -6,6 +6,7 @@ import {
 import { analyzeSqf } from "@bi-tools/sqf-analyzer";
 import {
     SqfParserError,
+    TokenizerError,
     parseSqfTokens,
     tokenizeSqf,
 } from "@bi-tools/sqf-parser";
@@ -119,14 +120,19 @@ export class SqfParser {
 
             // TODO: This should be cached when doing workspace indexing
             const fileContents = {} as Record<string, string>;
+            const fileContentsLoaders = {} as Record<string, Promise<string>>;
 
             const getContents = async (filename: string) => {
                 if (!fileContents[filename]) {
                     try {
-                        fileContents[filename] = await fs.promises.readFile(
+                        const loader = fileContentsLoaders[filename] ?? (fileContentsLoaders[filename] = fs.promises.readFile(
                             filename,
                             "utf-8"
-                        );
+                        ));
+
+                        fileContents[filename] = await loader;
+
+                        delete fileContentsLoaders[filename];
                     } catch (err) {
                         console.error(
                             "Failed to load source map file",
@@ -286,7 +292,10 @@ export class SqfParser {
                 };
             } catch (err) {
                 console.error("failed to parse", filename, err);
-                //  console.log(preprocessed.code);
+
+                if (err instanceof TokenizerError) {
+                    console.log(preprocessed.code.slice(err.offset - 100, err.offset + 100));
+                }
 
                 return {
                     errors: [
