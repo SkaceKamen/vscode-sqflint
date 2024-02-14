@@ -274,26 +274,6 @@ export class SQFLintServer {
         };
     }
 
-    private async runModules(method: string, ...args: unknown[]) {
-        for (const i in this.modules) {
-            try {
-                this.logger.info(
-                    "Running module",
-                    this.modules[i].constructor.name,
-                    method,
-                    args
-                );
-                await this.modules[i][method](...args);
-            } catch (err) {
-                console.error(err);
-                this.logger.error(
-                    `Error in module ${this.modules[i].constructor.name} while running ${method}`,
-                    err
-                );
-            }
-        }
-    }
-
     public statusMessage(text: string, title?: string): void {
         this.connection.sendNotification(StatusBarTextNotification.type, {
             text,
@@ -321,7 +301,7 @@ export class SQFLintServer {
         this.logger.info("Module index...");
 
         // Calls indexWorkspace for all modules in sequence
-        await this.runModules("indexWorkspace", this.workspaceRoot);
+        await this.runModulesAsync((module) => module.indexWorkspace(this.workspaceRoot, again));
 
         if (!this.settings.indexWorkspaceTwice || again) {
             this.statusMessage(null);
@@ -332,8 +312,7 @@ export class SQFLintServer {
      * Parses document and dispatches diagnostics if required.
      */
     private async parseDocument(textDocument: TextDocument) {
-        // First pass it to all modules
-        await this.runModules("parseDocument", textDocument);
+        await this.runModulesAsync((module) => module.parseDocument(textDocument));
     }
 
     /**
@@ -395,84 +374,78 @@ export class SQFLintServer {
      */
     private onHover(params: TextDocumentPositionParams): Hover {
         const name = this.getNameFromParams(params).toLowerCase();
-        for (const module of this.modules) {
-            const hover = module.onHover(params, name);
-            if (hover) {
-                return hover;
-            }
-        }
-
-        return null;
+        return this.firstModuleResponse((module) => module.onHover(params, name));
     }
 
     /**
      * Handles "find references" request
      */
     private onReferences(params: ReferenceParams): Location[] {
-        const locations: Location[][] = [];
-
-        for (const module of this.modules) {
-            locations.push(module.onReferences(params));
-        }
-
-        return locations.flat();
+        return this.concatModuleResponses((module) => module.onReferences(params));
     }
 
     /**
      * Handles "Goto/Peek definition" request.
      */
     private onDefinition(params: TextDocumentPositionParams): Location[] {
-        const locations: Location[][] = [];
         const name = this.getNameFromParams(params);
-
-        for (const i in this.modules) {
-            const result = this.modules[i].onDefinition(params, name);
-            if (result.length) {
-                locations.push(result);
-            }
-        }
-
-        return locations.flat();
+        return this.concatModuleResponses((module) => module.onDefinition(params, name));
     }
 
     private onSignatureHelp(params: TextDocumentPositionParams): SignatureHelp {
         const name = this.getNameFromParams(params);
-
-        for (const i in this.modules) {
-            const result = this.modules[i].onSignatureHelp(params, name);
-            if (result) return result;
-        }
-
-        return null;
+        return this.firstModuleResponse((module) => module.onSignatureHelp(params, name));
     }
 
     /**
      * Provides completion items.
      */
     private onCompletion(params: TextDocumentPositionParams): CompletionItem[] {
-        const items: CompletionItem[][] = [];
         const name = this.getNameFromParams(params).toLowerCase();
-
-        for (const i in this.modules) {
-            items.push(this.modules[i].onCompletion(params, name));
-        }
-
-        return items.flat();
+        return this.concatModuleResponses((module) => module.onCompletion(params, name));
     }
 
     private onCompletionResolve(item: CompletionItem): CompletionItem {
+        return this.firstModuleResponse((module) => module.onCompletionResolve(item));
+    }
+
+    public getSettings(): SQFLintSettings {
+        return this.settings;
+    }
+
+    private concatModuleResponses<TResult>(callback: (module: ExtensionModule) => TResult[]): TResult[] {
+        const results: TResult[][] = [];
         for (const module of this.modules) {
-            const res = module.onCompletionResolve(item);
-            if (res) {
-                return res;
+            try {
+                results.push(callback(module));
+            } catch (err) {
+                this.logger.error("Error in", module.constructor.name, err);
+            }
+        }
+
+        return results.flat();
+    }
+
+    private firstModuleResponse<TResult>(callback: (module: ExtensionModule) => TResult | null): TResult | null {
+        for (const module of this.modules) {
+            try {
+                callback(module);
+            } catch (err) {
+                this.logger.error("Error in", module.constructor.name, err);
             }
         }
 
         return null;
     }
 
-    public getSettings(): SQFLintSettings {
-        return this.settings;
+    private async runModulesAsync(callback: (module: ExtensionModule) => void | Promise<void>) {
+        for (const module of this.modules) {
+            try {
+                await callback(module);
+            } catch (err) {
+                this.logger.error("Error in", module.constructor.name, err);
+            }
+        }
     }
 }
 

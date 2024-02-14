@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import path from "path";
 import { WikiDocumentation } from "../server";
 import { isNotNil } from "./isNotNil";
 
@@ -63,7 +64,7 @@ const parseOperatorInfo = (line: string) => {
 
 export const loadOperators = async () => {
     const data = await fs.promises.readFile(
-        __dirname + "/../../../definitions/commands.txt",
+        path.join(__dirname, "../definitions/commands.txt"),
         "utf-8"
     );
 

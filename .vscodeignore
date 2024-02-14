@@ -1,14 +1,13 @@
 .vscode/**
-client/src/**
-server/src/**
-debugger/src/**
+client/**
+server/**
+debugger/**
 cache/**
 cba/**
 ace3/**
 scripts/**
 definitions/**.xml
 sqflint/**
-
 **/*.map
 .gitignore
 tsconfig.json
@@ -16,5 +15,3 @@ client/tsconfig.json
 server/tsconfig.json
 debugger/tscofig.json
 vscode-sqflint.code-workspace
-server/*.xml
-cache/**

@@ -1,4 +1,4 @@
 out
 node_modules
 npm-debug.log
-/src/parsers/grammars/*.ts
+src/parsers/grammars/*.ts

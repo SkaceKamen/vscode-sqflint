@@ -168,7 +168,7 @@ export class SqfModule extends ExtensionModule {
             includePrefixes: this.server.includePrefixes,
         });
 
-        const timeTookParse = new Date().valueOf() - startTime.valueOf();
+        const timeTookParse = performance.now() - startTime;
         if (timeTookParse > 1000) {
             this.logger.info(
                 `SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`
@@ -428,7 +428,7 @@ export class SqfModule extends ExtensionModule {
 
     async loadDocumentation() {
         const data = await fs.promises.readFile(
-            __dirname + "/../../../definitions/documentation.json",
+            __dirname + "/../definitions/documentation.json",
             "utf-8"
         );
 
@@ -474,7 +474,7 @@ export class SqfModule extends ExtensionModule {
 
     async loadEvents() {
         const data = await fs.promises.readFile(
-            __dirname + "/../../../definitions/events.json",
+            __dirname + "/../definitions/events.json",
             "utf-8"
         );
 

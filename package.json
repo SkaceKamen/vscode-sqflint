@@ -1,213 +1,239 @@
 {
-	"name": "sqflint",
-	"displayName": "SQFLint",
-	"description": "Parse errors, hover help for functions/commands and more.",
-	"author": "Jan Zípek, Senfo, Armatixes",
-	"icon": "client/images/sqflint.png",
-	"license": "MIT",
-	"version": "0.12.3",
-	"publisher": "skacekachna",
-	"engines": {
-		"vscode": "^1.33.1",
-		"node": "^20"
-	},
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/SkaceKamen/vscode-sqflint"
-	},
-	"categories": [
-		"Programming Languages",
-		"Other"
-	],
-	"activationEvents": [
-		"onLanguage:sqf",
-		"onLanguage:ext",
-		"onCommand:extension.sqflint.unitEvents",
-		"onCommand:extension.sqflint.uiEvents",
-		"onCommand:extension.sqflint.commandsList"
-	],
-	"main": "./client/out/extension",
-	"contributes": {
-		"commands": [
-			{
-				"command": "extension.sqflint.unitEvents",
-				"title": "SQF Unit Event Handlers"
-			},
-			{
-				"command": "extension.sqflint.uiEvents",
-				"title": "SQF UI Event Handlers"
-			},
-			{
-				"command": "extension.sqflint.commandsList",
-				"title": "SQF Commands list"
-			}
-		],
-		"languages": [
-			{
-				"id": "sqf",
-				"aliases": [
-					"SQF",
-					"sqf"
-				],
-				"extensions": [
-					".sqf"
-				],
-				"configuration": "client/languages/configs/sqf.json"
-			},
-			{
-				"id": "ext",
-				"aliases": [
-					"Arma header file"
-				],
-				"extensions": [
-					".ext",
-					".hpp"
-				],
-				"configuration": "./client/languages/config/ext.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "ext",
-				"scopeName": "description.ext",
-				"path": "./client/languages/syntaxes/ext.json"
-			},
-			{
-				"language": "sqf",
-				"scopeName": "source.sqf",
-				"path": "./client/languages/syntaxes/sqf.json"
-			}
-		],
-		"configuration": {
-			"type": "object",
-			"title": "SQFLint Configuration",
-			"properties": {
-				"sqflint.warnings": {
-					"type": "boolean",
-					"default": true,
-					"description": "Process and display sqflint warnings."
-				},
-				"sqflint.indexWorkspace": {
-					"type": "boolean",
-					"default": true,
-					"description": "Scan workspace for sqf files and parse them upon opening."
-				},
-				"sqflint.indexWorkspaceTwice": {
-					"type": "boolean",
-					"default": true,
-					"description": "Scan workspace twice, solving problems with global variables defined in files parsed later than files that are using them."
-				},
-				"sqflint.contextSeparation": {
-					"type": "boolean",
-					"default": true,
-					"description": "Enable or disable context separation. Variables wont propagate into code blocks, even when defined in same file. This is to prevent errors when the local function is called in different context."
-				},
-				"sqflint.exclude": {
-					"type": "array",
-					"default": [],
-					"description": "List of paths to be excluded from workspace indexing. Example: \"ignored/**/*\" will ignore everything in folder 'ignored'."
-				},
-				"sqflint.checkPaths": {
-					"type": "boolean",
-					"default": false,
-					"description": "Check paths existence for file functions (execVM...)"
-				},
-				"sqflint.ignoredVariables": {
-					"type": "array",
-					"default": [],
-					"description": "Ignored variables are treated as internal commands, without definition check."
-				},
-				"sqflint.includePrefixes": {
-					"type": "object",
-					"default": {},
-					"description": "List of include paths, key is prefix used in include path, and value is local path. Example: \n{ \"\\\\A3\\\\\": \"C:/UnpackedArma/\" }\n"
-				},
-				"sqflint.discoverDescriptionFiles": {
-					"type": "boolean",
-					"default": true,
-					"description": "Search and parse description.ext files in subfolders."
-				},
-				"sqflint.descriptionFiles": {
-					"type": "array",
-					"default": [],
-					"description": "List of description.ext files to be loaded. If `discoverDescriptionFiles` is turned on, discovered files will be added to this list."
-				},
-				"sqflint.javaPath": {
-					"type": "string",
-					"description": "Path to java executable, SQFLint will try to use Java in you PATH by default"
-				}
-			}
-		},
-		"debuggers": [
-			{
-				"type": "sqflint",
-				"label": "SQFLint debugger",
-				"program": "./debugger/out/adapter.js",
-				"runtime": "node",
-				"configurationAttributes": {
-					"launch": {
-						"properties": {
-							"rptPath": {
-								"type": "string",
-								"description": "Path to folder with rpt files.",
-								"default": null
-							},
-							"messageFilter": {
-								"type": "string",
-								"description": "Regular expression which will be used to filter messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
-								"default": null
-							},
-							"errorFilter": {
-								"type": "string",
-								"description": "Regular expression which will be used to filter error messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
-								"default": null
-							}
-						}
-					}
-				},
-				"initialConfigurations": [
-					{
-						"type": "sqflint",
-						"request": "launch",
-						"name": "Watch RPT File"
-					}
-				],
-				"configurationSnippets": [
-					{
-						"label": "SQFLint: Watch RPT file",
-						"description": "A new configuration for watching RPT file.",
-						"body": {
-							"type": "sqlint",
-							"request": "launch",
-							"name": "Watch RPT File"
-						}
-					}
-				]
-			}
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "npm install && cd server && npm install && npm run grammar && cd ../client && npm install && cd ../debugger && npm install && cd .. && npm run compile",
-		"compile": "tsc -b",
-		"watch": "tsc -b -w",
-		"package": "npm run vscode:prepublish && npx vsce package",
-		"packageAndInstall": "npm run package && code sqflint-*.vsix",
-		"postinstall": "cd client && npm install && cd ../server && npm install && npm run grammar && cd ../debugger && npm install && cd ..",
-		"update-docs": "ts-node scripts/fetch-docs.ts && ts-node scripts/parse-docs.ts && ts-node scripts/fetch-description.ts && ts-node scripts/fetch-events.ts"
-	},
-	"devDependencies": {
-		"@types/node": "^14.17.32",
-		"@types/xmldoc": "^1.1.6",
-		"@typescript-eslint/eslint-plugin": "^6.21.0",
-		"@typescript-eslint/parser": "^6.21.0",
-		"eslint": "^8.56.0",
-		"node-fetch": "^2.6.6",
-		"typescript": "^5.3.3",
-		"xmldoc": "^1.1.2"
-	},
-	"dependencies": {
-		"@types/jsdom": "^16.2.13",
-		"jsdom": "^18.0.1",
-		"wikiparser-node": "^1.4.4"
-	}
+    "name": "sqflint",
+    "displayName": "SQFLint",
+    "description": "Parse errors, hover help for functions/commands and more.",
+    "author": "Jan Zípek, Senfo, Armatixes",
+    "icon": "client/images/sqflint.png",
+    "license": "MIT",
+    "version": "0.12.3",
+    "publisher": "skacekachna",
+    "engines": {
+        "vscode": "^1.33.1",
+        "node": "^20"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/SkaceKamen/vscode-sqflint"
+    },
+    "categories": [
+        "Programming Languages",
+        "Other"
+    ],
+    "activationEvents": [
+        "onLanguage:sqf",
+        "onLanguage:ext",
+        "onCommand:extension.sqflint.unitEvents",
+        "onCommand:extension.sqflint.uiEvents",
+        "onCommand:extension.sqflint.commandsList"
+    ],
+    "main": "./client/out/extension",
+    "contributes": {
+        "commands": [
+            {
+                "command": "extension.sqflint.unitEvents",
+                "title": "SQF Unit Event Handlers"
+            },
+            {
+                "command": "extension.sqflint.uiEvents",
+                "title": "SQF UI Event Handlers"
+            },
+            {
+                "command": "extension.sqflint.commandsList",
+                "title": "SQF Commands list"
+            }
+        ],
+        "languages": [
+            {
+                "id": "sqf",
+                "aliases": [
+                    "SQF",
+                    "sqf"
+                ],
+                "extensions": [
+                    ".sqf"
+                ],
+                "configuration": "client/languages/configs/sqf.json"
+            },
+            {
+                "id": "ext",
+                "aliases": [
+                    "Arma header file"
+                ],
+                "extensions": [
+                    ".ext",
+                    ".hpp"
+                ],
+                "configuration": "./client/languages/config/ext.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "ext",
+                "scopeName": "description.ext",
+                "path": "./client/languages/syntaxes/ext.json"
+            },
+            {
+                "language": "sqf",
+                "scopeName": "source.sqf",
+                "path": "./client/languages/syntaxes/sqf.json"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "SQFLint Configuration",
+            "properties": {
+                "sqflint.warnings": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Process and display sqflint warnings."
+                },
+                "sqflint.indexWorkspace": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Scan workspace for sqf files and parse them upon opening."
+                },
+                "sqflint.indexWorkspaceTwice": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Scan workspace twice, solving problems with global variables defined in files parsed later than files that are using them."
+                },
+                "sqflint.contextSeparation": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable or disable context separation. Variables wont propagate into code blocks, even when defined in same file. This is to prevent errors when the local function is called in different context."
+                },
+                "sqflint.exclude": {
+                    "type": "array",
+                    "default": [],
+                    "description": "List of paths to be excluded from workspace indexing. Example: \"ignored/**/*\" will ignore everything in folder 'ignored'."
+                },
+                "sqflint.checkPaths": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Check paths existence for file functions (execVM...)"
+                },
+                "sqflint.ignoredVariables": {
+                    "type": "array",
+                    "default": [],
+                    "description": "Ignored variables are treated as internal commands, without definition check."
+                },
+                "sqflint.includePrefixes": {
+                    "type": "object",
+                    "default": {},
+                    "description": "List of include paths, key is prefix used in include path, and value is local path. Example: \n{ \"\\\\A3\\\\\": \"C:/UnpackedArma/\" }\n"
+                },
+                "sqflint.discoverDescriptionFiles": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Search and parse description.ext files in subfolders."
+                },
+                "sqflint.descriptionFiles": {
+                    "type": "array",
+                    "default": [],
+                    "description": "List of description.ext files to be loaded. If `discoverDescriptionFiles` is turned on, discovered files will be added to this list."
+                },
+                "sqflint.javaPath": {
+                    "type": "string",
+                    "description": "Path to java executable, SQFLint will try to use Java in you PATH by default"
+                }
+            }
+        },
+        "debuggers": [
+            {
+                "type": "sqflint",
+                "label": "SQFLint debugger",
+                "program": "./build/debugger.js",
+                "runtime": "node",
+                "configurationAttributes": {
+                    "launch": {
+                        "properties": {
+                            "rptPath": {
+                                "type": "string",
+                                "description": "Path to folder with rpt files.",
+                                "default": null
+                            },
+                            "messageFilter": {
+                                "type": "string",
+                                "description": "Regular expression which will be used to filter messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
+                                "default": null
+                            },
+                            "errorFilter": {
+                                "type": "string",
+                                "description": "Regular expression which will be used to filter error messages. Uses JS regex syntax. For example: \"g[oi]t\" will display anything that contains got or git.",
+                                "default": null
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "sqflint",
+                        "request": "launch",
+                        "name": "Watch RPT File"
+                    }
+                ],
+                "configurationSnippets": [
+                    {
+                        "label": "SQFLint: Watch RPT file",
+                        "description": "A new configuration for watching RPT file.",
+                        "body": {
+                            "type": "sqlint",
+                            "request": "launch",
+                            "name": "Watch RPT File"
+                        }
+                    }
+                ]
+            }
+        ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm install && npm run build",
+        "build": "npm run build:grammars && npm run build:server && npm run build:client && npm run build:debugger",
+        "build:server": "esbuild ./server/src/server.ts --bundle --outfile=build/server.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "build:client": "esbuild ./client/src/extension.ts --bundle --outfile=build/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "build:debugger": "esbuild ./debugger/src/adapter.ts --bundle --outfile=build/debugger.js --external:vscode --format=cjs --platform=node --sourcemap",
+        "build:grammars": "pegjs --plugin ts-pegjs -o server/src/parsers/grammars/pegjs-hpp.ts server/src/parsers/grammars/hpp.pegjs && pegjs --plugin ts-pegjs -o server/src/parsers/grammars/pegjs-hpp-pre.ts server/src/parsers/grammars/hpp.pre.pegjs",
+        "watch": "concurrently -n server,client,debugger --kill-others \"npm run watch:server\" \"npm run watch:client\" \"npm run watch:debugger\"",
+        "watch:server": "esbuild ./server/src/server.ts --bundle --outfile=build/server.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+        "watch:client": "esbuild ./client/src/extension.ts --bundle --outfile=build/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+        "watch:debugger": "esbuild ./debugger/src/adapter.ts --bundle --outfile=build/debugger.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+        "package": "npm run vscode:prepublish && npx vsce package",
+        "packageAndInstall": "npm run package && code sqflint-*.vsix",
+        "update-docs": "ts-node scripts/fetch-docs.ts && ts-node scripts/parse-docs.ts && ts-node scripts/fetch-description.ts && ts-node scripts/fetch-events.ts"
+    },
+    "devDependencies": {
+        "@types/jsdom": "^16.2.5",
+        "@types/node-fetch": "^2.5.7",
+        "@types/node": "^20",
+        "@types/xmldoc": "^1.1.6",
+        "@typescript-eslint/eslint-plugin": "^6.21.0",
+        "@typescript-eslint/parser": "^6.21.0",
+        "concurrently": "^8.2.2",
+        "esbuild": "^0.20.0",
+        "eslint": "^8.56.0",
+        "jsdom": "^16.4.0",
+        "node-fetch": "^2.6.6",
+        "ts-node": "^9.1.1",
+        "ts-pegjs": "^0.2.2",
+        "typescript": "^5.3.3",
+        "vscode": "^1.1.37",
+        "xmldoc": "^1.1.2"
+    },
+    "dependencies": {
+        "@bi-tools/preprocessor": "^1.0.0",
+        "@bi-tools/sqf-analyzer": "^1.0.0",
+        "@bi-tools/sqf-parser": "^1.0.0",
+        "@types/jsdom": "^16.2.13",
+        "glob": "^10.3.10",
+        "jsdom": "^18.0.1",
+        "openurl": "^1.1.1",
+        "pegjs": "^0.10.0",
+        "vscode-debugadapter": "^1.32.1",
+        "vscode-debugprotocol": "^1.32.0",
+        "vscode-languageclient": "^5.2.1",
+        "vscode-languageserver-textdocument": "^1.0.2",
+        "vscode-languageserver": "^7.0.0",
+        "wikiparser-node": "^1.4.4",
+        "typescript": "^3.2.1"
+    }
 }

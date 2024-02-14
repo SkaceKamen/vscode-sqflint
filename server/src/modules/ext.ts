@@ -64,7 +64,7 @@ export class ExtModule extends ExtensionModule {
 
     private async loadDocumentation() {
         const data = await fs.promises.readFile(
-            __dirname + "/../../../definitions/description-values.json",
+            path.join(__dirname, "../definitions/description-values.json"),
             "utf-8"
         );
 

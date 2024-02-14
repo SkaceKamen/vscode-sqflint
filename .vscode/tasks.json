@@ -9,9 +9,7 @@
 				"panel": "dedicated",
 				"reveal": "never"
 			},
-			"problemMatcher": [
-				"$tsc"
-			]
+			"problemMatcher": ["$esbuild"]
 		},
 		{
 			"type": "npm",
@@ -25,9 +23,7 @@
 				"panel": "dedicated",
 				"reveal": "never"
 			},
-			"problemMatcher": [
-				"$tsc-watch"
-			]
+			"problemMatcher": ["$esbuild-watch"]
 		}
 	]
 }
