@@ -1,4 +1,4 @@
-import { NotificationType, NotificationHandler } from "vscode-jsonrpc";
+import { NotificationHandler, NotificationType } from "vscode-jsonrpc";
 
 export interface StatusBarTextParams {
     text: string;

@@ -2,10 +2,10 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-'use strict';
+"use strict";
 
 function _encode(ch: string): string {
-    return '%' + ch.charCodeAt(0).toString(16).toUpperCase();
+    return "%" + ch.charCodeAt(0).toString(16).toUpperCase();
 }
 
 // see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent
@@ -16,7 +16,6 @@ function encodeURIComponent2(str: string): string {
 function encodeNoop(str: string): string {
     return str;
 }
-
 
 /**
  * Uniform Resource Identifier (Uri) http://tools.ietf.org/html/rfc3986.
@@ -35,10 +34,10 @@ function encodeNoop(str: string): string {
  *
  */
 export default class Uri {
-
-    private static _empty = '';
-    private static _slash = '/';
-    private static _regexp = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
+    private static _empty = "";
+    private static _slash = "/";
+    private static _regexp =
+        /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
     private static _driveLetterPath = /^\/[a-zA-z]:/;
     private static _upperCaseDrive = /^(\/)?([A-Z]:)/;
 
@@ -110,7 +109,7 @@ export default class Uri {
     get fsPath() {
         if (!this._fsPath) {
             let value: string;
-            if (this._authority && this.scheme === 'file') {
+            if (this._authority && this.scheme === "file") {
                 // unc path: file://shares/c$/far/boo
                 value = `//${this._authority}${this._path}`;
             } else if (Uri._driveLetterPath.test(this._path)) {
@@ -121,7 +120,7 @@ export default class Uri {
                 value = this._path;
             }
             if (isWindows) {
-                value = value.replace(/\//g, '\\');
+                value = value.replace(/\//g, "\\");
             }
             this._fsPath = value;
         }
@@ -142,8 +141,13 @@ export default class Uri {
         assert.ok(other.toString() === 'after:some/file/path');
         * ```
         */
-    public with(change: { scheme?: string; authority?: string; path?: string; query?: string; fragment?: string }): Uri {
-
+    public with(change: {
+        scheme?: string;
+        authority?: string;
+        path?: string;
+        query?: string;
+        fragment?: string;
+    }): Uri {
         if (!change) {
             return this;
         }
@@ -154,12 +158,13 @@ export default class Uri {
         const query = change.query || this.query;
         const fragment = change.fragment || this.fragment;
 
-        if (scheme === this.scheme
-            && authority === this.authority
-            && path === this.path
-            && query === this.query
-            && fragment === this.fragment) {
-
+        if (
+            scheme === this.scheme &&
+            authority === this.authority &&
+            path === this.path &&
+            query === this.query &&
+            fragment === this.fragment
+        ) {
             return this;
         }
 
@@ -181,7 +186,13 @@ export default class Uri {
      * @param components An object containing the Uri components
      * @return A new Uri instance
      */
-    public static from(components: { scheme?: string; authority?: string; path?: string; query?: string; fragment?: string }): Uri {
+    public static from(components: {
+        scheme?: string;
+        authority?: string;
+        path?: string;
+        query?: string;
+        fragment?: string;
+    }): Uri {
         if (!components) {
             throw new Error();
         }
@@ -215,9 +226,8 @@ export default class Uri {
      * @return A new Uri instance.
      */
     public static file(path: string): Uri {
-
         const ret = new Uri();
-        ret._scheme = 'file';
+        ret._scheme = "file";
 
         // normalize to fwd-slashes
         path = path.replace(/\\/g, Uri._slash);
@@ -248,7 +258,6 @@ export default class Uri {
     }
 
     private static _parseComponents(value: string): UriComponents {
-
         const ret: UriComponents = {
             scheme: Uri._empty,
             authority: Uri._empty,
@@ -269,18 +278,21 @@ export default class Uri {
     }
 
     private static _validate(ret: Uri): void {
-
         // validation
         // path, http://tools.ietf.org/html/rfc3986#section-3.3
         // If a Uri contains an authority component, then the path component
         // must either be empty or begin with a slash ("/") character.  If a Uri
         // does not contain an authority component, then the path cannot begin
         // with two slash characters ("//").
-        if (ret.authority && ret.path && ret.path[0] !== '/') {
-            throw new Error('[UriError]: If a Uri contains an authority component, then the path component must either be empty or begin with a slash ("/") character');
+        if (ret.authority && ret.path && ret.path[0] !== "/") {
+            throw new Error(
+                '[UriError]: If a Uri contains an authority component, then the path component must either be empty or begin with a slash ("/") character'
+            );
         }
-        if (!ret.authority && ret.path.indexOf('//') === 0) {
-            throw new Error('[UriError]: If a Uri does not contain an authority component, then the path cannot begin with two slash characters ("//")');
+        if (!ret.authority && ret.path.indexOf("//") === 0) {
+            throw new Error(
+                '[UriError]: If a Uri does not contain an authority component, then the path cannot begin with two slash characters ("//")'
+            );
         }
     }
 
@@ -303,28 +315,25 @@ export default class Uri {
     }
 
     private static _asFormatted(uri: Uri, skipEncoding: boolean): string {
+        const encoder = !skipEncoding ? encodeURIComponent2 : encodeNoop;
 
-        const encoder = !skipEncoding
-            ? encodeURIComponent2
-            : encodeNoop;
+        let result = "";
 
-        let result = '';
-
-        let {scheme, authority, path, query, fragment} = uri;
+        let { scheme, authority, path, query, fragment } = uri;
         if (scheme) {
             result += scheme;
-            result += ':'
+            result += ":";
         }
-        if (authority || scheme === 'file') {
-            result += '//';
+        if (authority || scheme === "file") {
+            result += "//";
         }
         if (authority) {
             authority = authority.toLowerCase();
-            const idx = authority.indexOf(':');
+            const idx = authority.indexOf(":");
             if (idx === -1) {
                 result += encoder(authority);
             } else {
-                result += encoder(authority.substr(0, idx))
+                result += encoder(authority.substr(0, idx));
                 result += authority.substr(idx);
             }
         }
@@ -332,7 +341,10 @@ export default class Uri {
             // lower-case windown drive letters in /C:/fff
             const m = Uri._upperCaseDrive.exec(path);
             if (m) {
-                path = m[1] + m[2].toLowerCase() + path.substr(m[1].length + m[2].length);
+                path =
+                    m[1] +
+                    m[2].toLowerCase() +
+                    path.substr(m[1].length + m[2].length);
             }
 
             // encode every segement but not slashes
@@ -343,20 +355,26 @@ export default class Uri {
             while (true) {
                 const idx = path.indexOf(Uri._slash, lastIdx);
                 if (idx === -1) {
-                    result += encoder(path.substring(lastIdx)).replace(/[#?]/, _encode);
+                    result += encoder(path.substring(lastIdx)).replace(
+                        /[#?]/,
+                        _encode
+                    );
                     break;
                 }
-                result += encoder(path.substring(lastIdx, idx)).replace(/[#?]/, _encode);
+                result += encoder(path.substring(lastIdx, idx)).replace(
+                    /[#?]/,
+                    _encode
+                );
                 result += Uri._slash;
                 lastIdx = idx + 1;
             }
         }
         if (query) {
-            result += '?';
+            result += "?";
             result += encoder(query);
         }
         if (fragment) {
-            result += '#';
+            result += "#";
             result += encoder(fragment);
         }
 
@@ -370,7 +388,7 @@ export default class Uri {
             path: this.path,
             fsPath: this.fsPath,
             query: this.query,
-            fragment: this.fragment
+            fragment: this.fragment,
         };
     }
 }
@@ -384,12 +402,12 @@ interface UriComponents {
 }
 
 // OS detection
-declare const process: { platform: 'win32' };
+declare const process: { platform: "win32" };
 declare const navigator: { userAgent: string };
 let isWindows: boolean;
-if (typeof process === 'object') {
-    isWindows = process.platform === 'win32';
-} else if (typeof navigator === 'object') {
+if (typeof process === "object") {
+    isWindows = process.platform === "win32";
+} else if (typeof navigator === "object") {
     const userAgent = navigator.userAgent;
-    isWindows = userAgent.indexOf('Windows') >= 0;
+    isWindows = userAgent.indexOf("Windows") >= 0;
 }

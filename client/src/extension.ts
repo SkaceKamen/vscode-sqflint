@@ -1,15 +1,8 @@
-/* --------------------------------------------------------------------------------------------
- * Copyright (c) Microsoft Corporation. All rights reserved.
- * Licensed under the MIT License. See License.txt in the project root for license information.
- * ------------------------------------------------------------------------------------------ */
-'use strict';
-
-import * as path from 'path';
-
-import * as vscode from 'vscode';
-import { LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
-
 import * as openurl from 'openurl';
+import * as path from 'path';
+import * as vscode from 'vscode';
+import { LanguageClientOptions } from 'vscode-languageclient';
+import { ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { SqflintClient } from './client';
 
 const links = {
@@ -22,7 +15,7 @@ export const activate = (context: vscode.ExtensionContext): void => {
     // The server is implemented in node
     const serverModule = context.asAbsolutePath(path.join('build', 'server.js'));
     // The debug options for the server
-    const debugOptions = { execArgv: ["--nolazy", "--inspect=5686"] };
+    const debugOptions = { execArgv: ["--nolazy", "--inspect=5686", "--enable-source-maps"] };
 
     // If the extension is launched in debug mode then the debug server options are used
     // Otherwise the run options are used
@@ -53,6 +46,8 @@ export const activate = (context: vscode.ExtensionContext): void => {
 
     const client = new SqflintClient('sqflint', 'SQFLint', serverOptions, clientOptions);
 
-    context.subscriptions.push(client.start());
+    context.subscriptions.push(client);
     context.subscriptions.push(client.bar.bar);
+
+    client.start();
 };

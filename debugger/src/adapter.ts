@@ -7,8 +7,8 @@ import {
     OutputEvent
 } from 'vscode-debugadapter';
 
-import { DebugProtocol } from 'vscode-debugprotocol'
-import { RptMonitor, RptError, RptMessage } from './debugger'
+import { DebugProtocol } from 'vscode-debugprotocol';
+import { RptMonitor, RptError, RptMessage } from './debugger';
 
 export interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
     rptPath?: string;
@@ -60,13 +60,13 @@ class SQFDebug extends DebugSession {
         try {
             messageFilter = args.messageFilter ? new RegExp(args.messageFilter, 'i') : null;
         } catch (ex) {
-            this.sendEvent(new OutputEvent("Failed to compile message filter expression: " + ex, "stderr"))
+            this.sendEvent(new OutputEvent("Failed to compile message filter expression: " + ex, "stderr"));
         }
 
         try {
             errorFilter = args.errorFilter ? new RegExp(args.errorFilter, 'i') : null;
         } catch (ex) {
-            this.sendEvent(new OutputEvent("Failed to compile error filter expression: " + ex, "stderr"))
+            this.sendEvent(new OutputEvent("Failed to compile error filter expression: " + ex, "stderr"));
         }
 
 
@@ -90,14 +90,14 @@ class SQFDebug extends DebugSession {
 
         this.monitor.addListener('error', (error: RptError) => {
             if (!errorFilter || errorFilter.test(error.message)) {
-                const msg: DebugProtocol.OutputEvent = new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr")
+                const msg: DebugProtocol.OutputEvent = new OutputEvent(error.message + "\n\tat " + error.filename + ":" + error.line + "\n", "stderr");
 
                 if (error.filename) {
                     msg.body.source = {
                         name: path.basename(error.filename),
                         path: error.filename
-                    }
-                    msg.body.line = error.line
+                    };
+                    msg.body.line = error.line;
                 }
 
                 this.sendEvent(msg);

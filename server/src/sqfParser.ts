@@ -23,7 +23,7 @@ export class SqfParser {
     private logger: Logger;
 
     constructor(context: LoggerContext) {
-        this.logger = context.createLogger("sqf-parser");
+        this.logger = context.createLogger("SqfParser");
     }
 
     private async resolveImport(
