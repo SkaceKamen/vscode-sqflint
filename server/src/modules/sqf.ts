@@ -782,6 +782,7 @@ export class SqfModule extends ExtensionModule {
             }
         }
 
+        // TODO: This has to be reworked
         let string = this.getIncludeString(params);
         if (string) {
             const includes = this.includes[params.textDocument.uri];

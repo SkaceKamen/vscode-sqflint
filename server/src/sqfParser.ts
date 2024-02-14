@@ -281,7 +281,7 @@ export class SqfParser {
                     ],
                     warnings: [],
                     variables,
-                    includes: [],
+                    includes: [...preprocessed.includes.entries()].map(([filename, expanded]) => ({ expanded, filename })),
                     macros,
                 };
             } catch (err) {
@@ -317,7 +317,7 @@ export class SqfParser {
                     ],
                     warnings: [],
                     variables: [],
-                    includes: [],
+                    includes: [...preprocessed.includes.entries()].map(([filename, expanded]) => ({ expanded, filename })),
                     macros: [],
                 };
             }
