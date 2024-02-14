@@ -18,7 +18,7 @@ import {
 } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { ExtensionModule } from "../extensionModule";
-import { DefinitionsStorage } from "../lib/definitions.storage";
+import { DefinitionsStorage } from "../lib/definitionsStorage";
 import { EventDocumentation, formatEventDocs } from "../lib/formatEventDocs";
 import { Operator, OperatorType, loadOperators } from "../lib/loadOperators";
 import { SQFLintServer, WikiDocumentation } from "../server";
