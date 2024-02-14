@@ -135,22 +135,6 @@ export class SqfModule extends ExtensionModule {
 
         const client = this.parser;
 
-        // Reset variables local to document
-        this.localVariables[textDocument.uri] = {};
-
-        // Remove info about global variables created from this document
-        for (const global in this.globalVariables) {
-            const variable = this.globalVariables[global];
-
-            delete variable.usage[textDocument.uri];
-            delete variable.definitions[textDocument.uri];
-        }
-
-        // Remove global defined macros originating from this document
-        for (const macro in this.globalMacros) {
-            delete this.globalMacros[macro][textDocument.uri];
-        }
-
         // Parse document
         const contents = textDocument.getText();
 
@@ -173,10 +157,6 @@ export class SqfModule extends ExtensionModule {
             this.logger.info(
                 `SQF Parse took long for: ${textDocument.uri} (${timeTookParse} ms)`
             );
-        }
-
-        if (!result) {
-            return;
         }
 
         const diagnosticsByUri: Record<string, Diagnostic[]> = {};
@@ -221,6 +201,22 @@ export class SqfModule extends ExtensionModule {
                         });
                     }
                 });
+            }
+
+            // Reset variables local to document
+            this.localVariables[textDocument.uri] = {};
+
+            // Remove info about global variables created from this document
+            for (const global in this.globalVariables) {
+                const variable = this.globalVariables[global];
+
+                delete variable.usage[textDocument.uri];
+                delete variable.definitions[textDocument.uri];
+            }
+
+            // Remove global defined macros originating from this document
+            for (const macro in this.globalMacros) {
+                delete this.globalMacros[macro][textDocument.uri];
             }
 
             // Load variables info
@@ -676,15 +672,17 @@ export class SqfModule extends ExtensionModule {
         document: TextDocumentIdentifier,
         query: string
     ): LocalVariable[] {
-        const ns = this.localVariables[document.uri];
-        if (ns === undefined) return null;
+        const variables = this.localVariables[document.uri];
+        if (variables === undefined) {
+            return null;
+        }
 
-        return Object.keys(ns)
+        return Object.keys(variables)
             .filter(
                 (name) =>
                     name.toLocaleLowerCase().indexOf(query.toLowerCase()) >= 0
             )
-            .map((name) => ns[name]);
+            .map((name) => variables[name]);
     }
 
     /**
@@ -956,8 +954,7 @@ export class SqfModule extends ExtensionModule {
         const items: CompletionItem[] = [];
 
         const operators = this.operatorsStorage.find(hover);
-        for (const index in operators) {
-            const operator = operators[index];
+        for (const operator of operators) {
             items.push({
                 label: operator.name,
                 kind: CompletionItemKind.Function,
@@ -965,12 +962,12 @@ export class SqfModule extends ExtensionModule {
         }
 
         const local = this.findLocalVariables(params.textDocument, hover);
-        local.forEach((local) => {
+        for (const localItem of local) {
             items.push({
-                label: local.name,
+                label: localItem.name,
                 kind: CompletionItemKind.Variable,
             });
-        });
+        }
 
         for (const ident in this.globalVariables) {
             const variable = this.globalVariables[ident];
