@@ -429,7 +429,10 @@ export class SQFLintServer {
     private firstModuleResponse<TResult>(callback: (module: ExtensionModule) => TResult | null): TResult | null {
         for (const module of this.modules) {
             try {
-                callback(module);
+                const result = callback(module);
+                if (result) {
+                    return result;
+                }
             } catch (err) {
                 this.logger.error("Error in", module.constructor.name, err);
             }

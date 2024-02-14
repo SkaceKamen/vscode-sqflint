@@ -232,7 +232,7 @@ export class SqfModule extends ExtensionModule {
                     item.name == "server" ||
                     item.name == "paramsArray"
                 ) {
-                    return;
+                    continue;
                 }
 
                 item.ident = item.name.toLowerCase();
@@ -252,14 +252,14 @@ export class SqfModule extends ExtensionModule {
 
                 // Skip predefined functions and operators.
                 if (this.documentation[item.ident]) {
-                    return;
+                    continue;
                 }
 
                 // Skip user defined functions
                 if (
                     this.server.extModule.getFunction(item.ident.toLowerCase())
                 ) {
-                    return;
+                    continue;
                 }
 
                 // Skip mission variables
@@ -268,7 +268,7 @@ export class SqfModule extends ExtensionModule {
                         item.ident.toLowerCase()
                     )
                 ) {
-                    return;
+                    continue;
                 }
 
                 // Try to load existing global variable.
@@ -396,10 +396,9 @@ export class SqfModule extends ExtensionModule {
         document: TextDocumentIdentifier,
         name: string
     ): LocalVariable {
-        let ns;
-        if (typeof (ns = this.localVariables[document.uri]) === "undefined")
-            return null;
-        return ns[name.toLowerCase()];
+        const documentVariables = this.localVariables[document.uri];
+        if (!documentVariables) return null;
+        return documentVariables[name.toLowerCase()];
     }
 
     /**
@@ -567,7 +566,7 @@ export class SqfModule extends ExtensionModule {
                 };
             }
 
-            if (op) {
+            if (op && op.length > 0) {
                 return {
                     contents: {
                         language: "sqf",

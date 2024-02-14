@@ -26,7 +26,7 @@
         "onCommand:extension.sqflint.uiEvents",
         "onCommand:extension.sqflint.commandsList"
     ],
-    "main": "./client/out/extension",
+    "main": "./build/extension",
     "contributes": {
         "commands": [
             {
