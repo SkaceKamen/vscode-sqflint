@@ -29,7 +29,7 @@ export class SqfParser {
 
     private async resolveImport(
         includeParam: string,
-        sourceFilename: string,
+        root: string,
         options: Options
     ): Promise<{ contents: string; filename: string }> {
         const matchPrefix = (path: string) =>
@@ -57,7 +57,7 @@ export class SqfParser {
                 matchingPrefix[1],
                 replacePrefix(matchingPrefix[0], includeParam)
             )
-            : path.resolve(path.dirname(sourceFilename), includeParam);
+            : path.resolve(root, includeParam);
 
         try {
             const contents = await fs.promises.readFile(resolved, "utf-8");
@@ -95,7 +95,7 @@ export class SqfParser {
                 try {
                     return this.resolveImport(
                         includeParam,
-                        sourceFilename,
+                        path.dirname(sourceFilename),
                         options
                     );
                 } catch (err) {
@@ -111,6 +111,8 @@ export class SqfParser {
                 filename,
                 resolveFn: resolveImport,
             });
+
+            //console.log(preprocessed);
 
             this.logger.info(
                 `${filename} preprocessed in ${performance.now() - start}ms`
@@ -162,6 +164,8 @@ export class SqfParser {
             const offsetsToRange = async (start: number, end: number) => {
                 const startLocation = await getProperOffset(start);
                 const endLocation = await getProperOffset(end);
+
+                //console.log({start,end}, '->', {startLocation, endLocation});
 
                 return new SqfParser.Range(
                     new SqfParser.Position(

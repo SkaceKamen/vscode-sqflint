@@ -450,6 +450,40 @@ export class SQFLintServer {
             }
         }
     }
+
+    public resolveImport(
+        includeParam: string,
+        sourceFilename: string,
+    ) {
+        const matchPrefix = (path: string) =>
+            includeParam.toLowerCase().startsWith(path.toLowerCase()) ||
+        includeParam.toLowerCase().startsWith(`\\${path.toLowerCase()}`);
+
+        const matchingPrefix = [...this.includePrefixes.entries()].find(
+            ([p]) => matchPrefix(p)
+        );
+
+        const replacePrefix = (prefix: string, include: string) => {
+            if (include.toLowerCase().startsWith(prefix.toLowerCase())) {
+                return include.substring(prefix.length);
+            }
+
+            if (include.toLowerCase().startsWith(`\\${prefix.toLowerCase()}`)) {
+                return include.substring(prefix.length + 1);
+            }
+
+            return include;
+        };
+
+        const resolved = matchingPrefix
+            ? path.join(
+                matchingPrefix[1],
+                replacePrefix(matchingPrefix[0], includeParam)
+            )
+            : path.resolve(path.dirname(sourceFilename), includeParam);
+
+        return resolved;
+    }
 }
 
 // create instance

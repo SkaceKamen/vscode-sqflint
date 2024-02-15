@@ -49,10 +49,16 @@ export class ExtModule extends ExtensionModule {
         };
 
         // This allows loading document contents if it's opened directly
-        Hpp.tryToLoad = (filename: string): string => {
-            const document = this.server.documents.get(
-                Uri.file(filename).toString()
+        Hpp.tryToLoad = (filename: string, sourceFilename: string): string => {
+            const resolvedFilename = this.server.resolveImport(
+                filename,
+                path.dirname(sourceFilename)
             );
+
+            const document = this.server.documents.get(
+                Uri.file(resolvedFilename).toString()
+            );
+
             if (document) {
                 return document.getText();
             }
@@ -105,22 +111,22 @@ export class ExtModule extends ExtensionModule {
                 this.logger.info("No description.ext files found");
             }
 
-            this.logger.info("Discovering config.cpp files");
+            //this.logger.info("Discovering config.cpp files");
 
-            const configs = await glob("**/config.cpp", {
-                ignore: settings.exclude,
-                root,
-                absolute: true,
-            });
+            //const configs = await glob("**/config.cpp", {
+            //    ignore: settings.exclude,
+            //    root,
+            //    absolute: true,
+            //});
 
-            if (configs.length > 0) {
-                for (const file of configs) {
-                    this.logger.info(`  Found: ${file}`);
-                    files.add(file);
-                }
-            } else {
-                this.logger.info("No config.cpp files found");
-            }
+            //if (configs.length > 0) {
+            //    for (const file of configs) {
+            //        this.logger.info(`  Found: ${file}`);
+            //        files.add(file);
+            //    }
+            //} else {
+            //    this.logger.info("No config.cpp files found");
+            //}
         } else {
             const descPath = path.join(root, "description.ext");
             if (fs.existsSync(descPath)) {
@@ -381,7 +387,7 @@ export class ExtModule extends ExtensionModule {
                     ],
                 });
             } else {
-                console.error(error);
+                console.error("Failed to process", filename, "with", error);
             }
         }
     }

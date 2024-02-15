@@ -35,7 +35,7 @@ export namespace Hpp {
 
     // assigned by other class
     // eslint-disable-next-line prefer-const
-    export let tryToLoad: (filename: string) => string = () => {
+    export let tryToLoad: (filename: string, sourceFilename: string) => string = () => {
         return null;
     };
 
@@ -159,7 +159,7 @@ export namespace Hpp {
 
     const preprocess = async (filename: string) => {
         const contents =
-            tryToLoad(filename) || fs.readFileSync(filename).toString();
+            tryToLoad(filename, filename) || fs.readFileSync(filename).toString();
 
         const processed = await preprocessFile(contents, {
             filename,
@@ -168,7 +168,8 @@ export namespace Hpp {
                     param,
                     fsPath.dirname(sourceFilename)
                 );
-                const contents = await (tryToLoad(resolvedFname) ||
+
+                const contents = await (tryToLoad(resolvedFname, sourceFilename) ||
                     fs.promises.readFile(resolvedFname, "utf-8"));
 
                 return {

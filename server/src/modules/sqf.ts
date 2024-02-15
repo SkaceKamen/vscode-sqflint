@@ -9,6 +9,7 @@ import {
     Hover,
     Location,
     MarkedString,
+    MarkupContent,
     Position,
     ReferenceParams,
     SignatureHelp,
@@ -216,7 +217,7 @@ export class SqfModule extends ExtensionModule {
 
             // Remove global defined macros originating from this document
             for (const macro in this.globalMacros) {
-                delete this.globalMacros[macro][textDocument.uri];
+                delete this.globalMacros[macro].definitions[textDocument.uri];
             }
 
             // Load variables info
@@ -476,104 +477,106 @@ export class SqfModule extends ExtensionModule {
         this.events = JSON.parse(data);
     }
 
-    public onHover(params: TextDocumentPositionParams): Hover {
-        const ref = this.findReferences(params);
+    public onHover(params: TextDocumentPositionParams, nameOriginal: string): Hover {
+        // TODO: Move these helpers somewhere else
+        const sqfCode = (line: string): string => "```sqf\n" + line + "\n```";
+        const extCode = (line: string): string => "```ext\n" + line + "\n```";
+        const response = (lines: string[]) => ({
+            contents: {
+                kind: "markdown",
+                value: lines.join("\n"),
+            } as MarkupContent,
+        });
 
-        if (ref && (ref.global || ref.local || ref.macro)) {
-            const contents: MarkedString[] = [];
+        const name = nameOriginal.toLowerCase();
 
-            if (ref.global) {
-                for (const uri in ref.global.definitions) {
-                    try {
-                        const document = TextDocument.create(
-                            uri,
-                            "sqf",
-                            0,
-                            fs.readFileSync(Uri.parse(uri).fsPath).toString()
-                        );
-                        if (document) {
-                            const definitions = ref.global.definitions[uri];
-                            for (let i = 0; i < definitions.length; i++) {
-                                const definition = definitions[i];
-                                const line = this.getDefinitionLine(
-                                    document,
-                                    definition
-                                );
+        const global = this.getGlobalVariable(name);
+        if (global) {
+            const contents = [] as string[];
 
-                                contents.push({
-                                    language: "sqf",
-                                    value: line,
-                                });
-                            }
-                        } else {
-                            this.logger.error("Failed to get document", uri);
+            for (const uri in global.definitions) {
+                try {
+                    const document = TextDocument.create(
+                        uri,
+                        "sqf",
+                        0,
+                        fs.readFileSync(Uri.parse(uri).fsPath).toString()
+                    );
+
+                    if (document) {
+                        const definitions = global.definitions[uri];
+                        for (const definition of definitions) {
+                            const line = this.getDefinitionLine(
+                                document,
+                                definition
+                            );
+
+                            contents.push(sqfCode(line));
                         }
-                    } catch (e) {
-                        this.logger.error("Failed to load " + uri, e);
+                    } else {
+                        this.logger.error("Failed to get document", uri);
                     }
-                }
-
-                if (ref.global.comment) {
-                    contents.push(ref.global.comment);
-                }
-            } else if (ref.local) {
-                const document = this.server.documents.get(
-                    params.textDocument.uri
-                );
-                for (let i = 0; i < ref.local.definitions.length; i++) {
-                    const definition = ref.local.definitions[i];
-                    const line = this.getDefinitionLine(document, definition);
-
-                    contents.push({
-                        language: "sqf",
-                        value: line,
-                    });
-                }
-
-                if (ref.local.comment) {
-                    contents.push(ref.local.comment);
-                }
-            } else if (ref.macro) {
-                for (const uri in ref.macro.definitions) {
-                    const def = ref.macro.definitions[uri];
-                    for (let v = 0; v < def.length; v++) {
-                        contents.push({
-                            language: "ext",
-                            value:
-                                "#define " +
-                                ref.macro.name +
-                                " " +
-                                def[v].value,
-                        });
-                    }
+                } catch (e) {
+                    this.logger.error("Failed to load " + uri, e);
                 }
             }
 
-            return { contents };
-        } else {
-            const name = this.server.getNameFromParams(params).toLowerCase();
-            const docs = this.documentation[name];
-            const op = this.findOperator(params);
-            const ev = this.findEvent(params);
-
-            if (docs) {
-                return {
-                    contents: this.buildHoverDocs(docs),
-                };
+            if (global.comment) {
+                contents.push(global.comment);
             }
 
-            if (op && op.length > 0) {
-                return {
-                    contents: {
-                        language: "sqf",
-                        value: "(command) " + op[0].documentation,
-                    },
-                };
+            return response(contents);
+        }
+
+        const local = this.getLocalVariable(params.textDocument, name);
+        if (local) {
+            const contents = [] as string[];
+
+            const document = this.server.documents.get(params.textDocument.uri);
+
+            for (const definition of local.definitions) {
+                const line = this.getDefinitionLine(document, definition);
+                contents.push(sqfCode(line));
             }
 
-            if (ev) {
-                return { contents: formatEventDocs(ev) };
+            if (local.comment) {
+                contents.push(local.comment);
             }
+
+            return response(contents);
+        }
+
+        const macro = this.getGlobalMacro(name);
+        if (macro) {
+            const contents = [] as string[];
+
+            for (const uri in macro.definitions) {
+                const def = macro.definitions[uri];
+                for (const definition of def) {
+                    contents.push(
+                        extCode(`#define ${macro.name} ${definition.value}`)
+                    );
+                }
+            }
+
+            return response(contents);
+        }
+
+        const docs = this.documentation[name];
+        if (docs) {
+            return {
+                contents: this.buildHoverDocs(docs),
+            };
+        }
+
+        const op = this.findOperator(params);
+        if (op && op.length > 0) {
+            return response([sqfCode("(command) " + op[0].documentation)]);
+        }
+
+        const ev = this.findEvent(params);
+        if (ev) {
+            return { contents: formatEventDocs(ev) };
         }
     }
 
@@ -785,6 +788,8 @@ export class SqfModule extends ExtensionModule {
         // TODO: This has to be reworked
         let string = this.getIncludeString(params);
         if (string) {
+            console.log(this.includes);
+
             const includes = this.includes[params.textDocument.uri];
             if (includes) {
                 for (let i = 0; i < includes.length; i++) {
