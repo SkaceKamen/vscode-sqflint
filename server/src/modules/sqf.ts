@@ -164,6 +164,7 @@ export class SqfModule extends ExtensionModule {
         const diagnostics = (diagnosticsByUri[textDocument.uri] = []);
 
         try {
+            // TODO: This has to be spread between different documents, not the source file
             this.includes[textDocument.uri] = result.includes;
 
             // Reset errors for any included file

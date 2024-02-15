@@ -112,6 +112,8 @@ export class SqfParser {
                 resolveFn: resolveImport,
             });
 
+            const includes = [...preprocessed.includes.entries()].flatMap(([document, includes]) => [...includes.entries()].map(([filename, expanded]) => ({ document, expanded, filename })));
+
             //console.log(preprocessed);
 
             this.logger.info(
@@ -291,7 +293,7 @@ export class SqfParser {
                     ],
                     warnings: [],
                     variables,
-                    includes: [...preprocessed.includes.entries()].map(([filename, expanded]) => ({ expanded, filename })),
+                    includes,
                     macros,
                 };
             } catch (err) {
@@ -330,7 +332,7 @@ export class SqfParser {
                     ],
                     warnings: [],
                     variables: [],
-                    includes: [...preprocessed.includes.entries()].map(([filename, expanded]) => ({ expanded, filename })),
+                    includes,
                     macros: [],
                 };
             }
@@ -425,7 +427,11 @@ export namespace SqfParser {
     }
 
     export class IncludeInfo {
+        /** Document where the include is used */
+        document: string;
+        /** Original filename used in the document */
         filename: string;
+        /** Actual filename after resolving */
         expanded: string;
     }
 
