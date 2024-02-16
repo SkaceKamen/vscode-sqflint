@@ -52,4 +52,20 @@ export class Logger {
     debug(...args: any[]): void {
         this.log(LoggerLevel.Debug, ...args);
     }
+
+    async measure<TResult>(label: string, fn: () => Promise<TResult> | TResult): Promise<TResult> {
+        const start = performance.now();
+        const result = await fn();
+        const end = performance.now();
+        this.debug(`${label}: ${end-start}ms`);
+        return result;
+    }
+
+    measureSync<TResult>(label: string, fn: () => TResult): TResult {
+        const start = performance.now();
+        const result = fn();
+        const end = performance.now();
+        this.debug(`${label}: ${end-start}ms`);
+        return result;
+    }
 }

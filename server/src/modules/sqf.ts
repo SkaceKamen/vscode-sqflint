@@ -33,22 +33,22 @@ import { SqfFunction } from "./ext";
 type LocalVariable = {
     name: string;
     comment: string;
-    usage: SqfParser.Range[];
-    definitions: SqfParser.Range[];
+    usage: SqfParserTypes.Range[];
+    definitions: SqfParserTypes.Range[];
 };
 
 type GlobalVariable = {
     name: string;
     comment: string;
-    definitions: Record<string, SqfParser.Range[]>;
-    usage: Record<string, SqfParser.Range[]>;
+    definitions: Record<string, SqfParserTypes.Range[]>;
+    usage: Record<string, SqfParserTypes.Range[]>;
 };
 
 type Macro = {
     name: string;
     arguments: string;
-    definitions: SqfParser.MacroDefinition[];
-    usage: SqfParser.Range[];
+    definitions: SqfParserTypes.MacroDefinition[];
+    usage: SqfParserTypes.Range[];
 };
 
 export class SqfModule extends ExtensionModule {
@@ -62,7 +62,7 @@ export class SqfModule extends ExtensionModule {
     private localMacros: Record<string, Record<string, Macro>> = {};
 
     /** Info about included files in macros */
-    private includes: Record<string, SqfParser.IncludeInfo[]> = {};
+    private includes: Record<string, SqfParserTypes.IncludeInfo[]> = {};
 
     /** Contains documentation core for operators and functions */
     private documentation: Record<string, WikiDocumentation> = {};
@@ -173,7 +173,7 @@ export class SqfModule extends ExtensionModule {
         });
 
         // Add found errors
-        result.errors.forEach((item: SqfParser.Error) => {
+        result.errors.forEach((item: SqfParserTypes.Error) => {
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
                 range: item.range,
@@ -184,7 +184,7 @@ export class SqfModule extends ExtensionModule {
 
         if (this.server.settings.warnings) {
             // Add local warnings
-            result.warnings.forEach((item: SqfParser.Warning) => {
+            result.warnings.forEach((item: SqfParserTypes.Warning) => {
                 if (item.filename) {
                     const uri = Uri.file(item.filename).toString();
                     if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
@@ -560,7 +560,7 @@ export class SqfModule extends ExtensionModule {
 
     private getDefinitionLine(
         document: TextDocument,
-        definition: SqfParser.Range
+        definition: SqfParserTypes.Range
     ): string {
         const start = document.offsetAt(definition.start);
         let end = document.offsetAt(definition.end);

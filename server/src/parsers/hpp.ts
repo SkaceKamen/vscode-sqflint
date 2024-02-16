@@ -20,7 +20,7 @@ export namespace Hpp {
     export class ParseError {
         constructor(
             public filename: string,
-            public range: SqfParser.Range,
+            public range: SqfParserTypes.Range,
             public message: string
         ) {}
     }
@@ -50,7 +50,7 @@ export namespace Hpp {
         useMap = false
     ): {
         filename: string;
-        range: SqfParser.Range;
+        range: SqfParserTypes.Range;
     } {
         if (useMap) {
             for (const i in preprocessorMap) {
@@ -72,7 +72,7 @@ export namespace Hpp {
                                 character:
                                     location.end.column - map.offset[3] - 1,
                             },
-                        } as SqfParser.Range,
+                        } as SqfParserTypes.Range,
                     };
                 }
             }
@@ -89,7 +89,7 @@ export namespace Hpp {
                     line: location.end.line - 1,
                     character: location.end.column - 1,
                 },
-            } as SqfParser.Range,
+            } as SqfParserTypes.Range,
         };
     }
 
@@ -228,7 +228,7 @@ export namespace Hpp {
         location: pegjs.LocationRange;
         fileLocation: {
             filename: string;
-            range: SqfParser.Range;
+            range: SqfParserTypes.Range;
         };
         filename: string;
     }

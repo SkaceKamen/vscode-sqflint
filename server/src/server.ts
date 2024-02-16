@@ -19,7 +19,7 @@ import {
 } from "vscode-languageserver/node";
 import { ExtensionModule } from "./extensionModule";
 import { Logger } from "./lib/logger";
-import { LoggerContext } from "./lib/loggerContext";
+import { LoggerContext, LoggerLevel } from "./lib/loggerContext";
 import { ExtModule } from "./modules/ext";
 import { MissionModule } from "./modules/mission";
 import { SqfModule } from "./modules/sqf";
@@ -111,6 +111,7 @@ export class SQFLintServer {
 
     constructor() {
         this.loggerContext = new LoggerContext();
+        this.loggerContext.level = LoggerLevel.Debug;
         this.logger = this.loggerContext.createLogger("server");
 
         this.extModule = new ExtModule(this);

@@ -1,8 +1,4 @@
-import {
-    getLocationFromOffset,
-    getMappedOffsetAt,
-    preprocess,
-} from "@bi-tools/preprocessor";
+import { preprocess } from "@bi-tools/preprocessor";
 import { analyzeSqf } from "@bi-tools/sqf-analyzer";
 import {
     SqfParserError,
@@ -12,9 +8,10 @@ import {
 } from "@bi-tools/sqf-parser";
 import * as fs from "fs";
 import * as path from "path";
-import { performance } from "perf_hooks";
 import { Logger } from "./lib/logger";
 import { LoggerContext } from "./lib/loggerContext";
+import { OffsetsMapper } from "./lib/offsetsMapper";
+import { SqfParserTypes } from "./sqfParserTypes";
 
 type Options = {
     includePrefixes: Map<string, string>;
@@ -78,7 +75,7 @@ export class SqfParser {
         filename: string,
         contents: string,
         options?: Options
-    ): Promise<SqfParser.ParseInfo> {
+    ): Promise<SqfParserTypes.ParseInfo> {
         this.logger.info("Parsing file: " + filename);
 
         try {
@@ -105,187 +102,117 @@ export class SqfParser {
                 }
             };
 
-            let start = performance.now();
+            const preprocessed = await this.logger.measure("preprocess", () =>
+                preprocess(contents, {
+                    filename,
+                    resolveFn: resolveImport,
+                })
+            );
 
-            const preprocessed = await preprocess(contents, {
-                filename,
-                resolveFn: resolveImport,
-            });
+            const preErrors = await Promise.all(
+                preprocessErrors.map(
+                    async (e) =>
+                        new SqfParserTypes.Error(
+                            e.err.message,
+                            await mapper.offsetsToRange(
+                                e.position[0],
+                                e.position[1]
+                            )
+                        )
+                )
+            );
 
-            const includes = [...preprocessed.includes.entries()].flatMap(([document, includes]) => [...includes.entries()].map(([filename, expanded]) => ({ document, expanded, filename })));
-
-            //console.log(preprocessed);
-
-            this.logger.info(
-                `${filename} preprocessed in ${performance.now() - start}ms`
+            const includes = [...preprocessed.includes.entries()].flatMap(
+                ([document, includes]) =>
+                    [...includes.entries()].map(([filename, expanded]) => ({
+                        document,
+                        expanded,
+                        filename,
+                    }))
             );
 
             const sourceMap = preprocessed.sourceMap;
-
-            // TODO: This should be cached when doing workspace indexing
-            const fileContents = {} as Record<string, string>;
-            const fileContentsLoaders = {} as Record<string, Promise<string>>;
-
-            const getContents = async (filename: string) => {
-                if (!fileContents[filename]) {
-                    try {
-                        const loader = fileContentsLoaders[filename] ?? (fileContentsLoaders[filename] = fs.promises.readFile(
-                            filename,
-                            "utf-8"
-                        ));
-
-                        fileContents[filename] = await loader;
-
-                        delete fileContentsLoaders[filename];
-                    } catch (err) {
-                        console.error(
-                            "Failed to load source map file",
-                            filename,
-                            err
-                        );
-
-                        fileContents[filename] = "";
-                    }
-                }
-                return fileContents[filename];
-            };
-
-            const getProperOffset = async (offset: number, mapToFile?: string) => {
-                // TODO: This function is slow if you have tons of sourceMaps
-                const mapped = !mapToFile ? getMappedOffsetAt(sourceMap, offset, filename) : { offset, file: mapToFile };
-
-                const location = getLocationFromOffset(
-                    mapped.offset,
-                    await getContents(mapped.file)
-                );
-
-                return location;
-            };
-
-            // TODO: This is the slowest part of this function, hard to optimize now
-            const offsetsToRange = async (start: number, end: number, mapToFile?: string) => {
-                const startLocation = await getProperOffset(start, mapToFile);
-                const endLocation = await getProperOffset(end, mapToFile);
-
-                //console.log({start,end}, '->', {startLocation, endLocation});
-
-                return new SqfParser.Range(
-                    new SqfParser.Position(
-                        startLocation.line - 1,
-                        startLocation.column - 1
-                    ),
-                    new SqfParser.Position(
-                        endLocation.line - 1,
-                        endLocation.column - 1
-                    )
-                );
-            };
+            const mapper = new OffsetsMapper(filename, sourceMap);
 
             try {
-                start = performance.now();
-
-                const tokens = tokenizeSqf(preprocessed.code);
-
-                this.logger.info(
-                    `${filename} tokenized in ${performance.now() - start}ms`
+                const tokens = this.logger.measureSync("tokenize", () =>
+                    tokenizeSqf(preprocessed.code)
+                );
+                const { errors, script } = this.logger.measureSync(
+                    "parse",
+                    () => parseSqfTokens(tokens)
+                );
+                const analysis = this.logger.measureSync("analyze", () =>
+                    analyzeSqf(script, tokens, preprocessed.code)
                 );
 
-                start = performance.now();
-
-                const { errors, script } = parseSqfTokens(tokens);
-
-                this.logger.info(
-                    `${filename} parsed in ${performance.now() - start}ms`
-                );
-
-                start = performance.now();
-
-                const analysis = analyzeSqf(script, tokens, preprocessed.code);
-
-                this.logger.info(
-                    `${filename} analyzed in ${performance.now() - start}ms`
-                );
-
-                start = performance.now();
-
-                const variables = await Promise.all(
-                    Array.from(analysis.variables.values()).map(async (v) => ({
-                        name: v.originalName,
-                        comment: this.parseComment(
-                            v.assignments
-                                .map((a) => a.comment)
-                                .find((a) => !!a) ?? ""
-                        ),
-                        ident: v.originalName,
-                        usage: await Promise.all(
-                            v.usage.map((d) => offsetsToRange(d[0], d[1]))
-                        ),
-                        isLocal(): boolean {
-                            return this.name.charAt(0) == "_";
-                        },
-                        definitions: await Promise.all(
-                            v.assignments.map((d) =>
-                                offsetsToRange(d.position[0], d.position[1])
-                            )
-                        ),
-                    }))
-                );
-
-                this.logger.info(
-                    `${filename} variables processed in ${
-                        performance.now() - start
-                    }ms`
-                );
-
-                start = performance.now();
-
-                const macros = await Promise.all(
-                    [...preprocessed.defines.values()].map(
-                        async (d): Promise<SqfParser.MacroInfo> => ({
-                            name: d.name,
-                            arguments: d.args.join(","),
-                            definitions: [
-                                {
-                                    value: typeof d.value === 'function' ? d.value() : d.value,
-                                    filename: d.file,
-                                    position: await offsetsToRange(
-                                        d.location[0],
-                                        d.location[1],
-                                        // Macro positions are already mapped to proper file so we don't need to map them again
-                                        d.file
-                                    ),
+                const variables = await this.logger.measure("variables", () =>
+                    Promise.all(
+                        Array.from(analysis.variables.values()).map(
+                            async (v) => ({
+                                name: v.originalName,
+                                comment: this.parseComment(
+                                    v.assignments
+                                        .map((a) => a.comment)
+                                        .find((a) => !!a) ?? ""
+                                ),
+                                ident: v.originalName,
+                                usage: await Promise.all(
+                                    v.usage.map((d) =>
+                                        mapper.offsetsToRange(d[0], d[1])
+                                    )
+                                ),
+                                isLocal(): boolean {
+                                    return this.name.charAt(0) == "_";
                                 },
-                            ],
-                        })
+                                definitions: await Promise.all(
+                                    v.assignments.map((d) =>
+                                        mapper.offsetsToRange(
+                                            d.position[0],
+                                            d.position[1]
+                                        )
+                                    )
+                                ),
+                            })
+                        )
                     )
                 );
 
-                this.logger.info(
-                    `${filename} macros processed in ${
-                        performance.now() - start
-                    }ms`
+                const macros = await this.logger.measure("macros", () =>
+                    Promise.all(
+                        [...preprocessed.defines.values()].map(
+                            async (d): Promise<SqfParserTypes.MacroInfo> => ({
+                                name: d.name,
+                                arguments: d.args.join(","),
+                                definitions: [
+                                    {
+                                        value:
+                                            typeof d.value === "function"
+                                                ? d.value()
+                                                : d.value,
+                                        filename: d.file,
+                                        position: await mapper.offsetsToRange(
+                                            d.location[0],
+                                            d.location[1],
+                                            // Macro positions are already mapped to proper file so we don't need to map them again
+                                            d.file
+                                        ),
+                                    },
+                                ],
+                            })
+                        )
+                    )
                 );
 
                 return {
                     errors: [
-                        ...(await Promise.all(
-                            preprocessErrors.map(
-                                async (e) =>
-                                    new SqfParser.Error(
-                                        e.err.message,
-                                        await offsetsToRange(
-                                            e.position[0],
-                                            e.position[1]
-                                        )
-                                    )
-                            )
-                        )),
+                        ...preErrors,
                         ...(await Promise.all(
                             errors.map(
                                 async (e) =>
-                                    new SqfParser.Error(
+                                    new SqfParserTypes.Error(
                                         e.message,
-                                        await offsetsToRange(
+                                        await mapper.offsetsToRange(
                                             e.token.position.from,
                                             e.token.position.to
                                         )
@@ -302,33 +229,27 @@ export class SqfParser {
                 console.error("failed to parse", filename, err);
 
                 if (err instanceof TokenizerError) {
-                    console.log(preprocessed.code.slice(err.offset - 100, err.offset + 100));
+                    console.log(
+                        preprocessed.code.slice(
+                            err.offset - 100,
+                            err.offset + 100
+                        )
+                    );
                 }
 
                 return {
                     errors: [
-                        ...(await Promise.all(
-                            preprocessErrors.map(
-                                async (e) =>
-                                    new SqfParser.Error(
-                                        e.err.message,
-                                        await offsetsToRange(
-                                            e.position[0],
-                                            e.position[1]
-                                        )
-                                    )
-                            )
-                        )),
-                        new SqfParser.Error(
+                        ...preErrors,
+                        new SqfParserTypes.Error(
                             err.message,
                             err instanceof SqfParserError
-                                ? await offsetsToRange(
+                                ? await mapper.offsetsToRange(
                                     err.token.position.from,
                                     err.token.position.to
                                 )
-                                : new SqfParser.Range(
-                                    new SqfParser.Position(0, 0),
-                                    new SqfParser.Position(0, 0)
+                                : new SqfParserTypes.Range(
+                                    new SqfParserTypes.Position(0, 0),
+                                    new SqfParserTypes.Position(0, 0)
                                 )
                         ),
                     ],
@@ -343,11 +264,11 @@ export class SqfParser {
 
             return {
                 errors: [
-                    new SqfParser.Error(
+                    new SqfParserTypes.Error(
                         err.message,
-                        new SqfParser.Range(
-                            new SqfParser.Position(0, 0),
-                            new SqfParser.Position(0, 0)
+                        new SqfParserTypes.Range(
+                            new SqfParserTypes.Position(0, 0),
+                            new SqfParserTypes.Position(0, 0)
                         )
                     ),
                 ],
@@ -389,106 +310,5 @@ export class SqfParser {
         }
 
         return comment;
-    }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace SqfParser {
-    /**
-     * Base message.
-     */
-    class Message {
-        constructor(
-            public message: string,
-            public range: Range,
-            public filename?: string
-        ) {}
-    }
-
-    /**
-     * Error in code.
-     */
-    export class Error extends Message {}
-
-    /**
-     * Warning in code.
-     */
-    export class Warning extends Message {}
-
-    /**
-     * Contains info about parse result.
-     */
-    export class ParseInfo {
-        errors: Error[] = [];
-        warnings: Warning[] = [];
-        variables: VariableInfo[] = [];
-        macros: MacroInfo[] = [];
-        includes: IncludeInfo[] = [];
-        timeNeededSqfLint?: number;
-        timeNeededMessagePass?: number;
-    }
-
-    export class IncludeInfo {
-        /** Document where the include is used */
-        document: string;
-        /** Original filename used in the document */
-        filename: string;
-        /** Actual filename after resolving */
-        expanded: string;
-    }
-
-    /**
-     * Contains info about variable used in document.
-     */
-    export class VariableInfo {
-        name: string;
-        ident: string;
-        comment: string;
-        definitions: Range[];
-        usage: Range[];
-
-        public isLocal(): boolean {
-            return this.name.charAt(0) == "_";
-        }
-    }
-
-    /**
-     * Info about macro.
-     */
-    export class MacroInfo {
-        name: string;
-        arguments: string = null;
-        definitions: MacroDefinition[];
-    }
-
-    /**
-     * Info about one specific macro definition.
-     */
-    export class MacroDefinition {
-        position: Range;
-        value: string;
-        filename: string;
-    }
-
-    /**
-     * vscode compatible range
-     */
-    export class Range {
-        constructor(public start: Position, public end: Position) {}
-    }
-
-    /**
-     * vscode compatible position
-     */
-    export class Position {
-        constructor(public line: number, public character: number) {}
-    }
-
-    export interface Options {
-        checkPaths?: boolean;
-        pathsRoot?: string;
-        ignoredVariables?: string[];
-        includePrefixes?: { [key: string]: string };
-        contextSeparation?: boolean;
     }
 }
