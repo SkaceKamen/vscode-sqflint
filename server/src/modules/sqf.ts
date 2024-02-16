@@ -26,6 +26,7 @@ import { SQFLintServer, WikiDocumentation } from "../server";
 import { SqfParser } from "../sqfParser";
 import Uri from "../uri";
 import { SqfFunction } from "./ext";
+import { SqfParserTypes } from "../sqfParserTypes";
 
 /**
  * Variable local to document. Contains locations local to document.
