@@ -150,9 +150,9 @@ export class SqfParser {
                 return fileContents[filename];
             };
 
-            const getProperOffset = async (offset: number) => {
+            const getProperOffset = async (offset: number, mapToFile?: string) => {
                 // TODO: This function is slow if you have tons of sourceMaps
-                const mapped = getMappedOffsetAt(sourceMap, offset, filename);
+                const mapped = !mapToFile ? getMappedOffsetAt(sourceMap, offset, filename) : { offset, file: mapToFile };
 
                 const location = getLocationFromOffset(
                     mapped.offset,
@@ -163,9 +163,9 @@ export class SqfParser {
             };
 
             // TODO: This is the slowest part of this function, hard to optimize now
-            const offsetsToRange = async (start: number, end: number) => {
-                const startLocation = await getProperOffset(start);
-                const endLocation = await getProperOffset(end);
+            const offsetsToRange = async (start: number, end: number, mapToFile?: string) => {
+                const startLocation = await getProperOffset(start, mapToFile);
+                const endLocation = await getProperOffset(end, mapToFile);
 
                 //console.log({start,end}, '->', {startLocation, endLocation});
 
@@ -250,7 +250,9 @@ export class SqfParser {
                                     filename: d.file,
                                     position: await offsetsToRange(
                                         d.location[0],
-                                        d.location[1]
+                                        d.location[1],
+                                        // Macro positions are already mapped to proper file so we don't need to map them again
+                                        d.file
                                     ),
                                 },
                             ],

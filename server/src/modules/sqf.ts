@@ -44,10 +44,11 @@ type GlobalVariable = {
     usage: Record<string, SqfParser.Range[]>;
 };
 
-type GlobalMacro = {
+type Macro = {
     name: string;
     arguments: string;
-    definitions: { [uri: string]: SqfParser.MacroDefinition[] };
+    definitions: SqfParser.MacroDefinition[];
+    usage: SqfParser.Range[];
 };
 
 export class SqfModule extends ExtensionModule {
@@ -58,8 +59,8 @@ export class SqfModule extends ExtensionModule {
     /** Variables defined in global scope */
     private globalVariables: Record<string, GlobalVariable> = {};
     /** Macros definition */
-    // TODO: Macros are always local, we should respect that
-    private globalMacros: Record<string, GlobalMacro> = {};
+    private localMacros: Record<string, Record<string, Macro>> = {};
+
     /** Info about included files in macros */
     private includes: Record<string, SqfParser.IncludeInfo[]> = {};
 
@@ -163,208 +164,183 @@ export class SqfModule extends ExtensionModule {
         const diagnosticsByUri: Record<string, Diagnostic[]> = {};
         const diagnostics = (diagnosticsByUri[textDocument.uri] = []);
 
-        try {
-            // TODO: This has to be spread between different documents, not the source file
-            this.includes[textDocument.uri] = result.includes;
+        // TODO: This has to be spread between different documents, not the source file
+        this.includes[textDocument.uri] = result.includes;
 
-            // Reset errors for any included file
-            result.includes.forEach((item) => {
-                diagnostics[Uri.file(item.expanded).toString()] = [];
+        // Reset errors for any included file
+        result.includes.forEach((item) => {
+            diagnostics[Uri.file(item.expanded).toString()] = [];
+        });
+
+        // Add found errors
+        result.errors.forEach((item: SqfParser.Error) => {
+            diagnostics.push({
+                severity: DiagnosticSeverity.Error,
+                range: item.range,
+                message: item.message,
+                source: "sqflint",
             });
+        });
 
-            // Add found errors
-            result.errors.forEach((item: SqfParser.Error) => {
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: item.range,
-                    message: item.message,
-                    source: "sqflint",
-                });
+        if (this.server.settings.warnings) {
+            // Add local warnings
+            result.warnings.forEach((item: SqfParser.Warning) => {
+                if (item.filename) {
+                    const uri = Uri.file(item.filename).toString();
+                    if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
+                    diagnosticsByUri[uri].push({
+                        severity: DiagnosticSeverity.Warning,
+                        range: item.range,
+                        message: item.message,
+                        source: "sqflint",
+                    });
+                } else {
+                    diagnostics.push({
+                        severity: DiagnosticSeverity.Warning,
+                        range: item.range,
+                        message: item.message,
+                        source: "sqflint",
+                    });
+                }
             });
+        }
 
-            if (this.server.settings.warnings) {
-                // Add local warnings
-                result.warnings.forEach((item: SqfParser.Warning) => {
-                    if (item.filename) {
-                        const uri = Uri.file(item.filename).toString();
-                        if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
-                        diagnosticsByUri[uri].push({
-                            severity: DiagnosticSeverity.Warning,
-                            range: item.range,
-                            message: item.message,
-                            source: "sqflint",
-                        });
-                    } else {
-                        diagnostics.push({
-                            severity: DiagnosticSeverity.Warning,
-                            range: item.range,
-                            message: item.message,
-                            source: "sqflint",
-                        });
-                    }
+        // Reset variables local to document
+        this.localVariables[textDocument.uri] = {};
+        this.localMacros[textDocument.uri] = {};
+
+        // Remove info about global variables created from this document
+        for (const global in this.globalVariables) {
+            const variable = this.globalVariables[global];
+
+            delete variable.usage[textDocument.uri];
+            delete variable.definitions[textDocument.uri];
+        }
+
+        // Save macros defined in this file
+        for (const item of result.macros) {
+            let localMacros = this.localMacros[textDocument.uri];
+            if (!localMacros) {
+                localMacros = this.localMacros[textDocument.uri] = {};
+            }
+
+            localMacros[item.name.toLowerCase()] = {
+                name: item.name,
+                arguments: item.arguments,
+                definitions: item.definitions,
+                // TODO: Implement macro usage
+                usage: [],
+            };
+        }
+
+        // Load variables info
+        for (const item of result.variables) {
+            // Skip those
+            if (
+                item.name == "this" ||
+                item.name == "_this" ||
+                item.name == "server" ||
+                item.name == "paramsArray"
+            ) {
+                continue;
+            }
+
+            item.ident = item.name.toLowerCase();
+
+            // For local variables no extra checks are needed
+            if (item.isLocal()) {
+                // Add variable to list. Variable messages are unique, so no need to check.
+                this.setLocalVariable(textDocument, item.ident, {
+                    name: item.name,
+                    comment: item.comment,
+                    definitions: item.definitions,
+                    usage: item.usage,
+                });
+
+                continue;
+            }
+
+            // Skip predefined functions and operators.
+            if (this.documentation[item.ident]) {
+                continue;
+            }
+
+            // Skip user defined functions
+            if (this.server.extModule.getFunction(item.ident.toLowerCase())) {
+                continue;
+            }
+
+            // Skip mission variables
+            if (
+                this.server.missionModule.getVariable(item.ident.toLowerCase())
+            ) {
+                continue;
+            }
+
+            // Try to load existing global variable.
+            let variable = this.getGlobalVariable(item.ident);
+
+            // Create variable when needed
+            if (!variable) {
+                variable = this.setGlobalVariable(item.ident, {
+                    name: item.name,
+                    comment: item.comment,
+                    usage: {},
+                    definitions: {},
                 });
             }
 
-            // Reset variables local to document
-            this.localVariables[textDocument.uri] = {};
-
-            // Remove info about global variables created from this document
-            for (const global in this.globalVariables) {
-                const variable = this.globalVariables[global];
-
-                delete variable.usage[textDocument.uri];
-                delete variable.definitions[textDocument.uri];
+            // Set comment when there isn't any yet
+            if (!variable.comment) {
+                variable.comment = item.comment;
             }
 
-            // Remove global defined macros originating from this document
-            for (const macro in this.globalMacros) {
-                delete this.globalMacros[macro].definitions[textDocument.uri];
-            }
+            // Set positions local to this document for this global variable.
+            variable.usage[textDocument.uri] = item.usage;
+            variable.definitions[textDocument.uri] = item.definitions;
 
-            // Load variables info
-            for (const item of result.variables) {
-                // Skip those
-                if (
-                    item.name == "this" ||
-                    item.name == "_this" ||
-                    item.name == "server" ||
-                    item.name == "paramsArray"
-                ) {
-                    continue;
-                }
+            // Check if global variable was defined anywhere.
+            const defined =
+                Object.values(variable.definitions).some((d) => d.length > 0) ||
+                !!this.getLocalMacro(textDocument, item.ident);
 
-                item.ident = item.name.toLowerCase();
-
-                // For local variables no extra checks are needed
-                if (item.isLocal()) {
-                    // Add variable to list. Variable messages are unique, so no need to check.
-                    this.setLocalVariable(textDocument, item.ident, {
-                        name: item.name,
-                        comment: item.comment,
-                        definitions: item.definitions,
-                        usage: item.usage,
-                    });
-
-                    continue;
-                }
-
-                // Skip predefined functions and operators.
-                if (this.documentation[item.ident]) {
-                    continue;
-                }
-
-                // Skip user defined functions
-                if (
-                    this.server.extModule.getFunction(item.ident.toLowerCase())
-                ) {
-                    continue;
-                }
-
-                // Skip mission variables
-                if (
-                    this.server.missionModule.getVariable(
-                        item.ident.toLowerCase()
-                    )
-                ) {
-                    continue;
-                }
-
-                // Try to load existing global variable.
-                let variable = this.getGlobalVariable(item.ident);
-
-                // Create variable when needed
-                if (!variable) {
-                    variable = this.setGlobalVariable(item.ident, {
-                        name: item.name,
-                        comment: item.comment,
-                        usage: {},
-                        definitions: {},
-                    });
-                }
-
-                // Set comment when there isn't any yet
-                if (!variable.comment) {
-                    variable.comment = item.comment;
-                }
-
-                // Set positions local to this document for this global variable.
-                variable.usage[textDocument.uri] = item.usage;
-                variable.definitions[textDocument.uri] = item.definitions;
-
-                // Check if global variable was defined anywhere.
-                const defined =
-                    Object.values(variable.definitions).some(
-                        (d) => d.length > 0
-                    ) || !!this.getGlobalMacro(item.ident);
-
-                // Add warning if global variable wasn't defined.
-                if (
-                    !defined &&
-                    this.server.settings.warnings &&
-                    !this.server.ignoredVariablesSet[item.ident]
-                ) {
-                    for (const u in item.usage) {
-                        diagnostics.push({
-                            severity: DiagnosticSeverity.Warning,
-                            range: item.usage[u],
-                            message: "Possibly undefined variable " + item.name,
-                            source: "sqflint",
-                        });
-                    }
-                }
-            }
-
-            // Save macros define in this file
-            for (const item of result.macros) {
-                let macro = this.globalMacros[item.name.toLowerCase()];
-
-                if (!macro) {
-                    macro = this.globalMacros[item.name.toLowerCase()] = {
-                        name: item.name,
-                        arguments: item.arguments,
-                        definitions: {},
-                    };
-                }
-
-                macro.definitions[textDocument.uri] = item.definitions;
-            }
-
-            // Remove unused macros
-            // TODO: Implement
-            for (const [key] of Object.entries(this.globalMacros)) {
-                const used = true;
-
-                if (!used) {
-                    delete this.globalMacros[key];
-                }
-            }
-
-            // Remove unused global variables
-            for (const [global, variable] of Object.entries(
-                this.globalVariables
-            )) {
-                const used =
-                    Object.values(variable.definitions).some(
-                        (d) => d.length > 0
-                    ) ||
-                    Object.values(variable.usage).some((u) => u.length > 0);
-
-                if (!used) {
-                    delete this.globalVariables[global];
-                }
-            }
-
-            const sendDiagnostic = true;
-            if (sendDiagnostic) {
-                for (const uri in diagnosticsByUri) {
-                    this.server.connection.sendDiagnostics({
-                        uri: uri,
-                        diagnostics: diagnosticsByUri[uri],
+            // Add warning if global variable wasn't defined.
+            if (
+                !defined &&
+                this.server.settings.warnings &&
+                !this.server.ignoredVariablesSet[item.ident]
+            ) {
+                for (const u in item.usage) {
+                    diagnostics.push({
+                        severity: DiagnosticSeverity.Warning,
+                        range: item.usage[u],
+                        message: "Possibly undefined variable " + item.name,
+                        source: "sqflint",
                     });
                 }
             }
-        } catch (ex) {
-            this.logger.error(`Error while parsing ${textDocument.uri}`, ex);
+        }
+
+        // Remove unused global variables
+        for (const [global, variable] of Object.entries(this.globalVariables)) {
+            const used =
+                Object.keys(variable.definitions).length > 0 ||
+                Object.keys(variable.usage).length > 0;
+
+            if (!used) {
+                delete this.globalVariables[global];
+            }
+        }
+
+        // TODO: Why not?
+        const sendDiagnostic = true;
+        if (sendDiagnostic) {
+            for (const uri in diagnosticsByUri) {
+                this.server.connection.sendDiagnostics({
+                    uri: uri,
+                    diagnostics: diagnosticsByUri[uri],
+                });
+            }
         }
     }
 
@@ -394,9 +370,7 @@ export class SqfModule extends ExtensionModule {
         document: TextDocumentIdentifier,
         name: string
     ): LocalVariable {
-        const documentVariables = this.localVariables[document.uri];
-        if (!documentVariables) return null;
-        return documentVariables[name.toLowerCase()];
+        return this.localVariables[document.uri]?.[name.toLowerCase()] ?? null;
     }
 
     /**
@@ -419,8 +393,11 @@ export class SqfModule extends ExtensionModule {
     /**
      * Tries to load macro info by name.
      */
-    private getGlobalMacro(name: string): GlobalMacro {
-        return this.globalMacros[name.toLowerCase()] || null;
+    private getLocalMacro(
+        document: TextDocumentIdentifier,
+        name: string
+    ): Macro {
+        return this.localMacros[document.uri]?.[name.toLowerCase()] || null;
     }
 
     async loadDocumentation() {
@@ -478,7 +455,10 @@ export class SqfModule extends ExtensionModule {
         this.events = JSON.parse(data);
     }
 
-    public onHover(params: TextDocumentPositionParams, nameOriginal: string): Hover {
+    public onHover(
+        params: TextDocumentPositionParams,
+        nameOriginal: string
+    ): Hover {
         // TODO: Move these helpers somewhere else
         const sqfCode = (line: string): string => "```sqf\n" + line + "\n```";
         const extCode = (line: string): string => "```ext\n" + line + "\n```";
@@ -547,17 +527,14 @@ export class SqfModule extends ExtensionModule {
             return response(contents);
         }
 
-        const macro = this.getGlobalMacro(name);
+        const macro = this.getLocalMacro(params.textDocument, name);
         if (macro) {
             const contents = [] as string[];
 
-            for (const uri in macro.definitions) {
-                const def = macro.definitions[uri];
-                for (const definition of def) {
-                    contents.push(
-                        extCode(`#define ${macro.name} ${definition.value}`)
-                    );
-                }
+            for (const definition of macro.definitions) {
+                contents.push(
+                    extCode(`#define ${macro.name} ${definition.value}`)
+                );
             }
 
             return response(contents);
@@ -637,7 +614,7 @@ export class SqfModule extends ExtensionModule {
     private findReferences(params: TextDocumentPositionParams): {
         local: LocalVariable;
         global: GlobalVariable;
-        macro: GlobalMacro;
+        macro: Macro;
         func: SqfFunction;
     } {
         const name = this.server.getNameFromParams(params).toLowerCase();
@@ -658,13 +635,13 @@ export class SqfModule extends ExtensionModule {
     ): {
         local: LocalVariable;
         global: GlobalVariable;
-        macro: GlobalMacro;
+        macro: Macro;
         func: SqfFunction;
     } {
         return {
             local: this.getLocalVariable(source, name),
             global: this.getGlobalVariable(name),
-            macro: this.getGlobalMacro(name),
+            macro: this.getLocalMacro(source, name),
             func: this.server.extModule.getFunction(name),
         };
     }
@@ -770,19 +747,17 @@ export class SqfModule extends ExtensionModule {
             } else if (ref.macro) {
                 const macro = ref.macro;
 
-                for (const document in macro.definitions) {
-                    macro.definitions[document].forEach((definition) => {
-                        let uri = params.textDocument.uri;
-                        if (definition.filename) {
-                            uri = Uri.file(definition.filename).toString();
-                        }
+                macro.definitions.forEach((definition) => {
+                    let uri = params.textDocument.uri;
+                    if (definition.filename) {
+                        uri = Uri.file(definition.filename).toString();
+                    }
 
-                        locations.push({
-                            uri: uri,
-                            range: definition.position,
-                        });
+                    locations.push({
+                        uri: uri,
+                        range: definition.position,
                     });
-                }
+                });
             }
         }
 
@@ -1006,8 +981,9 @@ export class SqfModule extends ExtensionModule {
             }
         }
 
-        for (const ident in this.globalMacros) {
-            const macro = this.globalMacros[ident];
+        for (const macro of Object.values(
+            this.localMacros[params.textDocument.uri] ?? {}
+        )) {
             items.push({
                 label: macro.name,
                 kind: CompletionItemKind.Enum,
