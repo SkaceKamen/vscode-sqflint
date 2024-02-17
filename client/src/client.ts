@@ -1,10 +1,9 @@
 import { StatusBarAlignment, StatusBarItem, window } from "vscode";
 import {
     ClientCapabilities,
-    FeatureState,
     StaticFeature,
 } from "vscode-languageclient";
-import { LanguageClient } from "vscode-languageclient/node";
+import { LanguageClient, FeatureState } from "vscode-languageclient/node";
 import {
     ErrorMessageNotification,
     StatusBarTextNotification,

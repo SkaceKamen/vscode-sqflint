@@ -1,5 +1,6 @@
 import { preprocess } from "@bi-tools/preprocessor";
 import { analyzeSqf } from "@bi-tools/sqf-analyzer";
+import { lintSqf } from "@bi-tools/sqf-linter";
 import {
     SqfParserError,
     TokenizerError,
@@ -146,6 +147,10 @@ export class SqfParser {
                     analyzeSqf(script, tokens, preprocessed.code)
                 );
 
+                const linting = await this.logger.measure("linting", () =>
+                    lintSqf(script, preprocessed.code)
+                );
+
                 const variables = await this.logger.measure("variables", () =>
                     Promise.all(
                         Array.from(analysis.variables.values()).map(
@@ -204,6 +209,22 @@ export class SqfParser {
                     )
                 );
 
+                /*
+                if (errors.length > 0) {
+                    console.log('---');
+                    console.log(preprocessed.code);
+                    console.log('---');
+                    for (const error of errors) {
+                        console.log(error.message, error.token);
+                    }
+                }
+
+                console.log('---');
+                console.log(preprocessed.code);
+                console.log('---');
+                console.log(preprocessed.sourceMap);
+                */
+
                 return {
                     errors: [
                         ...preErrors,
@@ -213,14 +234,27 @@ export class SqfParser {
                                     new SqfParserTypes.Error(
                                         e.message,
                                         await mapper.offsetsToRange(
-                                            e.token.position.from,
-                                            e.token.position.to
+                                            e.token.position[0],
+                                            e.token.position[1]
                                         )
                                     )
                             )
                         )),
                     ],
-                    warnings: [],
+                    warnings: [
+                        ...(await Promise.all(
+                            linting.map(
+                                async (e) =>
+                                    new SqfParserTypes.Warning(
+                                        e.message,
+                                        await mapper.offsetsToRange(
+                                            e.position[0],
+                                            e.position[1]
+                                        )
+                                    )
+                            )
+                        )),
+                    ],
                     variables,
                     includes,
                     macros,
@@ -244,8 +278,8 @@ export class SqfParser {
                             err.message,
                             err instanceof SqfParserError
                                 ? await mapper.offsetsToRange(
-                                    err.token.position.from,
-                                    err.token.position.to
+                                    err.token.position[0],
+                                    err.token.position[1]
                                 )
                                 : new SqfParserTypes.Range(
                                     new SqfParserTypes.Position(0, 0),

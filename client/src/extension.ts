@@ -1,8 +1,7 @@
 import * as openurl from 'openurl';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { LanguageClientOptions } from 'vscode-languageclient';
-import { ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { ServerOptions, TransportKind, LanguageClientOptions } from 'vscode-languageclient/node';
 import { SqflintClient } from './client';
 
 const links = {
