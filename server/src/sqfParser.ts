@@ -219,11 +219,28 @@ export class SqfParser {
                     }
                 }
 
-                console.log('---');
+                console.log("---");
                 console.log(preprocessed.code);
-                console.log('---');
-                console.log(preprocessed.sourceMap);
+                console.log("---");
+                console.log(
+                    preprocessed.sourceMap
+                        .map((s) => `${s.offset} -> ${s.fileOffset}`)
+                        .join("\n")
+                );
                 */
+
+                const warnings = [
+                    ...(await Promise.all(
+                        linting.map(async (e) => new SqfParserTypes.Warning(
+                            e.message,
+                            await mapper.offsetsToRange(
+                                e.position[0],
+                                e.position[1]
+                            )
+                        )
+                        )
+                    )),
+                ];
 
                 return {
                     errors: [
@@ -241,20 +258,7 @@ export class SqfParser {
                             )
                         )),
                     ],
-                    warnings: [
-                        ...(await Promise.all(
-                            linting.map(
-                                async (e) =>
-                                    new SqfParserTypes.Warning(
-                                        e.message,
-                                        await mapper.offsetsToRange(
-                                            e.position[0],
-                                            e.position[1]
-                                        )
-                                    )
-                            )
-                        )),
-                    ],
+                    warnings,
                     variables,
                     includes,
                     macros,
