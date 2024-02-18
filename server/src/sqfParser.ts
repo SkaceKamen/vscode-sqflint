@@ -133,7 +133,10 @@ export class SqfParser {
             );
 
             const sourceMap = preprocessed.sourceMap;
+            // TODO: The offset mapper works with outdated contents (sometimes?)
             const mapper = new OffsetsMapper(filename, sourceMap);
+            // TODO: Is filename enough? Or do we need to normalize it somehow?
+            mapper.define(filename, contents);
 
             try {
                 const tokens = this.logger.measureSync("tokenize", () =>

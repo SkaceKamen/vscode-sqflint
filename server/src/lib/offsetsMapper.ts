@@ -15,6 +15,10 @@ export class OffsetsMapper {
         private readonly sourceMap: SourceMapItem[]
     ) {}
 
+    define(fileName: string, contents: string) {
+        this.fileContents[fileName] = contents;
+    }
+
     async getContents(filename: string) {
         if (!this.fileContents[filename]) {
             try {
