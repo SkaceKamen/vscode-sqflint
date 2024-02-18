@@ -1,4 +1,3 @@
-
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace SqfParserTypes {
     /**
@@ -88,7 +87,11 @@ export namespace SqfParserTypes {
      * vscode compatible position
      */
     export class Position {
-        constructor(public line: number, public character: number) {}
+        constructor(
+            public line: number,
+            public character: number,
+            public filename?: string
+        ) {}
     }
 
     export interface Options {

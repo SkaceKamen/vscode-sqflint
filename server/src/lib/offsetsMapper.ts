@@ -15,6 +15,10 @@ export class OffsetsMapper {
         private readonly sourceMap: SourceMapItem[]
     ) {}
 
+    define(fileName: string, contents: string) {
+        this.fileContents[fileName] = contents;
+    }
+
     async getContents(filename: string) {
         if (!this.fileContents[filename]) {
             try {
@@ -48,7 +52,7 @@ export class OffsetsMapper {
             await this.getContents(mapped.file)
         );
 
-        return location;
+        return {location, file: mapped.file };
     }
 
     // TODO: This is the slowest part of this function, hard to optimize now
@@ -58,13 +62,15 @@ export class OffsetsMapper {
 
         return new SqfParserTypes.Range(
             new SqfParserTypes.Position(
-                startLocation.line - 1,
-                startLocation.column - 1
+                startLocation.location.line - 1,
+                startLocation.location.column - 1,
+                startLocation.file
             ),
             new SqfParserTypes.Position(
-                endLocation.line - 1,
-                endLocation.column - 1
-            )
+                endLocation.location.line - 1,
+                endLocation.location.column - 1,
+                endLocation.file
+            ),
         );
     }
 }
