@@ -175,19 +175,30 @@ export class SqfModule extends ExtensionModule {
 
         // Add found errors
         result.errors.forEach((item: SqfParserTypes.Error) => {
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: item.range,
-                message: item.message,
-                source: "sqflint",
-            });
+            if (item.range.filename) {
+                const uri = Uri.file(item.range.filename).toString();
+                if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
+                diagnosticsByUri[uri].push({
+                    severity: DiagnosticSeverity.Error,
+                    range: item.range,
+                    message: item.message,
+                    source: "sqflint",
+                });
+            } else {
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: item.range,
+                    message: item.message,
+                    source: "sqflint",
+                });
+            }
         });
 
         if (this.server.settings.warnings) {
             // Add local warnings
             result.warnings.forEach((item: SqfParserTypes.Warning) => {
-                if (item.filename) {
-                    const uri = Uri.file(item.filename).toString();
+                if (item.range.filename) {
+                    const uri = Uri.file(item.range.filename).toString();
                     if (!diagnosticsByUri[uri]) diagnosticsByUri[uri] = [];
                     diagnosticsByUri[uri].push({
                         severity: DiagnosticSeverity.Warning,

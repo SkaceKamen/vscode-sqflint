@@ -6,8 +6,7 @@ export namespace SqfParserTypes {
     class Message {
         constructor(
             public message: string,
-            public range: Range,
-            public filename?: string
+            public range: Range
         ) {}
     }
 
@@ -80,7 +79,7 @@ export namespace SqfParserTypes {
      * vscode compatible range
      */
     export class Range {
-        constructor(public start: Position, public end: Position) {}
+        constructor(public start: Position, public end: Position, public filename?: string) {}
     }
 
     /**
@@ -89,8 +88,7 @@ export namespace SqfParserTypes {
     export class Position {
         constructor(
             public line: number,
-            public character: number,
-            public filename?: string
+            public character: number
         ) {}
     }
 
