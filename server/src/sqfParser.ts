@@ -151,7 +151,7 @@ export class SqfParser {
                 );
 
                 const linting = await this.logger.measure("linting", () =>
-                    lintSqf(script, preprocessed.code)
+                    lintSqf({ root: script, code: preprocessed.code, tokens })
                 );
 
                 const variables = await this.logger.measure("variables", () =>
@@ -235,7 +235,7 @@ export class SqfParser {
                 const warnings = [
                     ...(await Promise.all(
                         linting.map(async (e) => new SqfParserTypes.Warning(
-                            e.message,
+                            `${e.message} (${e.rule})`,
                             await mapper.offsetsToRange(
                                 e.position[0],
                                 e.position[1]
